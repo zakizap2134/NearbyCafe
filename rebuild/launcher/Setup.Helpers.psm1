@@ -125,4 +125,10 @@ function Set-NearbyServiceAccess([string]$Name,[string]$Sid){
   if($r.Exit -ne 0){throw 'SERVICE_PERMISSIONS_FAILED'}
  }
 }
+function Get-NearbyPublicNetworks{
+ # The shop firewall rule is Private-only by design; a Public-profile Wi-Fi silently blocks tablets.
+ $names=@()
+ try{foreach($p in @(Get-NetConnectionProfile -ErrorAction Stop)){if([string]$p.NetworkCategory -eq 'Public'){$names+=('{0} ({1})' -f $p.Name,$p.InterfaceAlias)}}}catch{}
+ return $names
+}
 Export-ModuleMember -Function *-Nearby*
