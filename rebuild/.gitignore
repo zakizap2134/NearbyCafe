@@ -1,0 +1,11 @@
+node_modules/
+public/assets/
+public/index.html
+config/local.php
+storage/*
+!storage/.gitkeep
+test-results/
+__pycache__/
+*.pyc
+config/launcher.local.json
+config/nearby-httpd.conf

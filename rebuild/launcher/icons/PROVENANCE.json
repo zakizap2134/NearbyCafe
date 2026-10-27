@@ -1,0 +1,14 @@
+{
+  "logo_source": "src/assets/nearby-cafe-logo.png",
+  "sha256": "cba18f9c49848e55623fd578d74199cf0341a32c15d9c718f6e0f6b003bc5734",
+  "ico_sizes": [
+    16,
+    24,
+    32,
+    48,
+    64,
+    128,
+    256
+  ],
+  "method": "Entire canvas resized with Lanczos; no crop, recolor or stretch. Status/action SVGs authored locally."
+}

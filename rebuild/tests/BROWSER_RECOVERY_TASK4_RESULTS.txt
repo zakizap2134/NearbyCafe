@@ -1,0 +1,64 @@
+Nearby Café — Browser recovery Tasks 1–4 verification
+Date: 2026-10-20
+Baseline: 9a43ca8; reconstructed combined release, not the missing historical commits.
+Runtime: PHP 8.3.6, MariaDB 10.11.14, Node 24.19.0, Chromium headless.
+Disposable test database only; no production accounts or records used.
+
+PASS production frontend build (Vite).
+PASS PHP syntax for browser recovery, preparation and API router.
+PASS git diff whitespace check.
+PASS original logo byte-for-byte matches baseline.
+
+PASS fresh setup, missing-config/database/owner diagnostics, safe rerun, no owner reprovision, owner-authorized staff creation
+PASS authenticated login, server-authoritative roles, direct API denial and request validation
+PASS development server exposes only public assets and API
+PASS logout revokes token; expired and deactivated accounts cannot use APIs
+PASS login throttling and audit failure rolls back token creation without leaking SQL
+PASS partial schema returns actionable diagnostics; logs omit secrets and SQL values
+PASS Stage 1 → current schema migration keeps users/sessions and is safe to rerun
+PASS owner catalogue/recipes/stock receipt, units validation, role denial and idempotent deliveries
+PASS cash milestone: ₱420 gross / ₱375 net / ₱45 VAT / ₱80 change; exact stock, opened container, receipt and real daily totals
+PASS changed prices, underpayment, missing recipes and aggregated shared stock reject unchanged; late fault rolls back every sale/stock write and retries safely
+PASS FEFO, opened-before-sealed, expired/use-by exclusion, expiry-today eligibility and all stock/VAT invariants
+PASS half-up VAT with last-line residual, staff receipt isolation and historical sale snapshots after price change
+PASS populated Stage 2 upgrade preserves sales, accounts and inventory; repeat migration safe
+PASS 8 simultaneous identical submissions across PHP workers create one sale and one deduction
+PASS 8 competing sales cannot oversell; rejected UUID remains rejected after replenishment
+PASS frozen sale time, midnight expiry and exact use-by boundary
+PASS parallel delivery replay and late replenishment rollback preserve all stock records
+PASS owner reauthentication, reset rate limit, owner-target denial, transactional reset rollback and Barista session revocation
+PASS offline code hashing, throttling, recovery rollback, one-time rotation, session revocation, HTTP denial and secret-free diagnostics
+PASS Stage 3 → 4 migration and rerun preserve records and restore epoch
+PASS waste, ±count corrections, batch quarantine, expired waste, opening-clock preservation, idempotency and late-write rollback
+PASS unused-record deletion, historical record protection, owner-only staff maintenance and deactivation revocation
+PASS stored gross/net/VAT reports, daily summaries, date validation, real audit/movement history and formula-safe CSV totals
+PASS encrypted backup, wrong-passphrase/tamper rejection, preview rejects invalid stock/VAT/FKs/owner/columns/dates without writes
+PASS stale-preview guard and failure at final restore audit roll back records, sessions and restore epoch together
+PASS successful atomic restore retains current owner recovery, restores history, revokes sessions and blocks pre-restore checkout/stock requests; new-epoch checkout succeeds
+PASS server-only raw-restore finalization requires owner credentials, validates totals, rotates epoch and revokes sessions
+PASS browser recovery: origin/JSON/body/method guards and byte-length/confirmation validation make no credential changes
+PASS browser recovery: generic credential failures; unknown-user, malformed-code, 5-attempt/shared-CLI, IP/global limits, expiry and proxy spoof rejection
+PASS browser recovery: final-audit rollback preserves password/code/sessions/counters; success rotates code once, revokes all Owner sessions, preserves staff and grants no session
+PASS browser recovery: 8 simultaneous resets and a CLI-versus-HTTP race each commit one reset with no replay of the replacement secret
+PASS browser recovery: real Vite proxy preserves the public origin; wrong-origin requests fail and same-origin recovery succeeds
+PASS browser recovery: lost response is recoverable with the new password; no plaintext secret persistence; stock/sales/VAT/restore epoch unchanged
+PASS Task 2: authorization, shared attempt limits, hash-only storage, confirmation, audit rollback, eight concurrent submissions, no duplicate rotation, Task 1 compatibility and unchanged domain data
+PASS live browser recovery: validation, credential errors, successful reset, duplicate-submit guard, saved-code acknowledgement, no auto-login, committed lost reply and reauthenticated replacement
+ALL REQUESTED AUTOMATED CHECKS PASSED
+
+PASS Task 4: desktop/tablet/mobile/320px and 200% text reflow; labels/help references; 48px targets; computed muted theme; contrast; keyboard Show/Hide; focused alerts; modal Tab containment/Escape/acknowledgement; code wrapping; clipboard/download fallbacks; sheet wording; Owner preparation UI. Previews use mocked synthetic data only.
+
+Contrast measurements:
+Body: 13.36:1 (target 4.5:1); #392b25 on #fffdf8
+Hint: 6.70:1 (target 4.5:1); #65564e on #fff9f0
+Action: 6.91:1 (target 4.5:1); #ffffff on #963e35
+Error: 8.68:1 (target 4.5:1); #742f28 on #fff0eb
+Success: 7.84:1 (target 4.5:1); #285344 on #edf5ee
+Input boundary: 4.13:1 (target 3:1); #8b786c on #fffdf8
+Focus: 8.23:1 (target 3:1); #28534e on #fff9f0
+
+Visual review: desktop, tablet and mobile recovery/preparation/code displays; synthetic previews only.
+Test widths: 1440, 768, 390 and 320 pixels; 200% text reflow at mobile width.
+Remaining manual acceptance: Windows/XAMPP installation, physical iOS/Android browsers, assistive-technology/screen-reader review. Automated accessibility checks are not a WCAG certification.
+No database migration for an existing Stage 4/5 rebuild. No Task 5, push or merge.
+Known non-blocking follow-up: legacy Owner-target denial wording still points to server-console recovery; see BROWSER_RECOVERY_TASK4.md.

@@ -1,0 +1,9 @@
+Options -Indexes
+Require all granted
+DirectoryIndex index.html
+<IfModule mod_setenvif.c>
+ SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
+</IfModule>
+<FilesMatch "\.(sql|log|ini|env)$">
+ Require all denied
+</FilesMatch>

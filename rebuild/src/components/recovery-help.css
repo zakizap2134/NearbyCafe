@@ -1,0 +1,35 @@
+.recovery-help {
+  margin-top: 20px;
+}
+.recovery-help > summary {
+  font-weight: 700;
+}
+.recovery-guide {
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.recovery-guide h3 {
+  margin-top: 22px;
+  margin-bottom: 10px;
+}
+.recovery-guide p {
+  margin-block: 14px;
+}
+.recovery-guide ol,
+.recovery-guide ul {
+  padding-left: 24px;
+  margin-block: 14px;
+}
+.recovery-guide ol {
+  list-style: decimal;
+}
+.recovery-guide ul {
+  list-style: disc;
+}
+.recovery-guide li {
+  padding-left: 3px;
+  margin-block: 10px;
+}
+.recovery-guide details {
+  margin-block: 18px;
+}

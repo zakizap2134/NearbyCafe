@@ -1,0 +1,47 @@
+Combined Tasks 1–7 verification — October 20, 2026
+
+PASS setup browser: confirmation, visibility, no role selector, return to sign-in, Owner landing and desktop/tablet/mobile layout
+PASS Tasks 1–2: setup hash/expiry, confirmation, attempt/global limits, proxy spoof denial, atomic rollback, concurrent browser/CLI creation, server-assigned role and permanent closure
+PASS fresh setup, missing-config/database/owner diagnostics, safe rerun, no owner reprovision, owner-authorized staff creation
+PASS authenticated login, server-authoritative roles, direct API denial and request validation
+PASS development server exposes only public assets and API
+PASS logout revokes token; expired and deactivated accounts cannot use APIs
+PASS login throttling and audit failure rolls back token creation without leaking SQL
+PASS partial schema returns actionable diagnostics; logs omit secrets and SQL values
+PASS Stage 1 → current schema migration keeps users/sessions and is safe to rerun
+PASS owner catalogue/recipes/stock receipt, units validation, role denial and idempotent deliveries
+PASS cash milestone: ₱420 gross / ₱375 net / ₱45 VAT / ₱80 change; exact stock, opened container, receipt and real daily totals
+PASS changed prices, underpayment, missing recipes and aggregated shared stock reject unchanged; late fault rolls back every sale/stock write and retries safely
+PASS FEFO, opened-before-sealed, expired/use-by exclusion, expiry-today eligibility and all stock/VAT invariants
+PASS half-up VAT with last-line residual, staff receipt isolation and historical sale snapshots after price change
+PASS populated Stage 2 upgrade preserves sales, accounts and inventory; repeat migration safe
+PASS 8 simultaneous identical submissions across PHP workers create one sale and one deduction
+PASS 8 competing sales cannot oversell; rejected UUID remains rejected after replenishment
+PASS frozen sale time, midnight expiry and exact use-by boundary
+PASS parallel delivery replay and late replenishment rollback preserve all stock records
+PASS owner reauthentication, reset rate limit, owner-target denial, transactional reset rollback and Barista session revocation
+PASS offline code hashing, throttling, recovery rollback, one-time rotation, session revocation, HTTP denial and secret-free diagnostics
+PASS browser: invalid login feedback, owner login, both owner routes, refresh persistence, logout, barista-only navigation/direct-route redirect, tablet/mobile layout and no JS errors
+PASS browser Stage 2: owner creates ingredient/product/variant/recipe/delivery; barista cash sale; lost committed response survives reload and replays once; VAT/change receipt, owner stock/totals and tablet layout
+PASS browser Stage 3: persisted draft, two queued orders, account isolation and simultaneous-tab automatic reconnection without duplicate stock deductions
+PASS browser Stage 3: stale-price review retained across reload and competing draft edit blocked
+PASS browser Stage 3: owner password-reset UI revokes staff session; queued order survives and confirms after same-account sign-in
+PASS browser Stage 3: Stage 2 pending order migrates to queue v2 and reconciles with its original transaction key
+PASS browser Stage 3: blocked device storage prevents unsafe checkout submission
+PASS Stage 3 → 4 migration and rerun preserve records and restore epoch
+PASS waste, ±count corrections, batch quarantine, expired waste, opening-clock preservation, idempotency and late-write rollback
+PASS unused-record deletion, historical record protection, owner-only staff maintenance and deactivation revocation
+PASS stored gross/net/VAT reports, daily summaries, date validation, real audit/movement history and formula-safe CSV totals
+PASS encrypted backup, wrong-passphrase/tamper rejection, preview rejects invalid stock/VAT/FKs/owner/columns/dates without writes
+PASS stale-preview guard and failure at final restore audit roll back records, sessions and restore epoch together
+PASS successful atomic restore retains current owner recovery, restores history, revokes sessions and blocks pre-restore checkout/stock requests; new-epoch checkout succeeds
+PASS server-only raw-restore finalization requires owner credentials, validates totals, rotates epoch and revokes sessions
+PASS browser Stage 4: durable stock-operation replay after lost response, reports/receipt/CSV, staff creation and real audit history
+PASS browser Stage 4: encrypted download/upload, stale-preview rejection, real restore/sign-out, old pending-order review and safe new checkout after restore; tablet layout and no JS errors
+PASS Stage 5: supplied Nearby Café logo loads locally, updated title/branding, desktop/tablet/mobile layouts, Register/Management navigation, no external asset requests or JS errors
+PASS Tasks 3–5 browser: login validation/throttle/network errors, role landing, saved-order notice, keyboard recovery guide, staff validation/refresh failure/session revocation/inactive reset/reactivation, direct API denial and responsive layouts
+ALL STAGE 1–5 AUTOMATED CHECKS PASSED
+
+Production build: PASS (Vite 8.3.0).
+PHP syntax: PASS (29 files).
+Windows launcher static checks: PASS; actual Windows execution pending.

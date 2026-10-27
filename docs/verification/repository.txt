@@ -1,0 +1,7 @@
+PASS staged tree has one application; lockfile/examples retained; no private runtime/dependency/build files tracked
+PASS ignore rules protect synthetic private/config/ownership/backup/test/dependency paths
+PASS local document links resolve; historical course documents are outside current deployment guidance
+PASS package/lock pins agree; launcher PowerShell files preserve UTF-8 BOM
+PASS scoped token/private-key scan of staged source/docs; not a guarantee about historical Git data
+PASS staged diff whitespace check
+PASS authoritative package reconciled: app/src/database unchanged; documented launcher, dependency, docs/test changes only

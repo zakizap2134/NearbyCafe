@@ -1,0 +1,4 @@
+PASS original logo hash unchanged; full-canvas proportional PNG conversion; multi-resolution ICO 16–256; local production assets match source
+PASS local status/action SVG and 96px PNG assets; well-formed scrollable WPF XAML and visible labels
+PASS white-on-muted-red button contrast 6.62:1
+PENDING native Windows visual checks at 100/125/150/200% scaling. The full wordmark is naturally tiny at 16px; no logo cropping or redesign was applied.

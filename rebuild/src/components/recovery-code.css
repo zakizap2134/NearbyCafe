@@ -1,0 +1,32 @@
+/* Recovery-only theme and accessibility. Original logo colors are untouched. */
+.owner-recovery-code,.recovery-code-dialog,.owner-recovery-page{--recovery-action:#963e35;--recovery-hover:#773028;--recovery-ink:#392b25;--recovery-muted:#65564e;--recovery-paper:#fff9f0;--recovery-surface:#fffdf8;--recovery-line:#8b786c;--recovery-soft:#f7e9df;--recovery-focus:#28534e;color:var(--recovery-ink);font-size:1rem;line-height:1.6;overflow-wrap:anywhere}
+.owner-recovery-code{background:var(--recovery-surface)}
+:is(.owner-recovery-code,.recovery-code-dialog,.owner-recovery-page) :is(input,textarea,button,a){font-size:1rem}
+:is(.owner-recovery-code,.recovery-code-dialog,.owner-recovery-page) :is(input:not([type=checkbox]),textarea){color:var(--recovery-ink);background:var(--recovery-surface);border:1px solid var(--recovery-line);border-radius:10px;min-height:48px;padding:12px;max-width:100%}
+:is(.owner-recovery-code,.recovery-code-dialog,.owner-recovery-page) button{min-height:48px;min-width:48px;padding:10px 16px;border:1px solid var(--recovery-action);color:var(--recovery-action);background:var(--recovery-surface);white-space:normal}
+:is(.owner-recovery-code,.recovery-code-dialog,.owner-recovery-page) button:hover:not(:disabled){background:var(--recovery-soft);border-color:var(--recovery-hover)}
+:is(.owner-recovery-code,.recovery-code-dialog,.owner-recovery-page) button.primary{background:var(--recovery-action);color:#fff;border-color:var(--recovery-action)}
+:is(.owner-recovery-code,.recovery-code-dialog,.owner-recovery-page) button.primary:hover:not(:disabled){background:var(--recovery-hover)}
+:is(.owner-recovery-code,.recovery-code-dialog,.owner-recovery-page) button:disabled{opacity:1;background:#eee6dd;border-color:#a99b90;color:#66584e;cursor:not-allowed}
+:is(.owner-recovery-code,.recovery-code-dialog,.owner-recovery-page) :is(button,a,input,textarea,[tabindex]):focus-visible,:is(.owner-recovery-code,.recovery-code-dialog,.owner-recovery-page) .recovery-notice:focus{outline:3px solid var(--recovery-focus);outline-offset:4px}
+:is(.owner-recovery-code,.recovery-code-dialog,.owner-recovery-page) :is(p,li){line-height:1.6}
+:is(.owner-recovery-code,.recovery-code-dialog,.owner-recovery-page) p{margin:12px 0}
+.recovery-eyebrow{font-size:.75rem;font-weight:800;letter-spacing:.12em;color:var(--recovery-action)}
+.recovery-hint{font-size:.875rem;color:var(--recovery-muted)}
+.recovery-note{background:var(--recovery-soft);border-left:4px solid var(--recovery-action);border-radius:0 10px 10px 0;padding:16px 18px;margin:20px 0}
+.recovery-note p:last-child{margin-bottom:0}
+.recovery-state{padding:12px 16px;border:1px solid var(--recovery-line);border-radius:10px;background:var(--recovery-paper)}
+:is(.owner-recovery-code,.owner-recovery-page) .error{color:#742f28;background:#fff0eb;border:1px solid #a95043;padding:18px;border-radius:10px;margin:20px 0}
+:is(.owner-recovery-code,.owner-recovery-page) .success{color:#285344;background:#edf5ee;border:1px solid #547862;padding:16px;border-radius:10px}
+.recovery-notice p:last-child{margin-bottom:0}.recovery-notice small{display:block;margin-top:8px;overflow-wrap:anywhere}
+.recovery-code-dialog{position:fixed;inset:0;margin:auto;width:min(620px,calc(100vw - 32px));max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain;padding:clamp(20px,4vw,32px);border:1px solid var(--recovery-line);border-radius:18px;background:var(--recovery-paper);box-shadow:0 24px 80px #392b2533}
+.recovery-code-dialog::backdrop{background:rgb(38 29 24 / 65%)}
+.recovery-code-dialog h2{margin:8px 0 12px;font-size:clamp(1.4rem,3vw,1.8rem);line-height:1.2}
+.recovery-code-dialog textarea{display:block;width:100%;min-height:150px;resize:vertical;font:500 1rem/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;letter-spacing:.025em}
+.recovery-code-dialog label{display:block;font-weight:700;margin-bottom:8px}
+.owner-recovery-code .recovery-check,.recovery-code-dialog .recovery-check{display:flex;flex-direction:row;align-items:flex-start;gap:12px;margin:20px 0;padding:12px;min-height:48px;border:1px solid var(--recovery-line);border-radius:10px;font-weight:500;font-size:1rem;cursor:pointer;background:var(--recovery-surface)}
+.recovery-check input[type=checkbox]{appearance:auto;accent-color:var(--recovery-action);width:24px;height:24px;min-width:24px;flex:0 0 24px;margin:1px 0 0}.recovery-check span{min-width:0}
+.recovery-check:focus-within{outline:3px solid var(--recovery-focus);outline-offset:3px}
+.recovery-code-dialog .button-row{display:flex;gap:10px;flex-wrap:wrap}.recovery-code-dialog .button-row>button{flex:1 1 180px}
+.recovery-code-dialog>button.primary{width:100%}.recovery-feedback{color:var(--recovery-muted)}.recovery-feedback:empty{margin:0}
+@media(max-width:480px){.recovery-code-dialog{width:calc(100vw - 24px);max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);padding:20px}.owner-recovery-code fieldset>button{width:100%}}
