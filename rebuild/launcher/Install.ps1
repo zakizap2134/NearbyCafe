@@ -104,8 +104,9 @@ try{
  $link.TargetPath="$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
  $link.Arguments=(@('-NoProfile','-STA','-WindowStyle','Hidden','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'NearbyCafe.ps1'))|ForEach-Object{ConvertTo-NearbyArgument $_}) -join ' '
  $link.WorkingDirectory=$root;$link.IconLocation=(Join-Path $PSScriptRoot 'icons\nearby-cafe.ico')+',0';$link.Description='Start Nearby Cafe';$link.Save()
- Write-NearbyEvent $root 'SETUP_COMPLETE'
- Show-SetupMessage 'Setup is complete. Double-click Nearby Café on the desktop. Keep XAMPP installed; daily use does not need its control panel. Read WINDOWS_LAUNCHER_SETUP.md for first-use checks.'
+ Write-NearbyEvent $root 'SETUP_COMPLETE';$networkNote=''
+ if(!$LocalOnly){$public=@(Get-NearbyPublicNetworks);if($public.Count -gt 0){Write-NearbyEvent $root 'NETWORK_PROFILE_PUBLIC';$networkNote="`r`n`r`nWARNING: Windows marks this network as Public: "+($public -join ', ')+". Tablets will be blocked until the shop Wi-Fi is set to Private (Settings > Network & internet > Wi-Fi > network properties > Private). Then run CHECK-SHOP-NETWORK.bat."}}
+ Show-SetupMessage ('Setup is complete. Double-click Nearby Café on the desktop. Keep XAMPP installed; daily use does not need its control panel. Read WINDOWS_LAUNCHER_SETUP.md for first-use checks.'+$networkNote)
 }catch{
  $code=$_.Exception.Message;if($code -notmatch '^[A-Z0-9_]+$'){$code='SETUP_FAILED'}
  Write-NearbyEvent $root $code

@@ -66,3 +66,135 @@ The finalization tool requires the restored owner's current credentials, checks 
 - **CSV:** every sale line has gross/net/VAT and the file ends with a totals row. Formula-leading staff/product text is escaped for spreadsheet use. Downloaded CSVs contain business records; handle them accordingly.
 
 Stage 5 includes Nearby Café branding and handover guides. Actual Windows/XAMPP deployment and physical-device/client acceptance remain to be recorded in `ACCEPTANCE.md`. The backup format and recovery rules remain unchanged.
+
+## After a power cut
+
+InnoDB protects itself. Every confirmed sale is written to the database's redo log at COMMIT (`innodb_flush_log_at_trx_commit=1`). The next database start replays committed work and rolls back anything unfinished. There is nothing to "repair" by hand, and hand-made repairs are the main way data actually gets lost.
+
+**Owner steps**
+
+1. Restore power. Start the host laptop and double-click **Nearby Café**. Wait for **Ready**. The database recovers itself during this start, which can take a little longer than usual.
+2. Ask baristas **not** to take new orders yet. Tablets keep their Pending orders safely; do not re-enter them.
+3. In the `rebuild` folder, double-click **CHECK-DATABASE-AFTER-OUTAGE.bat**. It is read-only: it shows recent database recovery messages, runs `CHECK TABLE` on every application table, and checks the stock, batch, container, movement, VAT and checkout-outcome rules from one consistent snapshot.
+4. **HEALTHY** → on each tablet open the register and use **Retry pending orders** (or wait for automatic retry). An order the server already committed returns its original receipt; it is not charged or deducted twice. Then reopen.
+5. **ATTENTION**, or the database will not start → stop. Take a photo of the window and contact the developer. Keep tablets and their browser data untouched.
+
+**Never do these, even if a website or forum recommends them**
+
+| Action | Why it is dangerous |
+|---|---|
+| Delete `ib_logfile0`, `ib_logfile1` or `ibdata1` | These hold the redo log and system data. Deleting them discards committed sales and can make every table unreadable. |
+| `REPAIR TABLE` / "Repair" buttons | Not supported for InnoDB. It does nothing useful and gives false confidence. |
+| Setting `innodb_force_recovery` on the live database | It is an emergency export mode. Values of 4 and above can permanently damage data files. The integrity check refuses to report HEALTHY while it is set. |
+| Re-running `tools/install.php`, setup SQL or the XAMPP "reset" | Replaces or conflicts with shop data. |
+| Clearing tablet browser data | Deletes Pending orders that may not be on the server. |
+
+The previous `PREPARE-OWNER-RECOVERY.bat` is unrelated: it prepares the Owner's **password** recovery code and is unchanged.
+
+### Developer escalation: the database will not start
+
+1. Keep the web service stopped. With `mysqld` stopped, copy the **whole** data directory (`DataDirectory` in `config/launcher.local.json`, normally `C:\xampp\mysql\data`) to external storage. Work only from this point forward; the copy is your evidence.
+2. Read the end of `mysql_error.log` in that directory. Disk-full, permission and port errors are fixed at their cause; they are not corruption.
+3. For genuine InnoDB corruption, prefer restoring the latest verified `.vvbackup` (in-app restore above) or the administrator dump procedure above.
+4. Only if no usable backup exists: add `innodb_force_recovery=1` under `[mysqld]` in `my.ini`, start the database, and export with `mysqldump --single-transaction --no-tablespaces -p <database>` (password prompt). Stop the database and **remove the setting**. Raise the value one step at a time only if export fails, up to 3. Values 4 and above can permanently damage data files, so use them only against a copy of the data directory.
+5. Import the dump into an **isolated replacement database**, then run `tools\preflight.php`, `tools\finalize-host-restore.php` and `tools\integrity-check.php` before switching `config/local.php`. Reconcile devices, stock and cash as described in the restore sections.
+
+## QA chaos-test protocol (InnoDB atomicity and offline queue)
+
+Owner: QA & Testing Specialist. Run tests 1–4 on a **rehearsal installation**, or on the shop host only with the Owner's consent, after a fresh verified `.vvbackup` and outside opening hours. Use a test product whose recipe and current stock you have written down.
+
+### How the two durability layers fit together
+
+```mermaid
+sequenceDiagram
+    participant T as Tablet (IndexedDB)
+    participant A as Host PHP API
+    participant D as MariaDB InnoDB
+    T->>T: Save order in "queue" store with transaction key (Pending)
+    T->>A: POST checkout (transaction key + payload fingerprint)
+    A->>D: BEGIN, lock rows in fixed order (SELECT ... FOR UPDATE)
+    A->>D: Insert sale and lines, deduct stock, write stock movements
+    A->>D: COMMIT (redo log flushed to disk)
+    A-->>T: Receipt
+    T->>T: Mark order confirmed
+    Note over T,D: Power cut before COMMIT: InnoDB rolls everything back and the tablet keeps it Pending
+    Note over T,D: Power cut after COMMIT, before the receipt arrives: tablet resends the same key and gets the original sale back
+```
+
+Either way, the effect is **exactly one** sale and **one** set of stock deductions per order. The tablet layer prevents loss; the transaction key prevents duplication; InnoDB prevents partial writes.
+
+### Test 0 — automated hard kill on a disposable database (about 20 s)
+
+From `rebuild` in PowerShell (it creates its own data directory on test port 3307, refuses port 3306, and deletes everything afterwards):
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\chaos-hard-kill.ps1
+```
+
+It opens a transaction with an uncommitted INSERT and UPDATE, force-kills `mysqld`, restarts it, and checks for crash recovery in the log, zero partial writes, an intact committed row, and a HEALTHY integrity check. A negative control proves the checker detects a broken stock invariant. Expected ending: `ALL CHAOS CHECKS PASSED`. Verified on MariaDB 10.4.32 (XAMPP) on 27 October 2026, with log lines `Starting crash recovery from checkpoint`, `Rolled back recovered transaction` and `Rollback of non-prepared transactions completed`. This test uses a raw SQL transaction; tests 1–4 exercise the real checkout path.
+
+### Test 1 — hard power-off during checkout (repeat 5 times)
+
+1. Run `CHECK-DATABASE-AFTER-OUTAGE.bat` and record the `INFO sales=… gross=…` line and the test ingredient's stock.
+2. On tablet A, add the test product and tap the button that completes the cash sale.
+3. Within about one second, cut host power. **Laptop:** the battery keeps it running if you only pull the charger, so hold the power button for about 10 seconds. **Desktop:** pull the plug.
+4. Tablet A must show the order under **Pending orders**, never as a lost order. Do not re-enter it.
+5. Power on, start Nearby Café, run `CHECK-DATABASE-AFTER-OUTAGE.bat` → **HEALTHY**.
+6. On tablet A tap **Retry pending orders**. Record the outcome: **A** = the sale had committed (original receipt returned), **B** = it had not (committed now).
+7. Pass criteria for every run, whether A or B: sales count is exactly +1; the test ingredient decreased by exactly recipe quantity × items; the SQL checks below show no duplicates and no sale without deductions.
+
+### Test 2 — response lost on the network
+
+On tablet A, complete a sale and switch the tablet's Wi-Fi off immediately. The server probably commits, but the tablet never hears back and keeps it Pending. Switch Wi-Fi on and retry. Pass: the original receipt is shown, and the sales count increased by one only.
+
+### Test 3 — offline queue across host downtime
+
+1. With the app already open on tablets, click **Stop Nearby Café** on the host.
+2. Take three orders on the tablets. They stay Pending. Close and reopen the tab (not a new browser profile) to show they persist on the device.
+3. Start Nearby Café. Pass: all three commit once, with sales count +3.
+
+The tablet must have loaded the app from the host before the outage. A page opened for the first time while the host is off cannot load; that is expected.
+
+### Test 4 — three devices compete for the last stock
+
+Set the test ingredient so exactly one drink can be made. On three tablets, complete the same sale at the same moment. Pass: exactly one succeeds; the others are rejected for insufficient stock; stock reaches 0, never negative; rejected sales have no stock movements.
+
+### SQL evidence (read-only)
+
+Open the MariaDB client on the host. Use the database name and user from `config/local.php`. `-p` prompts for the password; never type it into the command.
+
+```bat
+"C:\xampp\mysql\bin\mysql.exe" --user=root -p --host=127.0.0.1 venuevue_rebuild
+```
+
+```sql
+SET SESSION TRANSACTION READ ONLY;
+-- Latest sales: VAT reconciles to the centavo, and each sale has its stock deductions
+SELECT s.id, s.transaction_key, s.sale_at, s.total_gross, s.total_net, s.total_vat,
+       s.total_gross = s.total_net + s.total_vat AS vat_ok,
+       (SELECT COUNT(*) FROM stock_movements m WHERE m.sale_id = s.id AND m.type = 'SALE') AS deductions
+FROM sales s ORDER BY s.id DESC LIMIT 5;
+-- Must return no rows: a transaction key is never committed twice
+SELECT transaction_key, COUNT(*) FROM sales GROUP BY transaction_key HAVING COUNT(*) > 1;
+-- Must return 0: no committed sale is missing its stock deductions (no partial writes)
+SELECT COUNT(*) FROM sales s
+WHERE NOT EXISTS (SELECT 1 FROM stock_movements m WHERE m.sale_id = s.id AND m.type = 'SALE');
+-- Batches and containers each sale drew from (FEFO / opened-container order)
+SELECT m.sale_id, i.name, m.batch_id, m.container_id, m.quantity_delta
+FROM stock_movements m JOIN ingredients i ON i.id = m.ingredient_id
+WHERE m.sale_id = (SELECT MAX(id) FROM sales) ORDER BY m.id;
+-- Durable rejection outcomes (for example, test 4's insufficient-stock attempts)
+SELECT transaction_key, error_code, created_at FROM checkout_rejections ORDER BY created_at DESC LIMIT 5;
+```
+
+**Device side:** on a laptop or desktop browser client, press F12 → **Application** → **IndexedDB** → `venuevue-rebuild-checkout` → **queue**. Each order is stored under its transaction key before it is sent, so you can match it with `sales.transaction_key`. Look only; never delete entries. Android tablets can be inspected from a laptop through `chrome://inspect` over USB.
+
+### Academic defense run sheet (about 10 minutes)
+
+1. **Durability settings:** run `CHECK-DATABASE-AFTER-OUTAGE.bat`. Point to `PASS durability`, `PASS CHECK TABLE` and `PASS … invariants`.
+2. **Crash recovery, live:** run Test 0 on the projector. Point to `Rolled back recovered transaction` and `uncommitted INSERT is absent`.
+3. **Real checkout power cut:** perform Test 1 once. Show the Pending order on the tablet, the HEALTHY check, the retry, and the single receipt.
+4. **Proof in data:** run the SQL above. Duplicate query empty, missing-deductions count 0, `vat_ok = 1`, and deductions listed per container.
+5. **Device queue:** show the IndexedDB `queue` entry with the same transaction key as the committed sale.
+
+Record dates, device names, outcomes (A/B) and screenshots in `ACCEPTANCE.md`. Do not show passwords, recovery codes or private configuration on screen.

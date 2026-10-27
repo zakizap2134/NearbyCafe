@@ -601,7 +601,11 @@ function validate_backup_relations(PDO $db, array $tables): void
         }
     }
 }
-function validate_restored_totals(PDO $db): void
+/**
+ * Read-only stock/VAT/outcome invariant checks shared by restore validation
+ * and the post-outage integrity check. Returns the names of failed checks.
+ */
+function integrity_violations(PDO $db): array
 {
     $checks = [
         "negative or invalid ingredient stock" =>
@@ -627,16 +631,25 @@ function validate_restored_totals(PDO $db): void
         "conflicting outcomes" =>
             "SELECT COUNT(*) FROM sales s JOIN checkout_rejections r ON r.transaction_key=s.transaction_key",
     ];
+    $failed = [];
     foreach ($checks as $name => $sql) {
         if ((int) $db->query($sql)->fetchColumn() > 0) {
-            problem(
-                422,
-                "BACKUP_INVARIANT",
-                "Backup rejected: " .
-                    $name .
-                    ". All original records remain unchanged.",
-            );
+            $failed[] = $name;
         }
+    }
+    return $failed;
+}
+function validate_restored_totals(PDO $db): void
+{
+    $failed = integrity_violations($db);
+    if ($failed) {
+        problem(
+            422,
+            "BACKUP_INVARIANT",
+            "Backup rejected: " .
+                $failed[0] .
+                ". All original records remain unchanged.",
+        );
     }
 }
 function backup_action(
