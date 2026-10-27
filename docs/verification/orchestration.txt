@@ -1,0 +1,14 @@
+PASS cold start, duplicate start, browser readiness and owned graceful-stop ordering
+PASS pre-existing database and application preserved
+PASS externally restarted process / reused PID not owned
+PASS shared service policy preserves even launcher-started shared database
+PASS missing executable/configuration/assets diagnostics
+PASS occupied ports and existing mysqld process reject duplicate starts
+PASS database identity and incomplete setup blocked
+PASS bounded service/SQL/HTTP readiness failures
+PASS shutdown failures preserve database; no force-stop path
+PASS ownership save failure leaves memory unclaimed, browser closed and services intact
+PASS failed replacement preserves previous in-memory ownership
+PASS Windows argument quoting and Apache render for spaces / Unicode
+PASS all launcher PowerShell files parse
+ALL LAUNCHER ORCHESTRATION CHECKS PASSED (simulated services; native Windows acceptance still required)

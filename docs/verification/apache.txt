@@ -1,0 +1,10 @@
+PASS real preflight and launcher probes are read-only and omit credentials
+PASS Apache serves root index and built assets from path with spaces; private instance/epoch readiness matches
+PASS private files, directory listings, stray PHP and unapproved readiness source blocked
+PASS Apache: existing Owner/Barista sign-in, bearer authorization, same-origin recovery preparation, checkout VAT and exactly-once stock deduction
+PASS Chromium: local favicon ICO/PNG requests, Nearby Café title, rendered UI, Owner sign-in, no JavaScript errors
+
+PASS Chromium: local favicon ICO/PNG requests, Nearby Café title, rendered UI, Owner sign-in, no JavaScript errors
+
+PASS favicon and frontend work through actual Vite dev server as well as production Apache
+PASS graceful Apache shutdown preserves all database records; diagnostics filter passwords/tokens/codes/URLs

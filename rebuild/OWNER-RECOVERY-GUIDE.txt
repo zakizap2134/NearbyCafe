@@ -1,0 +1,32 @@
+NEARBY CAFE — OWNER BROWSER RECOVERY (TASKS 1–5)
+
+PREPARE WHILE YOU KNOW YOUR PASSWORD
+Sign in. Open Management > Account security. Enter the current Owner password.
+Generate a recovery code; explicitly confirm if replacing an existing code.
+Save all eight groups using Copy, Download or manual recording. Check the copy
+before acknowledging and hiding it. Only a hash is stored; it cannot be shown
+again. This is different from the initial Owner setup code.
+
+RESET A FORGOTTEN PASSWORD
+Keep the host and Wi-Fi running. Choose Forgot password? on sign-in. Enter
+username, current offline recovery code and a new password twice. Use at least 12 characters.
+Submit once. After confirmed success, save the replacement code and acknowledge
+it, then sign in manually. Old Owner sessions end and the old code stops working.
+
+UNCONFIRMED RESPONSE
+The password may already have changed. Try the new password. After sign-in,
+use Account security to replace the code. If code preparation/replacement was
+interrupted, check its status and reauthenticate to replace it again. Never
+assume an old code remains valid. Wait if attempt-limited; do not keep retrying.
+
+BARISTAS AND SAVED ORDERS
+Baristas contact the Owner for a reset in Account security. Inactive accounts
+stay inactive. Return with the same account, browser profile and shop URL.
+Pending orders remain saved; do not clear browser data or collect cash twice.
+
+SUPPORT
+If both Owner password and code are lost, preserve the database and contact
+authorized support. Reinstallation/new Owner registration is not recovery.
+Existing PREPARE-OWNER-RECOVERY.bat and RECOVER-OWNER.bat remain optional host
+support tools. Console input is visible; use privately. See RECOVERY.md.
+Keep all codes and passwords out of screenshots, coursework, chat and Git.

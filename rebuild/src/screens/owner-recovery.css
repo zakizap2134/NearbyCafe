@@ -1,0 +1,15 @@
+.owner-recovery-page{max-width:1184px;margin:0 auto;padding:24px}
+.recovery-brand-bar{display:flex;align-items:center;gap:clamp(16px,3vw,32px);background:var(--recovery-paper);border-bottom:1px solid #dfcfc5;margin-bottom:32px}
+.recovery-brand-bar .nearby-brand.compact{flex:0 0 max(144px,12.5%);width:max(144px,12.5%);border-radius:0;margin:0}
+.recovery-brand-bar>div:last-child{padding:12px 0;min-width:0}.recovery-brand-bar p{margin:4px 0;color:var(--recovery-muted)}
+.recovery-content{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:24px;align-items:start}
+.owner-recovery-card,.recovery-support{background:var(--recovery-surface);padding:clamp(20px,3vw,32px);border-radius:16px;border:1px solid #dfcfc5;min-width:0}
+.owner-recovery-card h1{font-size:clamp(1.7rem,3vw,2.25rem);line-height:1.15;margin:8px 0 12px;letter-spacing:-.035em}
+.owner-recovery-card h2,.recovery-support h2{font-size:1.15rem;line-height:1.4;margin:16px 0 12px}
+.owner-recovery-card fieldset{min-width:0;padding:0}.owner-recovery-card label{display:block;font-weight:700;margin-bottom:8px}
+.owner-recovery-card #recovery-username{margin-bottom:20px;width:100%}.owner-recovery-card .staff-password{margin-bottom:20px}
+.recovery-back,.forgot-password-link{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:12px 8px;text-decoration:underline;text-underline-offset:4px;font-weight:700;color:#963e35;border-radius:6px}
+.forgot-password-link:focus-visible{outline:3px solid #28534e;outline-offset:4px}.recovery-back:hover,.forgot-password-link:hover{color:#773028;background:#f7e9df}
+.recovery-staff{margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid #dfcfc5}.recovery-staff h2{margin-top:0}
+@media(max-width:900px){.recovery-content{grid-template-columns:minmax(0,1fr)}.owner-recovery-page{max-width:760px}}
+@media(max-width:480px){.owner-recovery-page{padding:16px}.recovery-brand-bar{margin-bottom:24px;gap:16px}.recovery-brand-bar>div:last-child{font-size:.875rem}.recovery-content{gap:16px}}

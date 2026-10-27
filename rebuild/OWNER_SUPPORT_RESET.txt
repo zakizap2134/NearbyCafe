@@ -1,0 +1,48 @@
+NEARBY CAFE — ONE-TIME OWNER ACCOUNT SUPPORT RESET
+
+Use this only as the authorized administrator of the shop's XAMPP host when
+both the Owner password and its recovery code are unavailable.
+This targets an existing active Owner; it does not register another Owner.
+It preserves application data and staff accounts, revokes old Owner sessions,
+invalidates any old Owner recovery code and records OWNER_SUPPORT_RECOVERED.
+It runs only in the PHP CLI and rejects HTTP requests.
+
+1. Back up venuevue_rebuild using phpMyAdmin > Export > Quick > SQL.
+2. Finish sales on all devices. For the Owner launcher, use Stop Nearby Cafe.
+   For development, stop the PHP/Vite windows. The developer must keep the
+   configured database available for the support operation.
+3. The complete update already includes tools\support-reset-owner.php.
+   It must remain beside cli.php in your rebuild\tools folder.
+4. Open Command Prompt and run:
+   cd /d C:\Projects\VenueVue\rebuild
+   "C:\xampp\php\php.exe" tools\support-reset-owner.php
+5. Enter the existing Owner username. Check the displayed identity.
+   Type the exact RESET username confirmation printed by the tool.
+   Choose a NEW password. Use at least 12 characters.
+   Enter the same password again. Very long passwords are rejected;
+   accented letters and emoji may take more space.
+   Password entry is VISIBLE: use a private terminal without screen sharing.
+6. Wait for SUCCESS. Save all eight groups of the printed recovery code
+   privately before closing the window. Never send it in chat/screenshots.
+7. Keep support tools outside the public web directory with restricted host
+   access. Restart through the Nearby Cafe shortcut (or START-DEV.bat for
+   a development installation).
+   Open the SAME site URL/browser profile used previously and sign in with
+   the same username and the new password. Keep browser site data for orders.
+
+If the tool fails, send only its FAIL line/reference, never the password,
+recovery code or full terminal screenshot. An audit/database failure rolls
+back all reset changes. Validation/cancellation makes no account change.
+The tool cannot retrieve an old password. If there is no active Owner,
+stop and inspect the existing account state rather than reinstalling.
+
+After this support operation, normal Owner recovery is browser-based via
+Forgot password? and the newly saved code. Management > Account security
+can replace the code after sign-in; save any replacement before dismissing.
+
+Verified: PHP syntax; wrong/non-Owner/inactive targets; cancellation; password
+validation/confirmation; audit-failure rollback; new-password verification;
+Owner session revocation; staff preservation; retained product record;
+hash-only recovery-code storage; secret-free database/logs; HTTP denial.
+Tests used disposable MariaDB 10.11/PHP 8.3 on Linux; Windows/XAMPP operation
+is performed on your host using the existing installed app helpers.

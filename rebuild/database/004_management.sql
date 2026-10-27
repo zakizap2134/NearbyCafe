@@ -1,0 +1,19 @@
+CREATE TABLE IF NOT EXISTS runtime_meta (
+ id TINYINT UNSIGNED PRIMARY KEY,
+ epoch CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ restore_generation INT UNSIGNED NOT NULL DEFAULT 0,
+ restored_at DATETIME NULL
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS stock_operations (
+ operation_key CHAR(36) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+ request_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+ user_id INT UNSIGNED NOT NULL,
+ result_json LONGTEXT NOT NULL,
+ created_at DATETIME NOT NULL,
+ FOREIGN KEY(user_id) REFERENCES users(id)
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS audit_details (
+ audit_id BIGINT UNSIGNED PRIMARY KEY,
+ details LONGTEXT NOT NULL,
+ FOREIGN KEY(audit_id) REFERENCES audit_events(id)
+) ENGINE=InnoDB;

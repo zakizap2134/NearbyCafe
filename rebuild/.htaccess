@@ -1,0 +1,2 @@
+# The parent project must never be a web root. Apache should serve public/ only.
+Require all denied

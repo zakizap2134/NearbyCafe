@@ -1,0 +1,4 @@
+PASS first ownership file creation in a path containing spaces
+PASS existing ownership file atomically replaced with NullString backup argument
+PASS failed replacement preserves destination and removes temporary file
+ALL FILESYSTEM PERSISTENCE CHECKS PASSED; native Windows PowerShell 5.1 acceptance required when run elsewhere

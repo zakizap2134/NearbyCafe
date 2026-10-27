@@ -1,0 +1,34 @@
+NEARBY CAFÉ — START → USE → STOP
+
+The developer must finish the one-time installation first.
+
+1. START
+   Double-click Nearby Café on your Windows desktop.
+   Wait for Ready. The browser will open automatically.
+   You do not need to open XAMPP or type commands.
+
+2. USE
+   Sign in with your existing account and use the shop normally.
+   If you close the browser, click Open Nearby Café in the launcher.
+   Keep the host laptop awake while other devices are using the shop.
+   Clicking the desktop shortcut again reopens the existing application.
+
+3. STOP
+   Finish sales on every device.
+   Click Stop Nearby Café in the launcher, then confirm.
+   Wait for Stopped before shutting down the laptop.
+   A message that the shared database remains running is normal.
+
+Closing the launcher window alone leaves the shop running.
+Open it again from the desktop when you want to stop.
+
+IF THERE IS A PROBLEM
+Read the message. Retry after following its instructions.
+If it continues, give the displayed reference code to your developer.
+Do not delete accounts, configuration or database files.
+Keep XAMPP installed; it provides the programs used behind the scenes.
+
+FORGOT YOUR PASSWORD?
+Owner/Admin: use Forgot password? and your saved recovery code.
+Barista: contact the Owner.
+If the Owner lost both the password and recovery code, contact authorized support.
