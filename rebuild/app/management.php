@@ -388,6 +388,9 @@ function delete_catalogue(
         if ($kind === "variant") {
             query($db, "DELETE FROM recipes WHERE variant_id=?", [$id]);
         }
+        if ($kind === "product" && !empty($old["image_filename"])) {
+            remove_product_image_file((string) $old["image_filename"]);
+        }
         query($db, "DELETE FROM $table WHERE id=?", [$id]);
         audit($db, (int) $session["user"]["id"], "CATALOGUE_DELETED", $ref, [
             "kind" => $kind,

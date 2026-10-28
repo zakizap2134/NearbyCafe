@@ -40,6 +40,7 @@ try {
         "management/save" => "POST",
         "checkout" => "POST",
         "sales/receipt" => "GET",
+        "sales/void" => "POST",
         "management/staff" => "GET",
         "management/reset-password" => "POST",
         "management/inventory" => "POST",
@@ -73,32 +74,41 @@ try {
         }
     }
     if ($method === "POST") {
+        $contentType = strtolower($_SERVER["CONTENT_TYPE"] ?? "");
         if (
-            !str_starts_with(
-                strtolower($_SERVER["CONTENT_TYPE"] ?? ""),
-                "application/json",
-            )
+            $route === "management/save" &&
+            str_starts_with($contentType, "multipart/form-data")
         ) {
-            problem(415, "CONTENT_TYPE", "Send JSON content.");
-        }
-        $limit = in_array(
-            $route,
-            ["management/restore-preview", "management/restore"],
-            true,
-        )
-            ? 16777216
-            : 8192;
-        $raw = file_get_contents("php://input", false, null, 0, $limit + 1);
-        if (strlen($raw) > $limit) {
-            problem(413, "BODY_TOO_LARGE", "The request is too large.");
-        }
-        try {
-            $body = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
-        } catch (JsonException $e) {
-            problem(400, "INVALID_JSON", "The request could not be read.");
-        }
-        if (!is_array($body) || !str_starts_with(ltrim($raw), "{")) {
-            problem(400, "INVALID_JSON", "Send a JSON object.");
+            $body = $_POST;
+        } else {
+            if (!str_starts_with($contentType, "application/json")) {
+                problem(415, "CONTENT_TYPE", "Send JSON content.");
+            }
+            $limit = match (true) {
+                in_array(
+                    $route,
+                    ["management/restore-preview", "management/restore"],
+                    true,
+                ) => 16777216,
+                $route === "management/save" => 4194304,
+                default => 8192,
+            };
+            $raw = file_get_contents("php://input", false, null, 0, $limit + 1);
+            if (strlen($raw) > $limit) {
+                problem(413, "BODY_TOO_LARGE", "The request is too large.");
+            }
+            try {
+                $body = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
+            } catch (JsonException $e) {
+                problem(
+                    400,
+                    "INVALID_JSON",
+                    "The request could not be read.",
+                );
+            }
+            if (!is_array($body) || !str_starts_with(ltrim($raw), "{")) {
+                problem(400, "INVALID_JSON", "Send a JSON object.");
+            }
         }
     }
     $db = connection();
@@ -241,6 +251,13 @@ try {
         respond(200, [
             "ok" => true,
             "data" => checkout($db, $session, $body, $requestId),
+            "request_id" => $requestId,
+        ]);
+    }
+    if ($route === "sales/void") {
+        respond(200, [
+            "ok" => true,
+            "data" => void_sale($db, $session, $body, $requestId),
             "request_id" => $requestId,
         ]);
     }

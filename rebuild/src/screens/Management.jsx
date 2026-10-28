@@ -16,6 +16,7 @@ import {
   Field,
   Select,
   Receipt,
+  VoidSaleModal,
 } from "../components/workflow";
 
 function Active({ value, onChange }) {
@@ -53,7 +54,14 @@ const emptyIngredient = {
   opened_shelf_life_hours: "",
   is_active: 1,
 };
-const emptyProduct = { name: "", category: "Coffee", is_active: 1 };
+const emptyProduct = {
+  name: "",
+  category: "Coffee",
+  image_filename: null,
+  image_data: "",
+  remove_image: 0,
+  is_active: 1,
+};
 const emptyVariant = {
   product_id: "",
   size: "M",
@@ -85,7 +93,8 @@ export default function Management({ user, token, expired }) {
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true),
-    [receipt, setReceipt] = useState(null);
+    [receipt, setReceipt] = useState(null),
+    [voidTarget, setVoidTarget] = useState(null);
   const [ingredient, setIngredient] = useState(emptyIngredient),
     [product, setProduct] = useState(emptyProduct),
     [variant, setVariant] = useState(emptyVariant),
@@ -93,7 +102,8 @@ export default function Management({ user, token, expired }) {
     [rows, setRows] = useState([]),
     [delivery, setDelivery] = useState(emptyDelivery);
   const sending = useRef(false),
-    deliveryAttempt = useRef(null);
+    deliveryAttempt = useRef(null),
+    productImageInputRef = useRef(null);
   const deliveryStorage = `venuevue.rebuild.delivery.${user.id}`;
   useEffect(() => {
     try {
@@ -256,6 +266,26 @@ export default function Management({ user, token, expired }) {
       if (e.status === 401) expired();
     }
   }
+  function handleProductImageSelect(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setError(new Error("Product image must be 2 MB or smaller."));
+      e.target.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setProduct((prev) => ({
+          ...prev,
+          image_data: reader.result,
+          remove_image: 0,
+        }));
+      }
+    };
+    reader.readAsDataURL(file);
+  }
   const input = (obj, set, key) => ({
     value: obj[key] ?? "",
     onChange: (e) => set({ ...obj, [key]: e.target.value }),
@@ -315,6 +345,18 @@ export default function Management({ user, token, expired }) {
           {notice}
         </p>
       )}
+      <VoidSaleModal
+        sale={voidTarget}
+        user={user}
+        token={token}
+        onClose={() => setVoidTarget(null)}
+        onVoided={async (updated) => {
+          setVoidTarget(null);
+          setReceipt(updated);
+          setNotice(`Sale #${updated.id} has been voided.`);
+          await refresh();
+        }}
+      />
       {loading && !data ? (
         <p role="status">Loading shop records…</p>
       ) : !data ? (
@@ -402,26 +444,53 @@ export default function Management({ user, token, expired }) {
                   <p className="subtle">No confirmed sales today.</p>
                 ) : (
                   <Table
-                    headers={["Sale", "Time", "Gross", "Net", "VAT", "Details"]}
+                    headers={[
+                      "Sale",
+                      "Time",
+                      "Status",
+                      "Gross",
+                      "Net",
+                      "VAT",
+                      "Details",
+                    ]}
                   >
                     {data.sales.recent.map((s) => (
                       <tr key={s.id}>
                         <td>#{s.id}</td>
                         <td>{s.sale_at}</td>
+                        <td>
+                          {s.status === "voided" ? (
+                            <span className="pill pill-voided">VOIDED</span>
+                          ) : (
+                            "Completed"
+                          )}
+                        </td>
                         <td>{money(s.total_gross)}</td>
                         <td>{money(s.total_net)}</td>
                         <td>{money(s.total_vat)}</td>
                         <td>
-                          <button onClick={() => showReceipt(s.id)}>
-                            View sale #{s.id}
-                          </button>
+                          <div className="button-row">
+                            <button onClick={() => showReceipt(s.id)}>
+                              View sale #{s.id}
+                            </button>
+                            {s.status !== "voided" && (
+                              <button
+                                className="danger"
+                                onClick={() => setVoidTarget(s)}
+                              >
+                                Void #{s.id}
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </Table>
                 )}
               </section>
-              {receipt && <Receipt sale={receipt} />}
+              {receipt && (
+                <Receipt sale={receipt} onVoid={(s) => setVoidTarget(s)} />
+              )}
             </>
           )}
           {tab === "Ingredients" && (
@@ -562,7 +631,12 @@ export default function Management({ user, token, expired }) {
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      save("product", product, () => setProduct(emptyProduct));
+                      save("product", product, () => {
+                        setProduct(emptyProduct);
+                        if (productImageInputRef.current) {
+                          productImageInputRef.current.value = "";
+                        }
+                      });
                     }}
                   >
                     <fieldset disabled={busy}>
@@ -578,6 +652,42 @@ export default function Management({ user, token, expired }) {
                         maxLength={60}
                         {...input(product, setProduct, "category")}
                       />
+                      <Field label="Choose Image (Optional · JPG, PNG, WebP up to 2 MB)">
+                        <input
+                          ref={productImageInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={handleProductImageSelect}
+                        />
+                      </Field>
+                      {(product.image_data ||
+                        (product.image_filename && !product.remove_image)) && (
+                        <div className="product-image-preview">
+                          <img
+                            src={
+                              product.image_data ||
+                              `${import.meta.env.BASE_URL}uploads/products/${product.image_filename}`
+                            }
+                            alt={product.name || "Product preview"}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProduct({
+                                ...product,
+                                image_data: "",
+                                image_filename: null,
+                                remove_image: 1,
+                              });
+                              if (productImageInputRef.current) {
+                                productImageInputRef.current.value = "";
+                              }
+                            }}
+                          >
+                            Remove Image
+                          </button>
+                        </div>
+                      )}
                       <Active
                         value={product.is_active}
                         onChange={(is_active) =>
@@ -590,9 +700,12 @@ export default function Management({ user, token, expired }) {
                           <button
                             type="button"
                             onClick={() =>
-                              remove("product", product.id, () =>
-                                setProduct(emptyProduct),
-                              )
+                              remove("product", product.id, () => {
+                                setProduct(emptyProduct);
+                                if (productImageInputRef.current) {
+                                  productImageInputRef.current.value = "";
+                                }
+                              })
                             }
                           >
                             Delete unused product
@@ -600,7 +713,12 @@ export default function Management({ user, token, expired }) {
                         )}
                         <button
                           type="button"
-                          onClick={() => setProduct(emptyProduct)}
+                          onClick={() => {
+                            setProduct(emptyProduct);
+                            if (productImageInputRef.current) {
+                              productImageInputRef.current.value = "";
+                            }
+                          }}
                         >
                           New product
                         </button>
@@ -616,13 +734,41 @@ export default function Management({ user, token, expired }) {
                     <Table headers={["Product", "Category", "Status", "Edit"]}>
                       {data.products.map((p) => (
                         <tr key={p.id}>
-                          <td>{p.name}</td>
+                          <td>
+                            <div className="product-table-cell">
+                              {p.image_filename ? (
+                                <img
+                                  className="product-table-thumb"
+                                  src={`${import.meta.env.BASE_URL}uploads/products/${p.image_filename}`}
+                                  alt={p.name}
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <span
+                                  className="product-table-thumb fallback"
+                                  aria-hidden="true"
+                                >
+                                  {p.name.slice(0, 2).toUpperCase()}
+                                </span>
+                              )}
+                              <span>{p.name}</span>
+                            </div>
+                          </td>
                           <td>{p.category}</td>
                           <td>{Number(p.is_active) ? "Active" : "Inactive"}</td>
                           <td>
                             <button
                               disabled={busy}
-                              onClick={() => setProduct(p)}
+                              onClick={() => {
+                                setProduct({
+                                  ...p,
+                                  image_data: "",
+                                  remove_image: 0,
+                                });
+                                if (productImageInputRef.current) {
+                                  productImageInputRef.current.value = "";
+                                }
+                              }}
                             >
                               Edit {p.name}
                             </button>

@@ -39,7 +39,7 @@ function catalogue_data(PDO $db): array
     }
     $variants = $db
         ->query(
-            "SELECT v.*,p.name AS product_name,p.category FROM product_variants v JOIN products p ON p.id=v.product_id WHERE v.is_active=1 AND p.is_active=1 AND p.is_vat_exempt=0 ORDER BY p.name,FIELD(v.size,'S','M','L'),v.temperature",
+            "SELECT v.*,p.name AS product_name,p.category,p.image_filename FROM product_variants v JOIN products p ON p.id=v.product_id WHERE v.is_active=1 AND p.is_active=1 AND p.is_vat_exempt=0 ORDER BY p.name,FIELD(v.size,'S','M','L'),v.temperature",
         )
         ->fetchAll();
     foreach ($variants as &$v) {
@@ -61,14 +61,18 @@ function catalogue_data(PDO $db): array
         $v["available_count"] = $count;
         $v["recipe_ready"] = (bool) $recipe;
     }
-    return ["variants" => $variants, "server_time" => $at];
+    return [
+        "variants" => $variants,
+        "server_time" => $at,
+        "today_sales" => today_sales($db, $at),
+    ];
 }
 function today_sales(PDO $db, string $at): array
 {
     $date = substr($at, 0, 10);
     $totals = query(
         $db,
-        "SELECT COUNT(*) AS count,COALESCE(SUM(total_gross),0) AS gross,COALESCE(SUM(total_net),0) AS net,COALESCE(SUM(total_vat),0) AS vat FROM sales WHERE sale_at>=? AND sale_at<DATE_ADD(?,INTERVAL 1 DAY)",
+        "SELECT COUNT(*) AS count,COALESCE(SUM(total_gross),0) AS gross,COALESCE(SUM(total_net),0) AS net,COALESCE(SUM(total_vat),0) AS vat FROM sales WHERE status='completed' AND sale_at>=? AND sale_at<DATE_ADD(?,INTERVAL 1 DAY)",
         [$date, $date],
     )->fetch();
     $totals["count"] = (int) $totals["count"];
@@ -80,10 +84,146 @@ function today_sales(PDO $db, string $at): array
         "totals" => $totals,
         "recent" => query(
             $db,
-            "SELECT id,user_id,sale_at,total_gross,total_net,total_vat FROM sales WHERE sale_at>=? AND sale_at<DATE_ADD(?,INTERVAL 1 DAY) ORDER BY id DESC LIMIT 10",
+            "SELECT id,transaction_key,user_id,sale_at,total_gross,total_net,total_vat,status,void_reason,voided_at FROM sales WHERE sale_at>=? AND sale_at<DATE_ADD(?,INTERVAL 1 DAY) ORDER BY id DESC LIMIT 10",
             [$date, $date],
         )->fetchAll(),
     ];
+}
+function product_uploads_dir(): string
+{
+    $dir = __DIR__ . "/../public/uploads/products";
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0775, true);
+    }
+    return $dir;
+}
+function remove_product_image_file(?string $filename): void
+{
+    if (
+        is_string($filename) &&
+        $filename !== "" &&
+        preg_match('/^prod_[0-9]+_[0-9]+_[a-f0-9]{8}\.(jpg|png|webp)$/D', $filename)
+    ) {
+        $path = product_uploads_dir() . "/" . $filename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+}
+function process_product_image(
+    int $productId,
+    array $body,
+    ?string $oldFilename,
+): ?string {
+    $remove = $body["remove_image"] ?? false;
+    if (in_array($remove, [true, 1, "1", "true"], true)) {
+        remove_product_image_file($oldFilename);
+        $oldFilename = null;
+    }
+    $bytes = null;
+    if (
+        isset($_FILES["image"]) &&
+        is_array($_FILES["image"]) &&
+        ($_FILES["image"]["error"] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE
+    ) {
+        if ((int) $_FILES["image"]["error"] !== UPLOAD_ERR_OK) {
+            problem(
+                422,
+                "IMAGE_UPLOAD",
+                "Image upload failed. Choose a JPG, PNG or WebP image up to 2 MB.",
+            );
+        }
+        $bytes = @file_get_contents((string) $_FILES["image"]["tmp_name"]);
+        if ($bytes === false) {
+            problem(422, "IMAGE_UPLOAD", "Uploaded image could not be read.");
+        }
+    } elseif (
+        isset($body["image_data"]) &&
+        is_string($body["image_data"]) &&
+        trim($body["image_data"]) !== ""
+    ) {
+        if (
+            !preg_match(
+                '/^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+\/=\r\n]+)$/iD',
+                trim($body["image_data"]),
+                $m,
+            )
+        ) {
+            problem(
+                422,
+                "IMAGE_FORMAT",
+                "Choose a valid JPG, PNG or WebP image.",
+            );
+        }
+        $bytes = base64_decode($m[2], true);
+        if ($bytes === false) {
+            problem(422, "IMAGE_FORMAT", "Invalid image encoding.");
+        }
+    }
+    if ($bytes === null) {
+        return $oldFilename;
+    }
+    if (strlen($bytes) < 12 || strlen($bytes) > 2 * 1024 * 1024) {
+        problem(
+            422,
+            "IMAGE_SIZE",
+            "Product image must be 2 MB or smaller.",
+        );
+    }
+    $ext = null;
+    if (str_starts_with($bytes, "\xFF\xD8\xFF")) {
+        $ext = "jpg";
+    } elseif (str_starts_with($bytes, "\x89PNG\r\n\x1A\n")) {
+        $ext = "png";
+    } elseif (
+        substr($bytes, 0, 4) === "RIFF" &&
+        substr($bytes, 8, 4) === "WEBP"
+    ) {
+        $ext = "webp";
+    } else {
+        problem(
+            422,
+            "IMAGE_FORMAT",
+            "Only JPG, PNG and WebP images are supported.",
+        );
+    }
+    if (function_exists("getimagesizefromstring")) {
+        $info = @getimagesizefromstring($bytes);
+        if (
+            !is_array($info) ||
+            (int) ($info[0] ?? 0) < 1 ||
+            (int) ($info[1] ?? 0) < 1 ||
+            (int) $info[0] > 4096 ||
+            (int) $info[1] > 4096
+        ) {
+            problem(
+                422,
+                "IMAGE_FORMAT",
+                "Image dimensions must be valid and at most 4096×4096 px.",
+            );
+        }
+    }
+    $filename =
+        "prod_" .
+        $productId .
+        "_" .
+        time() .
+        "_" .
+        bin2hex(random_bytes(4)) .
+        "." .
+        $ext;
+    $dir = product_uploads_dir();
+    if (@file_put_contents($dir . "/" . $filename, $bytes, LOCK_EX) === false) {
+        problem(
+            503,
+            "IMAGE_STORAGE",
+            "Could not save product image to public/uploads/products.",
+        );
+    }
+    if ($oldFilename !== null && $oldFilename !== $filename) {
+        remove_product_image_file($oldFilename);
+    }
+    return $filename;
 }
 function management_data(PDO $db): array
 {
@@ -194,25 +334,39 @@ function save_catalogue(
             $name = label_text($body["name"] ?? null, "Product name");
             $category = label_text($body["category"] ?? null, "Category", 60);
             if ($id) {
-                if (
-                    !query($db, "SELECT id FROM products WHERE id=?", [
-                        $id,
-                    ])->fetch()
-                ) {
+                $oldProd = query(
+                    $db,
+                    "SELECT id,image_filename FROM products WHERE id=?",
+                    [$id],
+                )->fetch();
+                if (!$oldProd) {
                     problem(404, "NOT_FOUND", "Product not found.");
                 }
+                $imageFilename = process_product_image(
+                    $id,
+                    $body,
+                    $oldProd["image_filename"] ?? null,
+                );
                 query(
                     $db,
-                    "UPDATE products SET name=?,category=?,is_active=?,updated_at=NOW() WHERE id=?",
-                    [$name, $category, active_flag($body), $id],
+                    "UPDATE products SET name=?,category=?,image_filename=?,is_active=?,updated_at=NOW() WHERE id=?",
+                    [$name, $category, $imageFilename, active_flag($body), $id],
                 );
             } else {
                 query(
                     $db,
-                    "INSERT INTO products(name,category,is_active,created_at,updated_at) VALUES(?,?,?,NOW(),NOW())",
+                    "INSERT INTO products(name,category,image_filename,is_active,created_at,updated_at) VALUES(?,?,NULL,?,NOW(),NOW())",
                     [$name, $category, active_flag($body)],
                 );
                 $id = (int) $db->lastInsertId();
+                $imageFilename = process_product_image($id, $body, null);
+                if ($imageFilename !== null) {
+                    query(
+                        $db,
+                        "UPDATE products SET image_filename=? WHERE id=?",
+                        [$imageFilename, $id],
+                    );
+                }
             }
         } elseif ($action === "variant") {
             $product = positive_id($body["product_id"] ?? null);

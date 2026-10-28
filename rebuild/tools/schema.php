@@ -33,6 +33,8 @@ function apply_stage2(PDO $db): void
     run_schema_file($db, "002_sales_inventory.sql");
     run_schema_file($db, "003_reliability.sql");
     run_schema_file($db, "004_management.sql");
+    run_schema_file($db, "005_void_and_images.sql");
+    ensure_void_and_image_schema($db);
     query(
         $db,
         "INSERT IGNORE INTO runtime_meta(id,epoch,restore_generation) VALUES(1,?,0)",

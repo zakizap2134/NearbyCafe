@@ -236,6 +236,27 @@ export function resolveReview(userId, key) {
     };
   });
 }
+export function markOrderVoided(userId, voidedSale) {
+  if (!voidedSale?.transaction_key) return Promise.resolve(null);
+  return run(["queue"], "readwrite", (tx, finish) => {
+    const store = tx.objectStore("queue");
+    const r = store.get(voidedSale.transaction_key);
+    r.onsuccess = () => {
+      const old = r.result;
+      if (!old || old.user_id !== Number(userId)) {
+        finish(null);
+        return;
+      }
+      const saved = {
+        ...old,
+        sale: voidedSale,
+        updated_at: new Date().toISOString(),
+      };
+      store.put(saved);
+      finish(saved);
+    };
+  });
+}
 export function cents(value) {
   const match = String(value).match(/^(\d{1,7})(?:\.(\d{1,2}))?$/);
   return match

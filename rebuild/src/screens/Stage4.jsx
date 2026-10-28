@@ -7,6 +7,7 @@ import {
   Field,
   Select,
   Receipt,
+  VoidSaleModal,
   money,
 } from "../components/workflow";
 
@@ -125,7 +126,8 @@ export function Reports({ token, expired }) {
   const action = useAction(expired),
     [range, setRange] = useState({ from: today(), to: today() }),
     [data, setData] = useState(null),
-    [receipt, setReceipt] = useState(null);
+    [receipt, setReceipt] = useState(null),
+    [voidTarget, setVoidTarget] = useState(null);
   const load = (page = 1) =>
     action.run(async () => {
       setData(
@@ -209,11 +211,23 @@ export function Reports({ token, expired }) {
             </Table>
           )}
           <h3>Transactions</h3>
+          <VoidSaleModal
+            sale={voidTarget}
+            user={{ role: "OWNER" }}
+            token={token}
+            onClose={() => setVoidTarget(null)}
+            onVoided={async (updated) => {
+              setVoidTarget(null);
+              await load(data.page);
+              setReceipt(updated);
+            }}
+          />
           <Table
             headers={[
               "Sale",
               "Time",
               "Cashier",
+              "Status",
               "Gross",
               "Net",
               "VAT",
@@ -225,25 +239,43 @@ export function Reports({ token, expired }) {
                 <td>#{s.id}</td>
                 <td>{s.sale_at}</td>
                 <td>{s.cashier}</td>
+                <td>
+                  {s.status === "voided" ? (
+                    <span className="pill pill-voided">VOIDED</span>
+                  ) : (
+                    "Completed"
+                  )}
+                </td>
                 <td>{money(s.total_gross)}</td>
                 <td>{money(s.total_net)}</td>
                 <td>{money(s.total_vat)}</td>
                 <td>
-                  <button
-                    disabled={action.busy}
-                    onClick={() =>
-                      action.run(async () =>
-                        setReceipt(
-                          await api("sales/receipt", {
-                            token,
-                            query: { id: s.id },
-                          }),
-                        ),
-                      )
-                    }
-                  >
-                    View sale #{s.id}
-                  </button>
+                  <div className="button-row">
+                    <button
+                      disabled={action.busy}
+                      onClick={() =>
+                        action.run(async () =>
+                          setReceipt(
+                            await api("sales/receipt", {
+                              token,
+                              query: { id: s.id },
+                            }),
+                          ),
+                        )
+                      }
+                    >
+                      View sale #{s.id}
+                    </button>
+                    {s.status !== "voided" && (
+                      <button
+                        className="danger"
+                        disabled={action.busy}
+                        onClick={() => setVoidTarget(s)}
+                      >
+                        Void #{s.id}
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -263,7 +295,7 @@ export function Reports({ token, expired }) {
               )
             }
           />
-          <Receipt sale={receipt} />
+          <Receipt sale={receipt} onVoid={(s) => setVoidTarget(s)} />
         </>
       )}
     </section>

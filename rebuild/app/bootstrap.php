@@ -147,6 +147,49 @@ function query(PDO $db, string $sql, array $args = []): PDOStatement
     $q->execute($args);
     return $q;
 }
+function ensure_void_and_image_schema(PDO $db): void
+{
+    if ($db->inTransaction()) {
+        return;
+    }
+    $prodCols = array_column(
+        $db->query("SHOW COLUMNS FROM `products`")->fetchAll(),
+        "Field",
+    );
+    $saleCols = array_column(
+        $db->query("SHOW COLUMNS FROM `sales`")->fetchAll(),
+        "Field",
+    );
+    if (
+        !in_array("image_filename", $prodCols, true) ||
+        array_diff(
+            ["status", "void_reason", "voided_by", "voided_at"],
+            $saleCols,
+        )
+    ) {
+        $file = __DIR__ . "/../database/005_void_and_images.sql";
+        if (is_file($file)) {
+            $sql = file_get_contents($file);
+            if ($sql !== false) {
+                foreach (explode(";", $sql) as $statement) {
+                    if (trim($statement) !== "") {
+                        $db->exec($statement);
+                    }
+                }
+            }
+        }
+    }
+    $fkExists = (int) $db
+        ->query(
+            "SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='sales' AND COLUMN_NAME='voided_by' AND REFERENCED_TABLE_NAME='users'",
+        )
+        ->fetchColumn();
+    if ($fkExists === 0) {
+        $db->exec(
+            "ALTER TABLE sales ADD CONSTRAINT fk_sales_voided_by FOREIGN KEY (voided_by) REFERENCES users(id)",
+        );
+    }
+}
 function schema_ready(PDO $db): void
 {
     try {
@@ -163,6 +206,7 @@ function schema_ready(PDO $db): void
         foreach (VV_TABLES as $table) {
             $db->query("SELECT 1 FROM `" . $table . "` LIMIT 0");
         }
+        ensure_void_and_image_schema($db);
     } catch (PDOException $e) {
         problem(
             503,

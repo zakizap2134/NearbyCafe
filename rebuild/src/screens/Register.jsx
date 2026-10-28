@@ -5,6 +5,8 @@ import {
   variantLabel,
   ErrorNotice,
   Receipt,
+  OrderSuccessModal,
+  VoidSaleModal,
   Field,
 } from "../components/workflow";
 import {
@@ -13,6 +15,7 @@ import {
   enqueueDraft,
   readOrders,
   resolveReview,
+  markOrderVoided,
   cents,
   cashString,
 } from "../checkout-store";
@@ -21,6 +24,7 @@ import { startOrderSync } from "../order-sync";
 export default function Register({ user, token, expired }) {
   const [menu, setMenu] = useState(null),
     [error, setError] = useState(null),
+    [notice, setNotice] = useState(""),
     [loading, setLoading] = useState(true),
     [draft, setDraft] = useState(null),
     [search, setSearch] = useState(""),
@@ -29,6 +33,8 @@ export default function Register({ user, token, expired }) {
     [ready, setReady] = useState(false),
     [orders, setOrders] = useState([]),
     [sale, setSale] = useState(null),
+    [successSale, setSuccessSale] = useState(null),
+    [voidTarget, setVoidTarget] = useState(null),
     [saving, setSaving] = useState(0),
     [historyLimit, setHistoryLimit] = useState(10);
   const draftRef = useRef(null),
@@ -83,6 +89,7 @@ export default function Register({ user, token, expired }) {
       onExpired: expired,
       onConfirmed: (s) => {
         setSale(s);
+        setSuccessSale(s);
         setError(null);
         refresh();
       },
@@ -144,11 +151,51 @@ export default function Register({ user, token, expired }) {
         .filter((r) => r.qty > 0),
     });
   }
+  function reloadSaleToBasket(targetSale) {
+    if (!targetSale?.items?.length || !menu?.variants?.length) return;
+    const rebuilt = [];
+    for (const item of targetSale.items) {
+      const v = menu.variants.find(
+        (cand) => Number(cand.id) === Number(item.variant_id),
+      );
+      if (v) {
+        rebuilt.push({
+          ...v,
+          qty: Math.min(Number(item.qty) || 1, 100),
+        });
+      }
+    }
+    if (rebuilt.length > 0) {
+      edit({
+        basket: rebuilt,
+        cash: targetSale.cash_received ?? "",
+      });
+      setNotice(
+        `Loaded ${rebuilt.length} item(s) from Sale #${targetSale.id} into Current Order for adjustment.`,
+      );
+    }
+  }
+  async function handleVoided(updatedSale, reloadToBasket) {
+    setVoidTarget(null);
+    setSale(updatedSale);
+    if (successSale?.id === updatedSale.id) {
+      setSuccessSale(null);
+    }
+    await markOrderVoided(user.id, updatedSale);
+    setOrders(await readOrders(user.id));
+    await refresh();
+    if (reloadToBasket) {
+      reloadSaleToBasket(updatedSale);
+    } else {
+      setNotice(`Sale #${updatedSale.id} has been voided.`);
+    }
+  }
   async function submit() {
     if (sending.current) return;
     sending.current = true;
     setBusy(true);
     setError(null);
+    setNotice("");
     try {
       await writes.current;
       if (writeFailed.current)
@@ -200,6 +247,7 @@ export default function Register({ user, token, expired }) {
         (all[v.product_id] ??= {
           name: v.product_name,
           category: v.category,
+          image_filename: v.image_filename,
           variants: [],
         }).variants.push(v);
         return all;
@@ -226,9 +274,36 @@ export default function Register({ user, token, expired }) {
         </button>
       </div>
       <ErrorNotice error={error} />
+      {notice && (
+        <p className="success" role="status">
+          {notice}
+        </p>
+      )}
       {!ready && error && (
         <button onClick={() => location.reload()}>Reload saved orders</button>
       )}
+      <OrderSuccessModal
+        sale={successSale}
+        cashierName={user.display_name || user.username}
+        onClose={() => setSuccessSale(null)}
+        onPrint={() => {
+          setSale(successSale);
+          setSuccessSale(null);
+          setTimeout(() => window.print(), 100);
+        }}
+        onVoid={(s) => {
+          setSuccessSale(null);
+          setVoidTarget(s);
+        }}
+      />
+      <VoidSaleModal
+        sale={voidTarget}
+        user={user}
+        token={token}
+        allowReload={true}
+        onClose={() => setVoidTarget(null)}
+        onVoided={handleVoided}
+      />
       {pending.length > 0 && (
         <section className="pending-banner" aria-label="Pending orders">
           <div className="section-heading">
@@ -317,8 +392,30 @@ export default function Register({ user, token, expired }) {
             <div className="drink-grid">
               {Object.entries(products).map(([id, p]) => (
                 <article className="panel drink" key={id}>
-                  <p className="eyebrow">{p.category}</p>
-                  <h2>{p.name}</h2>
+                  <div className="drink-card-top">
+                    {p.image_filename ? (
+                      <div className="drink-media">
+                        <img
+                          src={`${import.meta.env.BASE_URL}uploads/products/${p.image_filename}`}
+                          alt={p.name}
+                          loading="lazy"
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className="drink-media drink-media-fallback"
+                        aria-hidden="true"
+                      >
+                        <span className="drink-emblem">
+                          {p.name.slice(0, 2).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="drink-card-title">
+                      <p className="eyebrow">{p.category}</p>
+                      <h2>{p.name}</h2>
+                    </div>
+                  </div>
                   <div className="variant-grid">
                     {p.variants.map((v) => (
                       <button
@@ -353,7 +450,19 @@ export default function Register({ user, token, expired }) {
         <aside className="panel basket">
           <div className="section-heading">
             <h2>Current order</h2>
-            <span className="pill">Cash</span>
+            <div className="button-row">
+              {basket.length > 0 && (
+                <button
+                  type="button"
+                  className="clear-order-btn"
+                  disabled={busy || !ready}
+                  onClick={() => edit({ basket: [], cash: "" })}
+                >
+                  Clear order
+                </button>
+              )}
+              <span className="pill">Cash</span>
+            </div>
           </div>
           {!basket.length ? (
             <p className="subtle basket-empty">Select a size to add a drink.</p>
@@ -457,7 +566,11 @@ export default function Register({ user, token, expired }) {
           {busy && <p role="status">Saving this order…</p>}
         </aside>
       </div>
-      <Receipt sale={sale} />
+      <Receipt
+        sale={sale}
+        onVoid={(s) => setVoidTarget(s)}
+        onReloadItems={reloadSaleToBasket}
+      />
       <section className="panel section-space">
         <h2>Your orders on this device</h2>
         <p className="subtle small">
@@ -482,18 +595,34 @@ export default function Register({ user, token, expired }) {
                   <tr key={o.key}>
                     <td>{o.key.slice(0, 8)}</td>
                     <td>
-                      {o.state === "confirmed"
-                        ? "Confirmed"
-                        : o.error_code === "RESTORE_REVIEW"
-                          ? "Restore review completed"
-                          : "Reviewed; no sale"}
+                      {o.state === "confirmed" ? (
+                        o.sale?.status === "voided" ? (
+                          <span className="pill pill-voided">Voided</span>
+                        ) : (
+                          "Confirmed"
+                        )
+                      ) : o.error_code === "RESTORE_REVIEW" ? (
+                        "Restore review completed"
+                      ) : (
+                        "Reviewed; no sale"
+                      )}
                     </td>
                     <td>{money(o.body.cash_received)}</td>
                     <td>
                       {o.state === "confirmed" ? (
-                        <button onClick={() => setSale(o.sale)}>
-                          View receipt #{o.sale.id}
-                        </button>
+                        <div className="button-row">
+                          <button onClick={() => setSale(o.sale)}>
+                            View receipt #{o.sale.id}
+                          </button>
+                          {o.sale?.status !== "voided" && (
+                            <button
+                              className="danger"
+                              onClick={() => setVoidTarget(o.sale)}
+                            >
+                              Void #{o.sale.id}
+                            </button>
+                          )}
+                        </div>
                       ) : (
                         o.error
                       )}

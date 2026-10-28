@@ -1,11 +1,31 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . "/stock.php";
+require_once __DIR__ . "/auth.php";
 function sale_receipt(PDO $db, array $sale, bool $duplicate = false): array
 {
     unset($sale["request_hash"]);
     $sale["id"] = (int) $sale["id"];
     $sale["user_id"] = (int) $sale["user_id"];
+    $sale["status"] = $sale["status"] ?? "completed";
+    $sale["void_reason"] = $sale["void_reason"] ?? null;
+    $sale["voided_by"] =
+        isset($sale["voided_by"]) && $sale["voided_by"] !== null
+            ? (int) $sale["voided_by"]
+            : null;
+    $sale["voided_at"] = $sale["voided_at"] ?? null;
+    $sale["cashier_name"] = (string) query(
+        $db,
+        "SELECT display_name FROM users WHERE id=?",
+        [$sale["user_id"]],
+    )->fetchColumn();
+    if ($sale["voided_by"] !== null) {
+        $sale["voided_by_name"] = (string) query(
+            $db,
+            "SELECT display_name FROM users WHERE id=?",
+            [$sale["voided_by"]],
+        )->fetchColumn();
+    }
     $sale["duplicate"] = $duplicate;
     $sale["items"] = query(
         $db,
@@ -375,6 +395,238 @@ function checkout(
                 throw $failure;
             }
         }
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $e;
+    }
+}
+function void_sale(
+    PDO $db,
+    array $session,
+    array $body,
+    string $requestId,
+): array {
+    $reason = label_text($body["reason"] ?? null, "Void reason", 200);
+    $restoreFlag = $body["restore_stock"] ?? true;
+    if (!in_array($restoreFlag, [true, false, 1, 0, "1", "0"], true)) {
+        problem(422, "VALIDATION", "Choose whether to restore stock.");
+    }
+    $restoreStock =
+        $restoreFlag === true || $restoreFlag === 1 || $restoreFlag === "1";
+    $hasSaleId =
+        isset($body["sale_id"]) &&
+        $body["sale_id"] !== "" &&
+        $body["sale_id"] !== null;
+    $hasKey =
+        isset($body["transaction_key"]) &&
+        $body["transaction_key"] !== "" &&
+        $body["transaction_key"] !== null;
+    if (!$hasSaleId && !$hasKey) {
+        problem(
+            422,
+            "VALIDATION",
+            "Provide a sale ID or transaction key to void.",
+        );
+    }
+    $saleIdParam = $hasSaleId
+        ? positive_id($body["sale_id"], "Sale ID")
+        : null;
+    $txKeyParam = $hasKey ? uuid_value($body["transaction_key"]) : null;
+    $db->beginTransaction();
+    try {
+        lock_state($db);
+        current_session($db, $session);
+        if (array_key_exists("expected_epoch", $body)) {
+            assert_epoch($db, $body);
+        }
+        $role = $session["user"]["role"];
+        $ownerPassword = $body["owner_password"] ?? null;
+        if ($role === "OWNER") {
+            $ownerId = (int) $session["user"]["id"];
+            if (is_string($ownerPassword) && $ownerPassword !== "") {
+                if (strlen($ownerPassword) > 72) {
+                    problem(
+                        422,
+                        "VALIDATION",
+                        "Enter your current owner password.",
+                    );
+                }
+                $hash = query(
+                    $db,
+                    "SELECT password_hash FROM users WHERE id=?",
+                    [$ownerId],
+                )->fetchColumn();
+                credential_check(
+                    $db,
+                    $ownerId,
+                    "owner-reauth",
+                    password_verify($ownerPassword, (string) $hash),
+                    $requestId,
+                );
+            }
+        } else {
+            if (
+                !is_string($ownerPassword) ||
+                $ownerPassword === "" ||
+                strlen($ownerPassword) > 72
+            ) {
+                problem(
+                    403,
+                    "FORBIDDEN",
+                    "Owner password authorization is required to void an order.",
+                );
+            }
+            $ownerRow = $db
+                ->query(
+                    "SELECT id,password_hash FROM users WHERE role='OWNER' AND is_active=1 ORDER BY id LIMIT 1",
+                )
+                ->fetch();
+            if (!$ownerRow) {
+                problem(403, "FORBIDDEN", "Active owner account not found.");
+            }
+            $ownerId = (int) $ownerRow["id"];
+            credential_check(
+                $db,
+                $ownerId,
+                "owner-reauth",
+                password_verify($ownerPassword, (string) $ownerRow["password_hash"]),
+                $requestId,
+            );
+        }
+        $sale = $hasSaleId
+            ? query(
+                $db,
+                "SELECT * FROM sales WHERE id=? FOR UPDATE",
+                [$saleIdParam],
+            )->fetch()
+            : query(
+                $db,
+                "SELECT * FROM sales WHERE transaction_key=? FOR UPDATE",
+                [$txKeyParam],
+            )->fetch();
+        if (!$sale) {
+            problem(404, "NOT_FOUND", "Sale not found.");
+        }
+        if (($sale["status"] ?? "completed") === "voided") {
+            problem(
+                409,
+                "ALREADY_VOIDED",
+                "This sale has already been voided.",
+            );
+        }
+        $saleId = (int) $sale["id"];
+        $at = database_time($db);
+        $movements = query(
+            $db,
+            "SELECT * FROM stock_movements WHERE sale_id=? AND type='SALE' ORDER BY id FOR UPDATE",
+            [$saleId],
+        )->fetchAll();
+        if ($restoreStock) {
+            $batches = [];
+            foreach ($movements as $m) {
+                $take = fixed(
+                    ltrim((string) $m["quantity_delta"], "-"),
+                    3,
+                    "Sale deduction",
+                );
+                $c = query(
+                    $db,
+                    "SELECT * FROM stock_containers WHERE id=? FOR UPDATE",
+                    [$m["container_id"]],
+                )->fetch();
+                query(
+                    $db,
+                    "SELECT id FROM ingredients WHERE id=? FOR UPDATE",
+                    [$m["ingredient_id"]],
+                )->fetch();
+                $rem = fixed($c["remaining_qty"], 3, "Remaining", true);
+                $rec = fixed($c["received_qty"], 3, "Received");
+                if ($rem + $take > $rec) {
+                    problem(
+                        409,
+                        "QUANTITY_LIMIT",
+                        "Cannot restore stock to container #" .
+                            $c["id"] .
+                            " because it would exceed its received quantity. Void without restoring stock instead.",
+                    );
+                }
+                query(
+                    $db,
+                    "UPDATE stock_containers SET remaining_qty=remaining_qty+? WHERE id=?",
+                    [decimal($take, 3), $c["id"]],
+                );
+                query(
+                    $db,
+                    "UPDATE ingredients SET current_stock=current_stock+? WHERE id=?",
+                    [decimal($take, 3), $m["ingredient_id"]],
+                );
+                $batches[(int) $c["batch_id"]] = true;
+                record_movement(
+                    $db,
+                    (int) $m["ingredient_id"],
+                    (int) $m["batch_id"],
+                    (int) $m["container_id"],
+                    $saleId,
+                    $ownerId,
+                    "ADJUSTMENT",
+                    $take,
+                    substr(
+                        "Void sale #" .
+                            $saleId .
+                            " (stock restored): " .
+                            $reason,
+                        0,
+                        255,
+                    ),
+                    $at,
+                );
+            }
+            foreach (array_keys($batches) as $batchId) {
+                update_batch_totals($db, $batchId);
+            }
+        } else {
+            foreach ($movements as $m) {
+                record_movement(
+                    $db,
+                    (int) $m["ingredient_id"],
+                    (int) $m["batch_id"],
+                    (int) $m["container_id"],
+                    $saleId,
+                    $ownerId,
+                    "ADJUSTMENT",
+                    0,
+                    substr(
+                        "Void sale #" .
+                            $saleId .
+                            " (stock wasted): " .
+                            $reason,
+                        0,
+                        255,
+                    ),
+                    $at,
+                );
+            }
+        }
+        query(
+            $db,
+            "UPDATE sales SET status='voided',void_reason=?,voided_by=?,voided_at=? WHERE id=?",
+            [$reason, $ownerId, $at, $saleId],
+        );
+        audit($db, $ownerId, "SALE_VOIDED", $requestId, [
+            "sale_id" => $saleId,
+            "transaction_key" => $sale["transaction_key"],
+            "reason" => $reason,
+            "restore_stock" => $restoreStock,
+            "initiated_by" => (int) $session["user"]["id"],
+        ]);
+        $receipt = sale_receipt(
+            $db,
+            query($db, "SELECT * FROM sales WHERE id=?", [$saleId])->fetch(),
+        );
+        $db->commit();
+        return $receipt;
+    } catch (Throwable $e) {
         if ($db->inTransaction()) {
             $db->rollBack();
         }

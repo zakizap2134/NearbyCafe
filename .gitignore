@@ -2,6 +2,7 @@
 **/node_modules/
 /rebuild/public/assets/
 /rebuild/public/index.html
+/rebuild/public/uploads/
 /dist/
 # Private runtime configuration; examples stay tracked
 .env

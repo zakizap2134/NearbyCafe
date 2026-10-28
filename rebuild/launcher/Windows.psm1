@@ -43,15 +43,19 @@ function Get-NearbyServiceInfo($Config,[string]$Kind){
  if($null -eq $s){Stop-NearbyError 'SERVICE_MISSING'}
  if($s.PathName -cne $expected){Stop-NearbyError 'SERVICE_CHANGED'}
  if($Kind -eq 'web' -and ((Get-NearbyWebArguments $name|ConvertTo-Json -Compress) -cne ($Config.WebArguments|ConvertTo-Json -Compress))){Stop-NearbyError 'SERVICE_CHANGED'}
+ $status=(Get-Service -Name $name).Status.ToString()
  $start=''
  if([int]$s.ProcessId -gt 0){
-  $p=Get-CimInstance Win32_Process -Filter "ProcessId=$($s.ProcessId)" -ErrorAction Stop
-  if($null -eq $p -or -not $p.CreationDate){Stop-NearbyError 'SERVICE_ACCESS'}
+  $p=Get-CimInstance Win32_Process -Filter "ProcessId=$($s.ProcessId)" -ErrorAction SilentlyContinue
+  if($null -eq $p -or -not $p.CreationDate){
+   if($status -in @('StopPending','Stopped')){return @{Status=$status;Pid=0;Start='';Binary=$s.PathName;Name=$name}}
+   Stop-NearbyError 'SERVICE_ACCESS'
+  }
   $start=$p.CreationDate.ToUniversalTime().Ticks.ToString()
   $exe=if($Kind -eq 'web'){$Config.Httpd}else{$Config.DatabaseExe}
   if($p.ExecutablePath -and [IO.Path]::GetFullPath($p.ExecutablePath) -ne [IO.Path]::GetFullPath($exe)){Stop-NearbyError 'SERVICE_CHANGED'}
  }
- return @{Status=(Get-Service -Name $name).Status.ToString();Pid=[int]$s.ProcessId;Start=$start;Binary=$s.PathName;Name=$name}
+ return @{Status=$status;Pid=[int]$s.ProcessId;Start=$start;Binary=$s.PathName;Name=$name}
 }
 function Test-NearbyPort([string]$HostName,[int]$Port){
  $c=New-Object Net.Sockets.TcpClient

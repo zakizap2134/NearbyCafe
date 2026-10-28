@@ -31,7 +31,14 @@ $columns = [
     "audit_events" => ["id", "user_id", "action", "request_id", "created_at"],
 ];
 $columns += [
-    "products" => ["id", "name", "category", "is_active", "is_vat_exempt"],
+    "products" => [
+        "id",
+        "name",
+        "category",
+        "image_filename",
+        "is_active",
+        "is_vat_exempt",
+    ],
     "product_variants" => [
         "id",
         "product_id",
@@ -81,6 +88,10 @@ $columns += [
         "vat_rate",
         "cash_received",
         "change_due",
+        "status",
+        "void_reason",
+        "voided_by",
+        "voided_at",
     ],
     "sale_items" => [
         "id",

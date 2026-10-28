@@ -31,13 +31,13 @@ function report_data(PDO $db, array $params, bool $csv = false): array
     $offset = ($page - 1) * 50;
     $totals = query(
         $db,
-        "SELECT COUNT(*) AS count,COALESCE(SUM(total_gross),0) AS gross,COALESCE(SUM(total_net),0) AS net,COALESCE(SUM(total_vat),0) AS vat FROM sales WHERE sale_at>=? AND sale_at<?",
+        "SELECT COUNT(*) AS count,COALESCE(SUM(total_gross),0) AS gross,COALESCE(SUM(total_net),0) AS net,COALESCE(SUM(total_vat),0) AS vat FROM sales WHERE status='completed' AND sale_at>=? AND sale_at<?",
         [$from, $end],
     )->fetch();
     $totals["count"] = (int) $totals["count"];
     $daily = query(
         $db,
-        "SELECT DATE(sale_at) AS date,COUNT(*) AS count,SUM(total_gross) AS gross,SUM(total_net) AS net,SUM(total_vat) AS vat FROM sales WHERE sale_at>=? AND sale_at<? GROUP BY DATE(sale_at) ORDER BY date",
+        "SELECT DATE(sale_at) AS date,COUNT(*) AS count,SUM(total_gross) AS gross,SUM(total_net) AS net,SUM(total_vat) AS vat FROM sales WHERE status='completed' AND sale_at>=? AND sale_at<? GROUP BY DATE(sale_at) ORDER BY date",
         [$from, $end],
     )->fetchAll();
     if (!$csv) {
@@ -50,14 +50,14 @@ function report_data(PDO $db, array $params, bool $csv = false): array
             "daily" => $daily,
             "sales" => query(
                 $db,
-                "SELECT s.*,u.display_name AS cashier FROM sales s JOIN users u ON u.id=s.user_id WHERE sale_at>=? AND sale_at<? ORDER BY sale_at DESC,s.id DESC LIMIT 50 OFFSET $offset",
+                "SELECT s.*,u.display_name AS cashier,v.display_name AS voided_by_name FROM sales s JOIN users u ON u.id=s.user_id LEFT JOIN users v ON v.id=s.voided_by WHERE sale_at>=? AND sale_at<? ORDER BY sale_at DESC,s.id DESC LIMIT 50 OFFSET $offset",
                 [$from, $end],
             )->fetchAll(),
         ];
     }
     $count = (int) query(
         $db,
-        "SELECT COUNT(*) FROM sale_items i JOIN sales s ON s.id=i.sale_id WHERE s.sale_at>=? AND s.sale_at<?",
+        "SELECT COUNT(*) FROM sale_items i JOIN sales s ON s.id=i.sale_id WHERE s.status='completed' AND s.sale_at>=? AND s.sale_at<?",
         [$from, $end],
     )->fetchColumn();
     if ($count > 50000) {
@@ -69,7 +69,7 @@ function report_data(PDO $db, array $params, bool $csv = false): array
     }
     $rows = query(
         $db,
-        "SELECT s.id AS sale_id,s.sale_at,u.display_name AS cashier,i.variant_label,i.qty,i.unit_price,i.line_gross AS gross,i.line_net AS net,i.line_vat AS vat,s.vat_rate FROM sale_items i JOIN sales s ON s.id=i.sale_id JOIN users u ON u.id=s.user_id WHERE s.sale_at>=? AND s.sale_at<? ORDER BY s.sale_at,s.id,i.id",
+        "SELECT s.id AS sale_id,s.sale_at,u.display_name AS cashier,i.variant_label,i.qty,i.unit_price,i.line_gross AS gross,i.line_net AS net,i.line_vat AS vat,s.vat_rate FROM sale_items i JOIN sales s ON s.id=i.sale_id JOIN users u ON u.id=s.user_id WHERE s.status='completed' AND s.sale_at>=? AND s.sale_at<? ORDER BY s.sale_at,s.id,i.id",
         [$from, $end],
     )->fetchAll();
     $stream = fopen("php://temp", "w+");
