@@ -37,7 +37,7 @@ Date: 19 October 2026 (Asia/Manila). Stage 3 of the full rebuild, based on Stage
 
 Drafts, pending submissions and local history are account-scoped. Queued bodies are immutable. Successful receipts cannot be downgraded by a late response from another tab. Authentication failures from an older account cannot clear the newly signed-in account. The worker stops after logout/leaving Register, retries with bounded backoff, and resumes with the same account and site address. Only a host receipt marks a completed sale; pending orders do not reserve stock.
 
-Owner recovery requires the offline code and trusted host-console access. Staff resets require an active Owner session and owner password reauthentication. Both are audited and revoke the affected sessions. Follow [RECOVERY.md](RECOVERY.md) to issue and store the initial code after installation/upgrade.
+Owner recovery requires the offline code and trusted host-console access. Staff resets require an active Owner session and owner password reauthentication. Both are audited and revoke the affected sessions. Follow [RECOVERY.md](../../operations/RECOVERY.md) to issue and store the initial code after installation/upgrade.
 
 ## Remaining acceptance and scope
 

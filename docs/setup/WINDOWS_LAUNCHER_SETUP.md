@@ -1,6 +1,6 @@
 # Nearby Café — Windows setup and upgrade
 
-Release: 23 October 2026. For the integrated repository use [the root guide](../README.md) and [current verification](../docs/VERIFICATION.md). These are developer installation steps. After installation, the Owner uses the desktop shortcut and the short Owner guide.
+Release: 23 October 2026. For the integrated repository use [the root guide](../../README.md) and [current verification](../academic/VERIFICATION.md). These are developer installation steps. After installation, the Owner uses the desktop shortcut and the short Owner guide.
 
 ## What this update runs
 
@@ -126,6 +126,6 @@ Use a disposable shop installation/database for failure tests. Check off actual 
 
 Keep `START-DEV.bat` for development. Node.js 22.12+ is needed only for `npm ci` / `npm run build`; Python/Pillow/CairoSVG are needed only if regenerating icon assets. Neither is needed for daily Owner startup.
 
-The integrated complete ZIP needs no earlier patches. The Git branch delivery and exact baseline are documented in [publishing instructions](../docs/PUBLISHING.md). Source Git checkouts require `npm ci` and `npm run build`; the complete ZIP includes the build.
+The integrated complete ZIP needs no earlier patches. The Git branch delivery and exact baseline are documented in [publishing instructions](../academic/PUBLISHING.md). Source Git checkouts require `npm ci` and `npm run build`; the complete ZIP includes the build.
 
 Sources for deployment choices: [Apache on Windows](https://httpd.apache.org/docs/2.4/platform/windows.html), [PHP with Apache on Windows](https://www.php.net/manual/en/install.windows.apache2.php), [MariaDB server options](https://mariadb.com/docs/server/server-management/starting-and-stopping-mariadb/mariadbd-options), [Apache Windows service implementation](https://github.com/apache/httpd/blob/2.4.x/server/mpm/winnt/service.c).
