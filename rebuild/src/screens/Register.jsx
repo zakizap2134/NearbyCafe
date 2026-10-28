@@ -286,11 +286,6 @@ export default function Register({ user, token, expired }) {
         sale={successSale}
         cashierName={user.display_name || user.username}
         onClose={() => setSuccessSale(null)}
-        onPrint={() => {
-          setSale(successSale);
-          setSuccessSale(null);
-          setTimeout(() => window.print(), 100);
-        }}
         onVoid={(s) => {
           setSuccessSale(null);
           setVoidTarget(s);

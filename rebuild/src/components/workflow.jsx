@@ -109,9 +109,11 @@ export function Receipt({ sale, onVoid, onReloadItems }) {
         ))}
       </dl>
       <div className="button-row receipt-actions no-print">
-        <button type="button" onClick={() => window.print()}>
-          Print receipt
-        </button>
+        {onPrint && (
+          <button type="button" onClick={onPrint}>
+            Print receipt
+          </button>
+        )}
         {!isVoided && onVoid && (
           <button
             type="button"
@@ -207,9 +209,11 @@ export function OrderSuccessModal({
           <button type="button" className="primary" onClick={onClose}>
             New Order (Enter)
           </button>
-          <button type="button" onClick={onPrint}>
-            Print / View Receipt
-          </button>
+          {onPrint && (
+            <button type="button" onClick={onPrint}>
+              Print / View Receipt
+            </button>
+          )}
           {onVoid && sale.status !== "voided" && (
             <button
               type="button"
