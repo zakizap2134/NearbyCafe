@@ -1,4 +1,4 @@
-# Nearby Café
+# Nearby Café a VenueVue Project by CTRL+Stay
 
 A locally hosted point-of-sale and recipe-driven inventory application for **CTRL + STAY · COSC 75 / Software Engineering II**. React, Vite, Tailwind CSS and React Router provide the interface; PHP/PDO and MySQL/MariaDB handle accounts, sales and inventory.
 
