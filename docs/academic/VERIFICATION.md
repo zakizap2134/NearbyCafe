@@ -6,16 +6,16 @@ Scope: the complete launcher source integrated onto GitHub baseline `ac70e70e667
 
 | Check | Result | Evidence |
 |---|---|---|
-| Clean dependency install and production build | Passed; Vite 8.3.5, 43 modules | [build output](verification/build.txt) |
-| Dependency audit | Vite 8.3.5; zero known vulnerabilities at verification | [audit JSON](verification/dependency-audit.json) |
-| PHP syntax | All application/tool/test PHP files passed | [lint output](verification/php-lint.txt) |
-| Full application integration/browser suite | **58 PASS groups**, scope `all` | [regression output](verification/regression.txt) |
-| PHP/JavaScript password-policy parity | Shared boundary cases passed, including Unicode/combining marks, NUL, confirmation and 72-byte limit | [password output](verification/password-policy.txt) |
-| Service orchestration | **13 PASS groups**, simulated adapters | [orchestration output](verification/orchestration.txt) |
-| Ownership persistence | **3 PASS groups**, real temporary filesystem, Linux PowerShell | [persistence output](verification/persistence.txt) |
-| Production Apache and actual Vite/browser integration | **8 PASS groups**, Linux Apache with production configuration adapted for Linux modules | [Apache output](verification/apache.txt) |
-| Logo/favicon/local assets | **3 PASS groups**; unchanged original logo, ICO sizes, local PNG/SVG and 6.62:1 button contrast | [asset output](verification/assets.txt) |
-| Repository exclusions, source reconciliation, links and staged tree | See final repository check output | [repository output](verification/repository.txt) |
+| Clean dependency install and production build | Passed; Vite 8.3.5, 43 modules | [build output](../verification/build.txt) |
+| Dependency audit | Vite 8.3.5; zero known vulnerabilities at verification | [audit JSON](../verification/dependency-audit.json) |
+| PHP syntax | All application/tool/test PHP files passed | [lint output](../verification/php-lint.txt) |
+| Full application integration/browser suite | **58 PASS groups**, scope `all` | [regression output](../verification/regression.txt) |
+| PHP/JavaScript password-policy parity | Shared boundary cases passed, including Unicode/combining marks, NUL, confirmation and 72-byte limit | [password output](../verification/password-policy.txt) |
+| Service orchestration | **13 PASS groups**, simulated adapters | [orchestration output](../verification/orchestration.txt) |
+| Ownership persistence | **3 PASS groups**, real temporary filesystem, Linux PowerShell | [persistence output](../verification/persistence.txt) |
+| Production Apache and actual Vite/browser integration | **8 PASS groups**, Linux Apache with production configuration adapted for Linux modules | [Apache output](../verification/apache.txt) |
+| Logo/favicon/local assets | **3 PASS groups**; unchanged original logo, ICO sizes, local PNG/SVG and 6.62:1 button contrast | [asset output](../verification/assets.txt) |
+| Repository exclusions, source reconciliation, links and staged tree | See final repository check output | [repository output](../verification/repository.txt) |
 
 These counts describe assertion groups, not individual assertions or a development-completion percentage. Earlier `rebuild/tests/*RESULTS*` files are historical package evidence; the reports above were rerun for this integration.
 

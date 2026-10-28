@@ -41,7 +41,11 @@ All active development and deployment live inside `rebuild/` (never modify obsol
   - `@rebuild/tools/preflight.php`, `@rebuild/tools/install.php`, `@rebuild/tools/recover-owner.php`, `@rebuild/tools/prepare-owner-setup.php`, `@rebuild/tools/support-reset-owner.php`
 - **Project Documentation (`docs/` & `Docu/`)**:
   - `@Docu/VenueVue_NearbyCafe_Project_Plan.docx` — Finalized COSC 75 Project Plan (zero `[TO CONFIRM]` tags, 540h WBS, hardware/latency specs, optional online hosting retained)
-  - `@docs/INSTALLATION.md`, `@docs/INTEGRATION.md`, `@docs/PUBLISHING.md`, `@docs/VERIFICATION.md`, `@docs/OWNER_GUIDE.md`, `@docs/TROUBLESHOOTING.md`
+  - `@docs/README.md` — Master documentation index
+  - `@docs/setup/` — `INSTALLATION.md`, `WINDOWS_LAUNCHER_SETUP.md`, `OWNER_GUIDE.md`, `TROUBLESHOOTING.md`, `START_HERE.md`
+  - `@docs/operations/` — `BACKUP_RESTORE.md`, `RECOVERY.md`, `HANDOVER.md`, `DEMO_SCRIPT.md`, `ACCEPTANCE.md`
+  - `@docs/academic/` — `INTEGRATION.md`, `PUBLISHING.md`, `PR_BODY.md`, `VERIFICATION.md`, and Markdown project plan sources
+  - `@docs/archive/rebuild-stages/` — Historical rebuild stage and task verification reports
 
 ---
 

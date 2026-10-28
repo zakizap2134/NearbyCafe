@@ -2,7 +2,14 @@
 
 A locally hosted point-of-sale and recipe-driven inventory application for **CTRL + STAY · COSC 75 / Software Engineering II**. React, Vite, Tailwind CSS and React Router provide the interface; PHP/PDO and MySQL/MariaDB handle accounts, sales and inventory.
 
-**The current application is in `rebuild/`.** This integration includes rebuild Stages 1–5, account/theme Tasks 1–7, browser recovery Tasks 1–5, the Unicode password policy and Windows launcher. Earlier patches are unnecessary. The old root application has been retired; see [source reconciliation](docs/INTEGRATION.md).
+**The current application is in `rebuild/`.** This integration includes rebuild Stages 1–5, account/theme Tasks 1–7, browser recovery Tasks 1–5, the Unicode password policy and Windows launcher. Earlier patches are unnecessary. The old root application has been retired; see [source reconciliation](docs/academic/INTEGRATION.md) and the full [documentation map](docs/README.md).
+
+## Documentation Map
+
+- **Setup & Deployment (`docs/setup/`)**: [Installation & Upgrades](docs/setup/INSTALLATION.md) · [Windows Launcher Setup](docs/setup/WINDOWS_LAUNCHER_SETUP.md) · [Owner Guide & Wi-Fi Hardening](docs/setup/OWNER_GUIDE.md) · [Troubleshooting](docs/setup/TROUBLESHOOTING.md) · [Start Here](docs/setup/START_HERE.md)
+- **Operations & Recovery (`docs/operations/`)**: [Backup, Restore & Outage Recovery](docs/operations/BACKUP_RESTORE.md) · [Account Recovery](docs/operations/RECOVERY.md) · [Handover](docs/operations/HANDOVER.md) · [Demo Script](docs/operations/DEMO_SCRIPT.md) · [UAT Acceptance](docs/operations/ACCEPTANCE.md)
+- **Academic & Verification (`docs/academic/`)**: [Verification Report](docs/academic/VERIFICATION.md) · [Integration Review](docs/academic/INTEGRATION.md) · [Publishing Guide](docs/academic/PUBLISHING.md) · [Project Plan Rev 2.3](docs/academic/VENUEVUE%20PROJECT%20PLAN%20Rev%202.3.md)
+- **Historical Rebuild Archive (`docs/archive/rebuild-stages/`)**: [Full Index](docs/README.md#4-historical-rebuild-archive-docsarchiverebuild-stages)
 
 ## What it does
 
@@ -22,7 +29,7 @@ A locally hosted point-of-sale and recipe-driven inventory application for **CTR
 | Database | InnoDB; MariaDB 10.4+ target. MySQL 8 compatibility is expected but not verified in this integration |
 | User's reported host | PHP 8.2.12, MariaDB 10.4.32, Windows PowerShell 5.1; preflight and Apache syntax passed before the reported launcher replacement failure |
 | Developers only | Node.js 22.12+ and npm; pinned dependency versions and `package-lock.json` are retained |
-| Automated verification | Linux PHP 8.3, MariaDB 10.11, Chromium and PowerShell 7.4; see [verification](docs/VERIFICATION.md) for exact scope and limitations |
+| Automated verification | Linux PHP 8.3, MariaDB 10.11, Chromium and PowerShell 7.4; see [verification](docs/academic/VERIFICATION.md) for exact scope and limitations |
 
 This is **not** a standalone bundled-runtime installer. Node is unnecessary for daily Owner startup once the frontend is built. No default accounts are shipped. VAT display is not a claim of BIR certification.
 
@@ -41,13 +48,13 @@ git clone https://github.com/zakizap2134/venuevue_1.git C:\Projects\NearbyCafe-S
 Set-Location C:\Projects\NearbyCafe-Source
 ```
 
-Until the integration PR is merged, the default `main` still contains the old app. Import the provided integration branch using [publishing instructions](docs/PUBLISHING.md), or use the complete ZIP. Do not expect unpublished changes to appear in a fresh GitHub download.
+Until the integration PR is merged, the default `main` still contains the old app. Import the provided integration branch using [publishing instructions](docs/academic/PUBLISHING.md), or use the complete ZIP. Do not expect unpublished changes to appear in a fresh GitHub download.
 
-The repository layout is `README.md`, `docs/`, retained historical course documents in `Docu/`, and one runnable application in `rebuild/`. Within `rebuild`: `src/` is frontend source, `app/` is private PHP, `database/` is schema source, `tools/` is CLI support, `launcher/` is Windows startup, and **only `public/` is web-served**. Never create `rebuild/rebuild`.
+The repository layout is `README.md`, `docs/` ([organized into `setup/`, `operations/`, `academic/`, and `archive/`](docs/README.md)), retained historical course documents in `Docu/`, and one runnable application in `rebuild/`. Within `rebuild`: `src/` is frontend source, `app/` is private PHP, `database/` is schema source, `tools/` is CLI support, `launcher/` is Windows startup, and **only `public/` is web-served**. Never create `rebuild/rebuild`.
 
 ## Fresh installation — developer performs once
 
-Use [the numbered installation guide](docs/INSTALLATION.md). In brief:
+Use [the numbered installation guide](docs/setup/INSTALLATION.md). In brief:
 
 1. Install XAMPP and provision a genuinely new, separate database using the documented tools. Never run fresh-install steps over client data.
 2. Place the application at `C:\Projects\VenueVue\rebuild` (or the chosen clone's `rebuild`). Copy the safe configuration example only if `config/local.php` does not exist; enter actual connection settings.
@@ -58,7 +65,7 @@ There is no public staff registration or third role. The Owner creates Baristas.
 
 ## Upgrade an existing installation
 
-Follow [upgrade instructions](docs/INSTALLATION.md#upgrade-an-existing-rebuild). Back up first, finish active sales, and preserve `config/local.php`, launcher configuration, storage, database files, accounts and browser data. Copy supplied source/build files into the existing folder without mirror/delete operations. **Schema version 4 needs no migration for this integration.** Older rebuild schemas require the existing documented migration after a backup. The original pre-rebuild database has no automatic converter; do not import it into the rebuild schema.
+Follow [upgrade instructions](docs/setup/INSTALLATION.md#upgrade-an-existing-rebuild). Back up first, finish active sales, and preserve `config/local.php`, launcher configuration, storage, database files, accounts and browser data. Copy supplied source/build files into the existing folder without mirror/delete operations. **Schema version 4 needs no migration for this integration.** Older rebuild schemas require the existing documented migration after a backup. The original pre-rebuild database has no automatic converter; do not import it into the rebuild schema.
 
 Keep the same scheme, host, port and browser profile while pending orders exist. `localhost`, `127.0.0.1` and the laptop IP are different origins. The launcher default remains `http://localhost:5174`; changing origins does not transfer IndexedDB orders.
 
@@ -68,7 +75,7 @@ Keep the same scheme, host, port and browser profile while pending orders exist.
 2. Use the browser. Repeated clicks reuse the launcher/application; **Open Nearby Café** reopens the page.
 3. Finish sales on all devices, choose **Stop Nearby Café**, and wait for confirmation. It stops only services it owns and is allowed to stop. Shared services can remain running.
 
-Closing the launcher window alone leaves services running. Read [the short Owner guide](docs/OWNER_GUIDE.md) for recovery and problem reporting.
+Closing the launcher window alone leaves services running. Read [the short Owner guide](docs/setup/OWNER_GUIDE.md) for recovery and problem reporting.
 
 ## Developer commands
 
@@ -98,16 +105,16 @@ npm run dev
 
 Run `ipconfig` on the host and find the active shop Wi-Fi/hotspot IPv4 address. Tablets on that same trusted network open `http://HOST-IP:5174`. The one-time installer creates a scoped Private-profile/LocalSubnet web firewall rule; the developer must verify the network is trusted and marked Private. Do not open the database port to tablets or the public internet. Keep the host awake.
 
-Local HTTP is **not encrypted**. HTTPS certificate provisioning is a separate deployment task if transport confidentiality is required. Internet independence does not remove the need for the host or Wi-Fi. See [Windows setup](rebuild/WINDOWS_LAUNCHER_SETUP.md) for installer options and device acceptance.
+Local HTTP is **not encrypted**. HTTPS certificate provisioning is a separate deployment task if transport confidentiality is required. Internet independence does not remove the need for the host or Wi-Fi. See [Windows setup](docs/setup/WINDOWS_LAUNCHER_SETUP.md) for installer options and device acceptance.
 
 ## Account recovery
 
 Owners use **Forgot password? → Owner/Admin recovery** with their username and saved ongoing recovery code. A successful reset revokes Owner sessions, displays a replacement code once, and returns to sign-in. Save the replacement code. If a response is lost, try signing in with the new password; Account security can replace the recovery code after sign-in. Do not assume an interrupted response means no change occurred.
 
-Baristas contact the Owner for an authorized reset. If the Owner loses both password and code, authorized server-access support is required. Never put plaintext into `password_hash`. New passwords require **at least 12 Unicode code points**, no NUL, at most 72 UTF-8 bytes for bcrypt, and matching confirmation. Existing passwords continue to authenticate. See [recovery guide](rebuild/RECOVERY.md) and [support reset](rebuild/OWNER_SUPPORT_RESET.txt).
+Baristas contact the Owner for an authorized reset. If the Owner loses both password and code, authorized server-access support is required. Never put plaintext into `password_hash`. New passwords require **at least 12 Unicode code points**, no NUL, at most 72 UTF-8 bytes for bcrypt, and matching confirmation. Existing passwords continue to authenticate. See [recovery guide](docs/operations/RECOVERY.md) and [support reset](rebuild/OWNER_SUPPORT_RESET.txt).
 
 ## Troubleshooting and verification
 
-See [troubleshooting](docs/TROUBLESHOOTING.md) for `DB_UNAVAILABLE`, `CONFIG_MISSING`, ports, assets, service permissions, `LAUNCHER_FAILED`, Apache syntax checks, the `File.Replace` fix and cached favicons. See [verification results](docs/VERIFICATION.md) for passed automated checks and remaining Windows/device/client acceptance.
+See [troubleshooting](docs/setup/TROUBLESHOOTING.md) for `DB_UNAVAILABLE`, `CONFIG_MISSING`, ports, assets, service permissions, `LAUNCHER_FAILED`, Apache syntax checks, the `File.Replace` fix and cached favicons. See [verification results](docs/academic/VERIFICATION.md) for passed automated checks and remaining Windows/device/client acceptance.
 
-Private configuration, logs, database backups and ownership files are ignored. Git tracks source and lockfiles; generated JS/CSS/index build files are excluded from Git and included in the complete release ZIP. The old conversation export was removed from the new tree, but history was not rewritten. See [publication review](docs/INTEGRATION.md#publication-review) before making the repository public or sharing old history.
+Private configuration, logs, database backups and ownership files are ignored. Git tracks source and lockfiles; generated JS/CSS/index build files are excluded from Git and included in the complete release ZIP. The old conversation export was removed from the new tree, but history was not rewritten. See [publication review](docs/academic/INTEGRATION.md#publication-review) before making the repository public or sharing old history.

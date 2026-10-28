@@ -43,4 +43,4 @@ Full suite output ended with **`ALL STAGE 1–4 CHECKS PASSED`**. Tests are in `
 - The daily summary is an informational Z-reading; no fiscal close, VAT-exempt transaction, discount, profit analytics or automated backup was added.
 - Stage 5 remains final presentation polish, actual host/device acceptance, client data validation and handover. Stage 4 does not mean the entire project has passed client acceptance.
 
-Upgrade and recovery instructions: [README.md](README.md), [BACKUP_RESTORE.md](BACKUP_RESTORE.md), [RECOVERY.md](RECOVERY.md).
+Upgrade and recovery instructions: [README.md](../../../rebuild/README.md), [BACKUP_RESTORE.md](../../operations/BACKUP_RESTORE.md), [RECOVERY.md](../../operations/RECOVERY.md).

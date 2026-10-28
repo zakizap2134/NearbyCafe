@@ -1,6 +1,6 @@
 # Windows installation and safe upgrades
 
-Start from the [root README](../README.md). Commands below are **PowerShell**, unless marked otherwise. The examples use `C:\Projects\VenueVue\rebuild`. Substitute your actual application folder consistently.
+Start from the [root README](../../README.md). Commands below are **PowerShell**, unless marked otherwise. The examples use `C:\Projects\VenueVue\rebuild`. Substitute your actual application folder consistently.
 
 ## Fresh installation only
 
@@ -43,9 +43,9 @@ Start from the [root README](../README.md). Commands below are **PowerShell**, u
    .\Setup-Nearby-Cafe.bat
    ```
 
-   An authorized administrator accepts the one-time elevation. Setup registers a dedicated manual-start Apache service, reuses a verified compatible database service or registers one for the existing XAMPP database, sets scoped permissions/firewall rules and creates the desktop shortcut. It does not initialize the database or start a second instance. For a shared database, read the `-KeepDatabaseRunning` option in [detailed setup](../rebuild/WINDOWS_LAUNCHER_SETUP.md).
+   An authorized administrator accepts the one-time elevation. Setup registers a dedicated manual-start Apache service, reuses a verified compatible database service or registers one for the existing XAMPP database, sets scoped permissions/firewall rules and creates the desktop shortcut. It does not initialize the database or start a second instance. For a shared database, read the `-KeepDatabaseRunning` option in [detailed setup](WINDOWS_LAUNCHER_SETUP.md).
 7. Double-click **Nearby Café** on the desktop. Wait for Ready. Choose **Set up owner account** in the browser, enter the initial setup code and matching new passwords, then sign in. If setup is already closed, use the existing Owner or authorized recovery; deleting the Owner is not a setup procedure.
-8. Open **Management → Account security**, generate the ongoing recovery code, save it offline and acknowledge saving it. This is different from the initial setup code. Create Baristas through Management. Complete the [acceptance checks](VERIFICATION.md#remaining-acceptance) before client handover.
+8. Open **Management → Account security**, generate the ongoing recovery code, save it offline and acknowledge saving it. This is different from the initial setup code. Create Baristas through Management. Complete the [acceptance checks](../academic/VERIFICATION.md#remaining-acceptance) before client handover.
 
 ## Upgrade an existing rebuild
 
