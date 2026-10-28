@@ -1,6 +1,6 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 rem Read-only database health check after a power cut or forced shutdown.
 rem It never repairs, deletes, reinstalls or force-starts anything.
 set "VV_PHP=C:\xampp\php\php.exe"

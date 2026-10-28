@@ -1,6 +1,6 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 set "VV_PHP=C:\xampp\php\php.exe"
 if not exist "%VV_PHP%" (
  echo XAMPP PHP was not found at C:\xampp\php\php.exe.

@@ -64,7 +64,7 @@ A reservation tells the router: "always give this laptop the same address." It i
 
 1. Make sure the Wi-Fi is set to **Private**: Settings → Network & internet → Wi-Fi → click the shop Wi-Fi name → Network profile type → **Private network**. (On Public, Windows blocks the tablets on purpose.)
 2. On the same page, set **Random hardware addresses** to **Off** for this network. Otherwise the router sees a "new" laptop and the reservation doesn't work.
-3. Double-click **CHECK-SHOP-NETWORK.bat** in the `rebuild` folder. Note the **TABLET ADDRESS** it shows.
+3. Double-click **CHECK-SHOP-NETWORK.bat** in `rebuild\tools\maintenance\`. Note the **TABLET ADDRESS** it shows.
 4. Find the laptop's physical address (MAC): on the same Wi-Fi settings page, scroll to **Physical address (MAC)**. It looks like `A4-B1-C2-11-22-33`.
 
 **Then, in the router:**

@@ -1,0 +1,44 @@
+Nearby Cafe — complete GitHub integration delivery — 23 October 2026
+
+START HERE
+1. Read source/README.md.
+2. Existing shop: follow source/docs/INSTALLATION.md, Upgrade an existing rebuild.
+3. Copy only source/rebuild contents into your existing rebuild folder; no rebuild/rebuild.
+4. Preserve private config, runtime storage, database files and browser site data.
+5. Do not run fresh-install/database setup commands over an existing shop.
+
+The complete source includes built frontend assets and needs NO earlier patches.
+XAMPP must remain installed when its PHP/Apache/MariaDB runtimes are used.
+No default accounts or private configuration are included.
+
+GITHUB
+Branch: integration/nearby-cafe-complete-update
+Baseline: ac70e70e667c26d10c58056bbcaa8c7f4d28bd37
+Final commit: e80e8b88163501683e336e6ba820b4fbb65e6036
+f6cbe7e Integrate complete Nearby Cafe rebuild and fix Windows ownership persistence
+3ccb79e Document installation, safe upgrades and verified GitHub delivery
+e80e8b8 Preserve UTF-8 BOM in Windows launcher verification scripts
+
+Nothing was pushed, merged, force-pushed or history-rewritten.
+Read source/docs/PUBLISHING.md for exact Windows import, push and PR commands.
+NearbyCafe_Integration.bundle contains only the new commit range and requires the
+baseline already in GitHub history. Bundle import was tested in a separate clone.
+An all-files textual patch is intentionally omitted because deletion hunks would
+repeat historical private conversations/credentials. The bundle preserves exact
+commits; the source folder works independently without the bundle or older patches.
+
+VERIFICATION
+58 full application regression PASS groups; 13 simulated launcher PASS groups;
+3 real filesystem persistence PASS groups on Linux PowerShell; 8 Linux Apache/
+Chromium production/dev PASS groups; 3 asset PASS groups; PHP syntax and shared
+PHP/JavaScript password checks passed. Vite updated to 8.3.5; npm audit returned
+zero known vulnerabilities at verification. See source/docs/VERIFICATION.md.
+Native Windows PowerShell 5.1, real services/ACLs/firewall, Chrome/Edge, physical
+tablet and client acceptance remain pending. No claim of BIR certification.
+
+PUBLICATION
+The old root README published demo login credentials. Change any deployed account
+still using them. Existing Git history still contains old files; it was not scrubbed.
+Review source/docs/INTEGRATION.md before publishing or distributing old history.
+
+A SHA256 manifest covers every packaged file except the manifest itself.

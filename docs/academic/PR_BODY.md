@@ -2,4 +2,4 @@ The repository's main branch still launches the earlier VenueVue application. Th
 
 The launcher now uses `NullString.Value` for atomic ownership-file replacement, addressing the reported PowerShell 5.1 path error. Failed persistence cleans temporary files and leaves service ownership unclaimed without stopping existing services. Root documentation covers fresh installation, safe upgrades, daily use, recovery and troubleshooting. Private runtime files and conversation exports are excluded from the new tree; history is unchanged.
 
-Validation and outstanding Windows/device acceptance are recorded in `docs/VERIFICATION.md`. No schema migration is required for the completed schema-v4 rebuild. The old root database is not automatically migrated. No existing client configuration or database was accessed during verification.
+Validation and outstanding Windows/device acceptance are recorded in `docs/academic/VERIFICATION.md`. No schema migration is required for the completed schema-v4 rebuild. The old root database is not automatically migrated. No existing client configuration or database was accessed during verification.

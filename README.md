@@ -111,7 +111,7 @@ Local HTTP is **not encrypted**. HTTPS certificate provisioning is a separate de
 
 Owners use **Forgot password? → Owner/Admin recovery** with their username and saved ongoing recovery code. A successful reset revokes Owner sessions, displays a replacement code once, and returns to sign-in. Save the replacement code. If a response is lost, try signing in with the new password; Account security can replace the recovery code after sign-in. Do not assume an interrupted response means no change occurred.
 
-Baristas contact the Owner for an authorized reset. If the Owner loses both password and code, authorized server-access support is required. Never put plaintext into `password_hash`. New passwords require **at least 12 Unicode code points**, no NUL, at most 72 UTF-8 bytes for bcrypt, and matching confirmation. Existing passwords continue to authenticate. See [recovery guide](docs/operations/RECOVERY.md) and [support reset](rebuild/OWNER_SUPPORT_RESET.txt).
+Baristas contact the Owner for an authorized reset. If the Owner loses both password and code, authorized server-access support is required. Never put plaintext into `password_hash`. New passwords require **at least 12 Unicode code points**, no NUL, at most 72 UTF-8 bytes for bcrypt, and matching confirmation. Existing passwords continue to authenticate. See [recovery guide](docs/operations/RECOVERY.md) and [support reset](docs/txt/OWNER_SUPPORT_RESET.txt).
 
 ## Troubleshooting and verification
 

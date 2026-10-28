@@ -75,7 +75,7 @@ InnoDB protects itself. Every confirmed sale is written to the database's redo l
 
 1. Restore power. Start the host laptop and double-click **Nearby Café**. Wait for **Ready**. The database recovers itself during this start, which can take a little longer than usual.
 2. Ask baristas **not** to take new orders yet. Tablets keep their Pending orders safely; do not re-enter them.
-3. In the `rebuild` folder, double-click **CHECK-DATABASE-AFTER-OUTAGE.bat**. It is read-only: it shows recent database recovery messages, runs `CHECK TABLE` on every application table, and checks the stock, batch, container, movement, VAT and checkout-outcome rules from one consistent snapshot.
+3. In the `rebuild\tools\maintenance\` folder, double-click **CHECK-DATABASE-AFTER-OUTAGE.bat**. It is read-only: it shows recent database recovery messages, runs `CHECK TABLE` on every application table, and checks the stock, batch, container, movement, VAT and checkout-outcome rules from one consistent snapshot.
 4. **HEALTHY** → on each tablet open the register and use **Retry pending orders** (or wait for automatic retry). An order the server already committed returns its original receipt; it is not charged or deducted twice. Then reopen.
 5. **ATTENTION**, or the database will not start → stop. Take a photo of the window and contact the developer. Keep tablets and their browser data untouched.
 

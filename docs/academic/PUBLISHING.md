@@ -54,7 +54,7 @@ If the remote branch already exists with different commits, inspect it and choos
 If GitHub CLI is installed and authenticated:
 
 ```powershell
-gh pr create --repo zakizap2134/venuevue_1 --base main --head integration/nearby-cafe-complete-update --title "Integrate complete Nearby Cafe app and Windows launcher fix" --body-file docs/academic/PR_BODY.md
+gh pr create --repo zakizap2134/venuevue_1 --base main --head integration/nearby-cafe-complete-update --title "nearby cafe project venuevue by ctrl+stay" --body-file docs/academic/PR_BODY.md
 ```
 
 Otherwise open [the compare page](https://github.com/zakizap2134/venuevue_1/compare/main...integration/nearby-cafe-complete-update) after pushing, select **Create pull request**, and copy `docs/academic/PR_BODY.md` into the description. Review files and test limitations before merging. Do not paste private configuration, recovery materials or database dumps into the PR.

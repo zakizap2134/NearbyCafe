@@ -31,8 +31,8 @@ Do not use `cd /d` in PowerShell; `/d` is a Command Prompt option. A quoted exec
 | `OWNERSHIP_SAVE_FAILED` | Check free disk space and write access to `storage/launcher`. Services remain intact. See the failed-save recovery guidance in [installation](INSTALLATION.md#if-the-earlier-launcher-save-failed). |
 | `OWNER_MISSING` / registration closed | Use authorized recovery/support for an existing shop. Prepare initial setup only for a genuinely new installation. |
 | Schema mismatch | Back up and identify the actual rebuild schema before a documented migration. Do not import the old root POS schema into the rebuild. |
-| Tablets: "Server connection failed" | Run `rebuild\CHECK-SHOP-NETWORK.bat` on the host (read-only: Private profile, firewall rule, listening port, tablet address). Then follow the router AP-isolation / DHCP-reservation steps in [the owner guide](OWNER_GUIDE.md#shop-wi-fi-keep-the-tablets-connected). |
-| After a power cut / forced shutdown | Start Nearby Café, then run `rebuild\CHECK-DATABASE-AFTER-OUTAGE.bat` before taking orders. Never delete `ib_logfile*`/`ibdata1` or run `REPAIR TABLE`. See [BACKUP_RESTORE.md](../operations/BACKUP_RESTORE.md#after-a-power-cut). |
+| Tablets: "Server connection failed" | Run `rebuild\tools\maintenance\CHECK-SHOP-NETWORK.bat` on the host (read-only: Private profile, firewall rule, listening port, tablet address). Then follow the router AP-isolation / DHCP-reservation steps in [the owner guide](OWNER_GUIDE.md#shop-wi-fi-keep-the-tablets-connected). |
+| After a power cut / forced shutdown | Start Nearby Café, then run `rebuild\tools\maintenance\CHECK-DATABASE-AFTER-OUTAGE.bat` before taking orders. Never delete `ib_logfile*`/`ibdata1` or run `REPAIR TABLE`. See [BACKUP_RESTORE.md](../operations/BACKUP_RESTORE.md#after-a-power-cut). |
 
 Inspect service state (PowerShell; read-only):
 
