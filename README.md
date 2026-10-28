@@ -8,7 +8,7 @@ A locally hosted point-of-sale and recipe-driven inventory application for **CTR
 
 - **Setup & Deployment (`docs/setup/`)**: [Installation & Upgrades](docs/setup/INSTALLATION.md) · [Windows Launcher Setup](docs/setup/WINDOWS_LAUNCHER_SETUP.md) · [Owner Guide & Wi-Fi Hardening](docs/setup/OWNER_GUIDE.md) · [Troubleshooting](docs/setup/TROUBLESHOOTING.md) · [Start Here](docs/setup/START_HERE.md)
 - **Operations & Recovery (`docs/operations/`)**: [Backup, Restore & Outage Recovery](docs/operations/BACKUP_RESTORE.md) · [Account Recovery](docs/operations/RECOVERY.md) · [Handover](docs/operations/HANDOVER.md) · [Demo Script](docs/operations/DEMO_SCRIPT.md) · [UAT Acceptance](docs/operations/ACCEPTANCE.md)
-- **Academic & Verification (`docs/academic/`)**: [Verification Report](docs/academic/VERIFICATION.md) · [Integration Review](docs/academic/INTEGRATION.md) · [Publishing Guide](docs/academic/PUBLISHING.md) · [Project Plan Rev 2.3](docs/academic/VENUEVUE%20PROJECT%20PLAN%20Rev%202.3.md)
+- **Academic & Verification (`docs/academic/`)**: [Verification Report](docs/academic/VERIFICATION.md) · [Integration Review](docs/academic/INTEGRATION.md) · [Publishing Guide](docs/academic/PUBLISHING.md) 
 - **Historical Rebuild Archive (`docs/archive/rebuild-stages/`)**: [Full Index](docs/README.md#4-historical-rebuild-archive-docsarchiverebuild-stages)
 
 ## What it does
