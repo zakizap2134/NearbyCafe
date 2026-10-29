@@ -35,7 +35,7 @@ export function Select({ label, children, ...props }) {
     </label>
   );
 }
-export function Receipt({ sale, onVoid, onReloadItems }) {
+export function Receipt({ sale, onVoid, onReloadItems, onPrint, onClose }) {
   if (!sale) return null;
   const isVoided = sale.status === "voided";
   return (
@@ -49,6 +49,15 @@ export function Receipt({ sale, onVoid, onReloadItems }) {
         <div className="button-row">
           {isVoided && <span className="pill pill-voided">VOIDED</span>}
           <span className="pill">Cash</span>
+          {onClose && (
+            <button
+              type="button"
+              className="compact-btn"
+              onClick={onClose}
+            >
+              Close receipt
+            </button>
+          )}
         </div>
       </div>
       <p className="subtle">
@@ -158,10 +167,14 @@ export function OrderSuccessModal({
     <div
       className="order-success-overlay no-print"
       role="dialog"
-      aria-modal="false"
+      aria-modal="true"
       aria-label="Order registered successfully"
+      onClick={onClose}
     >
-      <div className="panel order-success-dialog">
+      <div
+        className="panel order-success-dialog"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="order-success-header">
           <span className="order-success-badge" aria-hidden="true">
             ✓
@@ -169,12 +182,14 @@ export function OrderSuccessModal({
           <div>
             <p className="eyebrow">CHECKOUT COMPLETE</p>
             <h2>Order Registered Successfully</h2>
+            <h3 className="order-success-subhead">
+              Sale #{sale.id} confirmed
+            </h3>
             <p className="subtle">
-              Sale #{sale.id}
               {sale.transaction_key
-                ? ` · Key ${sale.transaction_key.slice(0, 8)}`
-                : ""}{" "}
-              · {sale.sale_at} · {sale.cashier_name || cashierName || "Staff"}
+                ? `Key ${sale.transaction_key.slice(0, 8)} · `
+                : ""}
+              {sale.sale_at} · {sale.cashier_name || cashierName || "Staff"}
             </p>
           </div>
         </div>

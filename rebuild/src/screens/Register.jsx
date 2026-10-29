@@ -42,6 +42,9 @@ export default function Register({ user, token, expired }) {
     writes = useRef(Promise.resolve()),
     writeFailed = useRef(false),
     sending = useRef(false),
+    // Keys submitted from this page session; only these open the success modal,
+    // so replayed/restored confirmations after a reload never pop a blocking dialog.
+    liveKeys = useRef(new Set()),
     sync = useRef(null);
   const basket = draft?.basket ?? [],
     cash = draft?.cash ?? "";
@@ -68,7 +71,6 @@ export default function Register({ user, token, expired }) {
           draftRef.current = d;
           setDraft(d);
           setOrders(list);
-          setSale(list.find((o) => o.state === "confirmed")?.sale ?? null);
           setReady(true);
         }
       })
@@ -88,8 +90,12 @@ export default function Register({ user, token, expired }) {
       onError: setError,
       onExpired: expired,
       onConfirmed: (s) => {
-        setSale(s);
-        setSuccessSale(s);
+        if (s?.transaction_key && liveKeys.current.delete(s.transaction_key)) {
+          setSuccessSale(s);
+          setSale(null);
+        } else {
+          setSale(s);
+        }
         setError(null);
         refresh();
       },
@@ -134,6 +140,7 @@ export default function Register({ user, token, expired }) {
       .finally(() => setSaving((n) => n - 1));
   }
   function add(v) {
+    setSale(null);
     const rows = draftRef.current.basket;
     const old = rows.find((r) => r.id === v.id);
     edit({
@@ -207,6 +214,7 @@ export default function Register({ user, token, expired }) {
       if (!d.basket.length || cents(d.cash) === null || cents(d.cash) < amount)
         throw new Error("Check the basket and cash amount.");
       const result = await enqueueDraft(d);
+      if (result.record?.key) liveKeys.current.add(result.record.key);
       savedDraft.current = result.draft;
       draftRef.current = result.draft;
       setDraft(result.draft);
@@ -387,30 +395,30 @@ export default function Register({ user, token, expired }) {
             <div className="drink-grid">
               {Object.entries(products).map(([id, p]) => (
                 <article className="panel drink" key={id}>
-                  <div className="drink-card-top">
-                    {p.image_filename ? (
+                  {p.image_filename ? (
+                    <div className="drink-card-top">
                       <div className="drink-media">
                         <img
                           src={`${import.meta.env.BASE_URL}uploads/products/${p.image_filename}`}
                           alt={p.name}
                           loading="lazy"
+                          onError={(e) => {
+                            const media = e.currentTarget.closest(".drink-media");
+                            if (media) media.style.display = "none";
+                          }}
                         />
                       </div>
-                    ) : (
-                      <div
-                        className="drink-media drink-media-fallback"
-                        aria-hidden="true"
-                      >
-                        <span className="drink-emblem">
-                          {p.name.slice(0, 2).toUpperCase()}
-                        </span>
+                      <div className="drink-card-title">
+                        <p className="eyebrow">{p.category}</p>
+                        <h2>{p.name}</h2>
                       </div>
-                    )}
-                    <div className="drink-card-title">
+                    </div>
+                  ) : (
+                    <>
                       <p className="eyebrow">{p.category}</p>
                       <h2>{p.name}</h2>
-                    </div>
-                  </div>
+                    </>
+                  )}
                   <div className="variant-grid">
                     {p.variants.map((v) => (
                       <button
@@ -561,11 +569,14 @@ export default function Register({ user, token, expired }) {
           {busy && <p role="status">Saving this order…</p>}
         </aside>
       </div>
-      <Receipt
-        sale={sale}
-        onVoid={(s) => setVoidTarget(s)}
-        onReloadItems={reloadSaleToBasket}
-      />
+      {!successSale && (
+        <Receipt
+          sale={sale}
+          onClose={() => setSale(null)}
+          onVoid={(s) => setVoidTarget(s)}
+          onReloadItems={reloadSaleToBasket}
+        />
+      )}
       <section className="panel section-space">
         <h2>Your orders on this device</h2>
         <p className="subtle small">
@@ -605,13 +616,18 @@ export default function Register({ user, token, expired }) {
                     <td>{money(o.body.cash_received)}</td>
                     <td>
                       {o.state === "confirmed" ? (
-                        <div className="button-row">
-                          <button onClick={() => setSale(o.sale)}>
+                        <div className="table-actions">
+                          <button
+                            type="button"
+                            className="compact-btn"
+                            onClick={() => setSale(o.sale)}
+                          >
                             View receipt #{o.sale.id}
                           </button>
                           {o.sale?.status !== "voided" && (
                             <button
-                              className="danger"
+                              type="button"
+                              className="danger compact-btn"
                               onClick={() => setVoidTarget(o.sale)}
                             >
                               Void #{o.sale.id}

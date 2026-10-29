@@ -1129,26 +1129,47 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
 }
 
 /* Upgrade: Order Success Pop-up Modal, Owner Voiding & Optional Product Images */
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes modalPopIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
 .order-success-overlay {
   position: fixed;
   inset: 0;
   z-index: 60;
   display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
   padding: 20px;
-  pointer-events: none;
+  background: rgba(18, 28, 23, 0.55);
+  backdrop-filter: blur(2px);
+  animation: modalFadeIn 0.16s ease-out;
 }
 .order-success-dialog {
   pointer-events: auto;
-  width: min(480px, calc(100vw - 32px));
+  width: min(500px, calc(100vw - 32px));
   max-height: calc(100vh - 40px);
   overflow-y: auto;
   border: 2px solid #28483d !important;
-  box-shadow: 0 20px 48px rgba(24, 38, 32, 0.24) !important;
+  box-shadow: 0 24px 56px rgba(18, 28, 23, 0.32) !important;
   background: #ffffff !important;
-  padding: 22px !important;
-  border-radius: 14px;
+  padding: 24px !important;
+  border-radius: 16px;
+  animation: modalPopIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .order-success-dialog.void-dialog {
   border-color: #8c302b !important;
@@ -1158,6 +1179,12 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
   align-items: flex-start;
   gap: 14px;
   margin-bottom: 16px;
+}
+.order-success-subhead {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f6b45;
+  margin: 2px 0;
 }
 .order-success-badge {
   width: 42px;
@@ -1282,27 +1309,44 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
   margin-top: 16px;
 }
 .clear-order-btn {
-  font-size: 11px;
-  padding: 6px 10px;
-  min-height: 32px;
+  font-size: 12px;
+  padding: 4px 8px;
+  min-height: 28px;
+  white-space: nowrap;
+}
+.table-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+.compact-btn {
+  font-size: 12px !important;
+  padding: 4px 8px !important;
+  min-height: 28px !important;
+  line-height: 1.2 !important;
+  white-space: nowrap;
 }
 .drink-card-top {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   margin-bottom: 14px;
 }
 .drink-card-title {
   min-width: 0;
   flex: 1;
 }
+.drink-card-title .eyebrow {
+  margin-bottom: 4px;
+}
 .drink-card-title h2 {
   margin-bottom: 0;
 }
 .drink-media {
-  width: 64px;
-  height: 64px;
-  border-radius: 12px;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
   overflow: hidden;
   flex-shrink: 0;
   border: 1px solid #d8dfce;
@@ -1316,15 +1360,6 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
   height: 100%;
   object-fit: cover;
   display: block;
-}
-.drink-media-fallback {
-  background: linear-gradient(135deg, #28483d 0%, #3d6658 100%);
-  color: #ffffff;
-}
-.drink-emblem {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
 }
 .product-image-preview {
   display: flex;
