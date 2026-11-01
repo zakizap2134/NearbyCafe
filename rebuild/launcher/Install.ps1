@@ -1,6 +1,6 @@
-﻿# One-time developer installation. Does not initialize, migrate or reset the database.
+# One-time developer installation. Does not initialize, migrate or reset the database.
 [CmdletBinding()]
-param([string]$XamppRoot='C:\xampp',[int]$WebPort=5174,[switch]$LocalOnly,[switch]$KeepDatabaseRunning,[switch]$Elevated,[string]$OwnerSid,[string]$OwnerDesktop)
+param([string]$XamppRoot='C:\xampp',[int]$WebPort=5174,[switch]$LocalOnly,[switch]$KeepDatabaseRunning,[switch]$Elevated,[string]$OwnerSid,[string]$OwnerDesktop,[switch]$Quiet)
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.Windows.Forms
@@ -19,6 +19,7 @@ try{
   $arguments=@('-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',$PSCommandPath,'-Elevated','-XamppRoot',$XamppRoot,'-WebPort',[string]$WebPort,'-OwnerSid',$sid,'-OwnerDesktop',$desktop)
   if($LocalOnly){$arguments+='-LocalOnly'}
   if($KeepDatabaseRunning){$arguments+='-KeepDatabaseRunning'}
+  if($Quiet){$arguments+='-Quiet'}
   Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -Verb RunAs -ArgumentList (($arguments|ForEach-Object{ConvertTo-NearbyArgument $_}) -join ' ')
   exit
  }
@@ -72,6 +73,7 @@ try{
  try{$setupGuard=[IO.File]::Open((Join-Path $runtime 'operation.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)}catch{throw 'STOP_NEARBY_BEFORE_SETUP'}
  foreach($path in @($root,(Join-Path $x 'apache'),(Join-Path $x 'php'))){Set-NearbyDirectoryAccess $path 'S-1-5-19' 'ReadAndExecute'}
  Set-NearbyDirectoryAccess (Join-Path $root 'storage') 'S-1-5-19' 'Modify'
+ Set-NearbyDirectoryAccess (Join-Path $root 'storage') $OwnerSid 'Modify'
  Set-NearbyDirectoryAccess $runtime $OwnerSid 'Modify'
  $httpdConfig=Join-Path $root 'config\nearby-httpd.conf'
  [IO.File]::WriteAllText($httpdConfig,(New-NearbyApacheConfig $root $x $WebPort (-not $LocalOnly)),(New-Object Text.UTF8Encoding($false)))
@@ -106,10 +108,10 @@ try{
  $link.WorkingDirectory=$root;$link.IconLocation=(Join-Path $PSScriptRoot 'icons\nearby-cafe.ico')+',0';$link.Description='Start Nearby Cafe';$link.Save()
  Write-NearbyEvent $root 'SETUP_COMPLETE';$networkNote=''
  if(!$LocalOnly){$public=@(Get-NearbyPublicNetworks);if($public.Count -gt 0){Write-NearbyEvent $root 'NETWORK_PROFILE_PUBLIC';$networkNote="`r`n`r`nWARNING: Windows marks this network as Public: "+($public -join ', ')+". Tablets will be blocked until the shop Wi-Fi is set to Private (Settings > Network & internet > Wi-Fi > network properties > Private). Then run CHECK-SHOP-NETWORK.bat."}}
- Show-SetupMessage ('Setup is complete. Double-click Nearby Café on the desktop. Keep XAMPP installed; daily use does not need its control panel. Read WINDOWS_LAUNCHER_SETUP.md for first-use checks.'+$networkNote)
+ if(!$Quiet){Show-SetupMessage ('Setup is complete. Double-click Nearby Café on the desktop. Keep XAMPP installed; daily use does not need its control panel. Read WINDOWS_LAUNCHER_SETUP.md for first-use checks.'+$networkNote)}
 }catch{
  $code=$_.Exception.Message;if($code -notmatch '^[A-Z0-9_]+$'){$code='SETUP_FAILED'}
  Write-NearbyEvent $root $code
- Show-SetupMessage ("Setup stopped. Reference: "+$code+"`r`nRead WINDOWS_LAUNCHER_SETUP.md or ask your developer. Database files have not been reset.") $true
+ if(!$Quiet){Show-SetupMessage ("Setup stopped. Reference: "+$code+"`r`nRead WINDOWS_LAUNCHER_SETUP.md or ask your developer. Database files have not been reset.") $true}
  exit 1
 }finally{if($setupGuard){$setupGuard.Dispose()}}
