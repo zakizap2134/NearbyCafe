@@ -33,38 +33,98 @@ A locally hosted point-of-sale and recipe-driven inventory application for **CTR
 
 This is **not** a standalone bundled-runtime installer. Node is unnecessary for daily Owner startup once the frontend is built. No default accounts are shipped. VAT display is not a claim of BIR certification.
 
-## Choose an installation method
+## Installation & File Locations Reference
 
-| Method | Frontend build |
-|---|---|
-| Git clone or GitHub **Code → Download ZIP** | Run `npm ci` and `npm run build` in `rebuild` |
-| The complete `NearbyCafe_GitHub_Integration_Complete.zip` delivered with this update | Built assets are included under `source/rebuild/public`; no npm step needed for installation |
-| A future GitHub Release | Use its description: only a release explicitly containing built assets avoids the build step. No release has been published by this integration |
+Before installing or running Nearby Café (VenueVue), use this reference table to locate all key installers, configuration files, and runtime folders:
 
-For a new clone, PowerShell:
+| Item / Component | Recommended Windows Location | Purpose |
+|---|---|---|
+| **XAMPP Runtime** | `C:\xampp\` | Provides Apache (`apache\bin\httpd.exe`), PHP 8.2+ (`php\php.exe`), and MariaDB (`mysql\bin\mysqld.exe`). Keep installed. |
+| **Project Repository Root** | `C:\Projects\NearbyCafe\` | Main Git repository / extracted project folder (placed outside `C:\xampp\htdocs`). |
+| **Application Root (`rebuild`)** | `C:\Projects\NearbyCafe\rebuild\` | Active VenueVue POS & Inventory application directory. |
+| **1-Click Client Installer** | `C:\Projects\NearbyCafe\rebuild\One-Click-Setup.bat` | **Main installer.** Auto-configures `local.php`, provisions the database, registers services, generates the Owner Setup Code, and opens the browser. |
+| **1-Click Uninstaller / Reset** | `C:\Projects\NearbyCafe\rebuild\Uninstall-Nearby-Cafe.bat` | Stops and removes services, deletes Desktop shortcuts/configs, and optionally drops `venuevue_rebuild` for a clean test. |
+| **Desktop App Shortcut** | `Desktop\Nearby Café.lnk` | Daily launcher created by setup (`Start` / `Open` / `Stop` shop services without XAMPP Control Panel). |
+| **One-Time Owner Setup Code** | `Desktop\NEARBY_CAFE_OWNER_SETUP_CODE.txt` | Generated during fresh 1-Click Setup (valid 24 hours). Delete after creating your Owner account. |
+| **Daily Launcher Batch** | `C:\Projects\NearbyCafe\rebuild\Start-Nearby-Cafe.bat` | Alternative to the Desktop shortcut to open the Nearby Café launcher window. |
+| **Local Database Config** | `C:\Projects\NearbyCafe\rebuild\config\local.php` | Auto-generated local MariaDB connection settings (`127.0.0.1:3306`, database `venuevue_rebuild`). |
+| **Launcher Service Config** | `C:\Projects\NearbyCafe\rebuild\config\launcher.local.json` | Auto-generated Windows service & port configuration (`http://localhost:5174`). |
+| **Scoped Apache Config** | `C:\Projects\NearbyCafe\rebuild\config\nearby-httpd.conf` | Auto-generated Apache configuration serving only `rebuild\public\`. |
+| **Product Images Storage** | `C:\Projects\NearbyCafe\rebuild\storage\uploads\products\` | Uploaded product photos (served securely through `./api/index.php?route=product/image`). |
+| **Launcher Logs & State** | `C:\Projects\NearbyCafe\rebuild\storage\launcher\` | Contains `launcher.log`, `apache-error.log`, and `ownership.json`. |
 
-```powershell
-git clone https://github.com/zakizap2134/venuevue_1.git C:\Projects\NearbyCafe-Source
-Set-Location C:\Projects\NearbyCafe-Source
-```
+---
 
-Until the integration PR is merged, the default `main` still contains the old app. Import the provided integration branch using [publishing instructions](docs/academic/PUBLISHING.md), or use the complete ZIP. Do not expect unpublished changes to appear in a fresh GitHub download.
+## Fresh Installation Guide (From GitHub to Running POS)
 
-The repository layout is `README.md`, `docs/` ([organized into `setup/`, `operations/`, `academic/`, and `archive/`](docs/README.md)), retained historical course documents in `Docu/`, and one runnable application in `rebuild/`. Within `rebuild`: `src/` is frontend source, `app/` is private PHP, `database/` is schema source, `tools/` is CLI support, `launcher/` is Windows startup, and **only `public/` is web-served**. Never create `rebuild/rebuild`.
+### Step 1: Install XAMPP
+1. Download and install **[XAMPP for Windows (PHP 8.2+)](https://www.apachefriends.org/)** into the default directory:
+   ```text
+   C:\xampp
+   ```
+2. Ensure **Apache**, **MySQL (MariaDB)**, and **PHP** components are selected during installation. You do **not** need to keep the XAMPP Control Panel open for daily use.
 
-## Fresh installation
+### Step 2: Download or Clone the Project into `C:\Projects\NearbyCafe`
+Place the project outside `C:\xampp\htdocs` (recommended path: `C:\Projects\NearbyCafe`).
 
-### Option A: 1-Click Client Setup (Recommended)
-1. Install [XAMPP](https://www.apachefriends.org/) (PHP 8.2+, Apache, MariaDB) at `C:\xampp`.
-2. Inside `rebuild`, double-click **`One-Click-Setup.bat`** (accept the Administrator prompt).
-3. The installer automatically provisions `config/local.php`, initializes the database, registers Windows background services, places the **Nearby Café** shortcut on the desktop, and creates `NEARBY_CAFE_OWNER_SETUP_CODE.txt` on the Desktop.
-4. The browser opens automatically: click **Set up owner account**, paste the setup code, and choose the Owner password.
+- **Using Git (Command Prompt or PowerShell):**
+  ```cmd
+  cd /d C:\Projects
+  git clone https://github.com/zakizap2134/venuevue_1.git NearbyCafe
+  ```
+- **Or using GitHub Download ZIP:**
+  Extract the ZIP so that the `rebuild` folder is located at:
+  ```text
+  C:\Projects\NearbyCafe\rebuild
+  ```
+  *(Note: If you cloned from Git and `rebuild\public\index.html` is not yet built, install [Node.js 22+](https://nodejs.org/) or use a pre-built release package; `One-Click-Setup.bat` will automatically run `npm ci && npm run build` if needed).*
 
-### Option B: Manual Developer Provisioning
-Use [the detailed installation guide](docs/setup/INSTALLATION.md). In brief:
+### Step 3: Run the 1-Click Client Setup (`One-Click-Setup.bat`)
+1. Open File Explorer and go to:
+   ```text
+   C:\Projects\NearbyCafe\rebuild
+   ```
+2. Double-click **`One-Click-Setup.bat`** and click **Yes** on the Windows Administrator (UAC) prompt.
+3. What `One-Click-Setup.bat` does automatically:
+   - Verifies XAMPP at `C:\xampp`.
+   - Creates `C:\Projects\NearbyCafe\rebuild\config\local.php` (pointing to `127.0.0.1:3306`, database `venuevue_rebuild`).
+   - Registers dedicated manual-start Windows services (`NearbyCafeWeb_*` and `NearbyCafeDatabase_*`) and the shop Wi-Fi firewall rule for port `5174`.
+   - Starts MariaDB and initializes all database tables (`tools\install.php` and `tools\migrate-stage4.php`) while preserving any existing shop data.
+   - Generates your 64-character **One-Time Owner Setup Code**, copies it to your clipboard, and saves it to:
+     ```text
+     Desktop\NEARBY_CAFE_OWNER_SETUP_CODE.txt
+     ```
+   - Places the **Nearby Café** shortcut on your Windows Desktop (`Desktop\Nearby Café.lnk`).
+   - Starts the web service and opens **`http://localhost:5174`** in your default browser.
+
+### Step 4: Complete Owner Account Setup in Browser
+1. In the browser window that opens (`http://localhost:5174`), click **Set up owner account**.
+2. Paste (`Ctrl+V`) the setup code from the popup dialog or from `Desktop\NEARBY_CAFE_OWNER_SETUP_CODE.txt`.
+3. Enter your **Owner display name**, **username**, and **password** (at least 12 characters).
+4. Once signed in, go to **Management → Account security** to generate your permanent offline **Owner Recovery Code** and store it in a safe place.
+5. Delete `Desktop\NEARBY_CAFE_OWNER_SETUP_CODE.txt`.
+
+---
+
+## How to Uninstall or Reset for Clean Testing (`Uninstall-Nearby-Cafe.bat`)
+
+If you want to completely remove the installation or reset the laptop to test a brand-new 1-Click installation from scratch:
+1. Open File Explorer and go to:
+   ```text
+   C:\Projects\NearbyCafe\rebuild
+   ```
+2. Double-click **`Uninstall-Nearby-Cafe.bat`** and accept the Administrator prompt.
+3. Choose whether to **delete the database (`venuevue_rebuild`)**:
+   - Click **Yes** for a 100% clean reset (wipes the database so your next `One-Click-Setup.bat` run creates a fresh database and new Owner Setup Code).
+   - Click **No** if you only want to remove the services/shortcuts while keeping your existing sales, products, and accounts.
+
+---
+
+## Manual Developer Provisioning (Alternative)
+If you need custom database credentials or manual CLI provisioning instead of `One-Click-Setup.bat`, follow the [detailed installation guide](docs/setup/INSTALLATION.md):
 
 1. Install XAMPP and provision a genuinely new, separate database using the documented tools. Never run fresh-install steps over client data.
-2. Place the application at `C:\Projects\NearbyCafe\rebuild`. Copy the safe configuration example only if `config/local.php` does not exist; enter actual connection settings.
+2. Place the application at `C:\Projects\NearbyCafe\rebuild`. Copy `config\local.example.php` to `config\local.php` only if `config\local.php` does not exist; enter actual connection settings.
 3. Build the frontend if using Git source (`npm ci && npm run build`). Prepare the one-time initial Owner setup code (`php tools/install.php` and `php tools/prepare-owner-setup.php`), then run `Setup-Nearby-Cafe.bat` once while logged into the Owner's Windows account.
 4. Open the desktop **Nearby Café** shortcut. In the browser choose **Set up owner account** and use the initial setup code. After sign-in, prepare an ongoing recovery code under **Management → Account security** and keep it offline. These are two different codes.
 
