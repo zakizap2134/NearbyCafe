@@ -822,7 +822,96 @@ export function BackupRestore({ token, expired }) {
   );
 }
 
-export function StockOperations({ user, data, token, expired, refresh }) {
+const WASTE_PRESETS = [
+  { key: "Expired date", label: "Expired date" },
+  { key: "Past opened use-by", label: "Past opened use-by" },
+  { key: "Spoiled / Curdled", label: "Spoiled / Curdled" },
+  { key: "Spilled / Dropped", label: "Spilled / Dropped" },
+  { key: "Calibration / Recipe waste", label: "Calibration / Recipe waste" },
+];
+
+export function containerStatus(c, batch, serverTime) {
+  const todayDate = (serverTime || "").slice(0, 10);
+  const rem = Number(c?.remaining_qty ?? 0);
+  if (rem <= 0) {
+    return {
+      code: "EMPTY",
+      label: "Empty",
+      tone: "neutral",
+      isWasteDue: false,
+      sortRank: 5,
+      defaultReason: "",
+    };
+  }
+  if (Number(batch?.quarantined)) {
+    return {
+      code: "QUARANTINED",
+      label: "QUARANTINED",
+      tone: "warn",
+      isWasteDue: false,
+      sortRank: 3,
+      defaultReason: "Quarantined batch disposal",
+    };
+  }
+  if (batch?.expiration_date && todayDate && batch.expiration_date < todayDate) {
+    return {
+      code: "EXPIRED",
+      label: "EXPIRED",
+      tone: "danger",
+      isWasteDue: true,
+      sortRank: 0,
+      defaultReason: `Expired date (${batch.expiration_date})`,
+    };
+  }
+  if (c?.use_by && serverTime && c.use_by <= serverTime) {
+    return {
+      code: "PAST_USE_BY",
+      label: "PAST USE-BY",
+      tone: "danger",
+      isWasteDue: true,
+      sortRank: 1,
+      defaultReason: `Past opened use-by (${c.use_by})`,
+    };
+  }
+  if (batch?.expiration_date && todayDate && batch.expiration_date === todayDate) {
+    return {
+      code: "EXPIRES_TODAY",
+      label: "EXPIRES TODAY",
+      tone: "amber",
+      isWasteDue: false,
+      sortRank: 2,
+      defaultReason: `End-of-day expiry (${batch.expiration_date})`,
+    };
+  }
+  if (c?.opened_at) {
+    return {
+      code: "OPENED",
+      label: c.use_by ? `OPENED · Use by ${c.use_by.slice(0, 16)}` : "OPENED",
+      tone: "info",
+      isWasteDue: false,
+      sortRank: 3,
+      defaultReason: "",
+    };
+  }
+  return {
+    code: "SEALED",
+    label: "SEALED",
+    tone: "ok",
+    isWasteDue: false,
+    sortRank: 4,
+    defaultReason: "",
+  };
+}
+
+export function StockOperations({
+  user,
+  data,
+  token,
+  expired,
+  refresh,
+  presetOp = null,
+  onPresetConsumed = null,
+}) {
   const blank = {
     kind: "waste",
     id: "",
@@ -853,13 +942,39 @@ export function StockOperations({ user, data, token, expired, refresh }) {
       );
     }
   }, [storage]);
+  useEffect(() => {
+    if (!presetOp) return;
+    if (!pending) {
+      setForm({ ...blank, ...presetOp });
+    }
+    onPresetConsumed?.();
+  }, [presetOp]);
+  const batchById = new Map(
+    (data.batches ?? []).map((b) => [Number(b.id), b]),
+  );
+  const decoratedContainers = (data.containers ?? [])
+    .map((c) => {
+      const b = batchById.get(Number(c.batch_id));
+      const status = containerStatus(c, b, data.server_time);
+      return { c, b, status };
+    })
+    .sort(
+      (a, b) =>
+        a.status.sortRank - b.status.sortRank || Number(b.c.id) - Number(a.c.id),
+    );
+  const expiredContainers = decoratedContainers.filter(
+    (row) => row.status.isWasteDue,
+  );
   const selected = data.containers.find(
       (c) => String(c.id) === String(form.id),
     ),
     batch =
       form.kind === "batch"
         ? data.batches.find((b) => String(b.id) === String(form.id))
-        : data.batches.find((b) => Number(b.id) === Number(selected?.batch_id));
+        : batchById.get(Number(selected?.batch_id)),
+    selectedStatus = selected
+      ? containerStatus(selected, batch, data.server_time)
+      : null;
   function select(id) {
     if (form.kind === "batch") {
       const b = data.batches.find((b) => String(b.id) === id);
@@ -873,24 +988,55 @@ export function StockOperations({ user, data, token, expired, refresh }) {
       });
     } else {
       const c = data.containers.find((c) => String(c.id) === id);
+      const b = c ? batchById.get(Number(c.batch_id)) : null;
+      const st = c ? containerStatus(c, b, data.server_time) : null;
       setForm({
         ...form,
         id,
-        quantity: form.kind === "adjust" ? (c?.remaining_qty ?? "") : "",
+        quantity:
+          form.kind === "adjust" || (form.kind === "waste" && st?.isWasteDue)
+            ? (c?.remaining_qty ?? "")
+            : "",
         expected_remaining: c?.remaining_qty ?? "",
+        reason:
+          form.kind === "waste" && st?.defaultReason && !form.reason
+            ? st.defaultReason
+            : form.reason,
       });
     }
   }
+  function quickSelectWaste(c, b, st) {
+    if (pending || action.busy) return;
+    setForm({
+      ...blank,
+      kind: "waste",
+      id: String(c.id),
+      quantity: String(c.remaining_qty ?? ""),
+      expected_remaining: String(c.remaining_qty ?? ""),
+      reason: st.defaultReason || "Expired date",
+    });
+  }
+  function applyPresetReason(presetKey) {
+    let text = presetKey;
+    if (presetKey === "Expired date" && batch?.expiration_date) {
+      text = `Expired date (${batch.expiration_date})`;
+    } else if (presetKey === "Past opened use-by" && selected?.use_by) {
+      text = `Past opened use-by (${selected.use_by})`;
+    }
+    setForm({ ...form, reason: text });
+  }
   const field = (key) => ({
-    value: form[key],
+    value: form[key] ?? "",
     onChange: (e) => setForm({ ...form, [key]: e.target.value }),
   });
-  async function submit() {
-    let request = pending ?? {
-      ...form,
-      operation_key: transactionKey(),
-      expected_epoch: getHostEpoch(),
-    };
+  async function submit(customRequest = null) {
+    let request =
+      customRequest ??
+      pending ?? {
+        ...form,
+        operation_key: transactionKey(),
+        expected_epoch: getHostEpoch(),
+      };
     localStorage.setItem(storage, JSON.stringify(request));
     setPending(request);
     try {
@@ -902,6 +1048,11 @@ export function StockOperations({ user, data, token, expired, refresh }) {
       setPending(null);
       setForm(blank);
       await refresh();
+      if (request.kind === "clear_expired") {
+        return result.duplicate
+          ? "Previously saved expired-stock write-off confirmed."
+          : `Wrote off ${result.cleared_count ?? 0} expired/past-use-by container(s) to waste.`;
+      }
       return result.duplicate
         ? "Previously saved operation confirmed."
         : "Stock operation saved.";
@@ -917,8 +1068,80 @@ export function StockOperations({ user, data, token, expired, refresh }) {
       throw e;
     }
   }
+  function handleClearAllExpired() {
+    if (pending || action.busy || !expiredContainers.length) return;
+    if (
+      !window.confirm(
+        `Write off all ${expiredContainers.length} expired or past use-by container(s) to waste? This records an audited WASTE movement for each container.`,
+      )
+    ) {
+      return;
+    }
+    const req = {
+      kind: "clear_expired",
+      reason: "Shift audit: Write off expired or past use-by stock",
+      operation_key: transactionKey(),
+      expected_epoch: getHostEpoch(),
+    };
+    action.run(async (notice) => notice(await submit(req)));
+  }
   return (
     <>
+      {expiredContainers.length > 0 && (
+        <section
+          className="panel expired-queue-panel"
+          aria-label="Expired or past use-by containers"
+        >
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">PERISHABLE STOCK CHECK</p>
+              <h2>
+                Expired & past use-by containers ({expiredContainers.length})
+              </h2>
+            </div>
+            <button
+              type="button"
+              className="danger"
+              disabled={action.busy || !!pending}
+              onClick={handleClearAllExpired}
+            >
+              Write off all expired ({expiredContainers.length})
+            </button>
+          </div>
+          <p className="subtle">
+            These containers are automatically blocked from Register sales.
+            Click <strong>Select for waste</strong> to review one container, or{" "}
+            <strong>Write off all expired</strong> during shift checks.
+          </p>
+          <ul className="expired-queue-list">
+            {expiredContainers.map(({ c, b, status }) => (
+              <li key={c.id} className="expired-queue-row">
+                <div className="expired-queue-info">
+                  <span className={`stock-badge ${status.tone}`}>
+                    {status.label}
+                  </span>
+                  <strong>
+                    #{c.id} · {b?.ingredient_name}
+                  </strong>
+                  <span>
+                    {c.remaining_qty} {b?.unit} remaining · Batch #{c.batch_id}
+                    {b?.expiration_date ? ` · Exp ${b.expiration_date}` : ""}
+                    {c.use_by ? ` · Use by ${c.use_by}` : ""}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="compact-btn"
+                  disabled={action.busy || !!pending}
+                  onClick={() => quickSelectWaste(c, b, status)}
+                >
+                  Select for waste
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <section className="panel">
         <h2>Waste & stock adjustments</h2>
         <p className="subtle">
@@ -943,7 +1166,7 @@ export function StockOperations({ user, data, token, expired, refresh }) {
             <fieldset disabled={!!pending}>
               <Select
                 label="Operation"
-                {...field("kind")}
+                value={form.kind === "clear_expired" ? "waste" : form.kind}
                 onChange={(e) => setForm({ ...blank, kind: e.target.value })}
               >
                 <option value="waste">Record waste</option>
@@ -952,8 +1175,8 @@ export function StockOperations({ user, data, token, expired, refresh }) {
               </Select>
               <Select
                 label={form.kind === "batch" ? "Batch" : "Container"}
-                required
-                value={form.id}
+                required={form.kind !== "clear_expired"}
+                value={form.id ?? ""}
                 onChange={(e) => select(e.target.value)}
               >
                 <option value="">
@@ -965,20 +1188,30 @@ export function StockOperations({ user, data, token, expired, refresh }) {
                         #{b.id} · {b.ingredient_name} · {b.reference}
                       </option>
                     ))
-                  : data.containers.map((c) => {
-                      const b = data.batches.find(
-                        (b) => Number(b.id) === Number(c.batch_id),
-                      );
-                      return (
+                  : decoratedContainers
+                      .filter(
+                        ({ c }) =>
+                          form.kind !== "waste" ||
+                          Number(c.remaining_qty) > 0 ||
+                          String(c.id) === String(form.id),
+                      )
+                      .map(({ c, b, status }) => (
                         <option key={c.id} value={c.id}>
-                          #{c.id} · {b?.ingredient_name} · {c.remaining_qty}{" "}
+                          [{status.code === "OPENED" ? "OPENED" : status.label}] #
+                          {c.id} · {b?.ingredient_name} · {c.remaining_qty}{" "}
                           {b?.unit} · batch #{c.batch_id}
                         </option>
-                      );
-                    })}
+                      ))}
               </Select>
               {batch && (
                 <p className="subtle">
+                  {selectedStatus && (
+                    <>
+                      <span className={`stock-badge ${selectedStatus.tone}`}>
+                        {selectedStatus.label}
+                      </span>{" "}
+                    </>
+                  )}
                   Batch #{batch.id} · expires{" "}
                   {batch.expiration_date ?? "not applicable"} ·{" "}
                   {Number(batch.quarantined)
@@ -1012,21 +1245,63 @@ export function StockOperations({ user, data, token, expired, refresh }) {
                 </>
               ) : (
                 <>
-                  <p>
-                    Count checked against: {form.expected_remaining || "—"}{" "}
-                    {batch?.unit}
-                  </p>
+                  <div className="qty-label-row">
+                    <span>
+                      Count checked against: {form.expected_remaining || "—"}{" "}
+                      {batch?.unit}
+                    </span>
+                    {form.kind === "waste" &&
+                      selected &&
+                      Number(selected.remaining_qty) > 0 &&
+                      String(form.quantity) !== String(selected.remaining_qty) && (
+                        <button
+                          type="button"
+                          className="compact-btn"
+                          onClick={() =>
+                            setForm({
+                              ...form,
+                              quantity: String(selected.remaining_qty),
+                            })
+                          }
+                        >
+                          Use full remaining ({selected.remaining_qty}{" "}
+                          {batch?.unit})
+                        </button>
+                      )}
+                  </div>
                   <Field
                     label={
                       form.kind === "waste"
                         ? "Waste quantity"
                         : "Actual remaining quantity"
                     }
-                    required
+                    required={form.kind !== "clear_expired"}
                     inputMode="decimal"
                     {...field("quantity")}
                   />
                 </>
+              )}
+              {form.kind === "waste" && (
+                <div className="waste-presets-block">
+                  <span className="preset-caption">Quick waste reason:</span>
+                  <div className="void-presets">
+                    {WASTE_PRESETS.map((p) => {
+                      const active = (form.reason ?? "")
+                        .toLowerCase()
+                        .startsWith(p.key.toLowerCase());
+                      return (
+                        <button
+                          type="button"
+                          key={p.key}
+                          className={active ? "primary" : ""}
+                          onClick={() => applyPresetReason(p.key)}
+                        >
+                          {p.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
               <Field
                 label="Reason for stock operation"

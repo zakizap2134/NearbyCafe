@@ -6,6 +6,7 @@ import {
   Staff,
   BackupRestore,
   StockOperations,
+  containerStatus,
 } from "./Stage4";
 import AccountSecurity from "./AccountSecurity";
 import { transactionKey } from "../checkout-store";
@@ -95,7 +96,8 @@ export default function Management({ user, token, expired }) {
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true),
     [receipt, setReceipt] = useState(null),
-    [voidTarget, setVoidTarget] = useState(null);
+    [voidTarget, setVoidTarget] = useState(null),
+    [presetStockOp, setPresetStockOp] = useState(null);
   const [ingredient, setIngredient] = useState(emptyIngredient),
     [product, setProduct] = useState(emptyProduct),
     [variant, setVariant] = useState(emptyVariant),
@@ -267,6 +269,36 @@ export default function Management({ user, token, expired }) {
       if (e.status === 401) expired();
     }
   }
+  function openQuickWaste(c, b) {
+    const st = containerStatus(c, b, data?.server_time);
+    setPresetStockOp({
+      kind: "waste",
+      id: String(c.id),
+      quantity: String(c.remaining_qty ?? ""),
+      expected_remaining: String(c.remaining_qty ?? ""),
+      reason: st.defaultReason || "Expired date",
+    });
+    setNotice("");
+    setError(null);
+    setTab("Stock operations");
+  }
+  function openIngredientExpiredWaste(ingredientId) {
+    const batchesForIng = (data?.batches ?? []).filter(
+      (b) => Number(b.ingredient_id) === Number(ingredientId),
+    );
+    const batchMap = new Map(batchesForIng.map((b) => [Number(b.id), b]));
+    const target = (data?.containers ?? []).find((c) => {
+      const b = batchMap.get(Number(c.batch_id));
+      return b && containerStatus(c, b, data?.server_time).isWasteDue;
+    });
+    if (target) {
+      openQuickWaste(target, batchMap.get(Number(target.batch_id)));
+    } else {
+      setNotice("");
+      setError(null);
+      setTab("Stock operations");
+    }
+  }
   function handleProductImageSelect(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -426,6 +458,8 @@ export default function Management({ user, token, expired }) {
               token={token}
               expired={expired}
               refresh={refresh}
+              presetOp={presetStockOp}
+              onPresetConsumed={() => setPresetStockOp(null)}
             />
           )}
           {tab === "Reports" && <Reports token={token} expired={expired} />}
@@ -460,7 +494,24 @@ export default function Management({ user, token, expired }) {
                 ))}
               </div>
               <section className="panel">
-                <h2>Stock alerts</h2>
+                <div className="section-heading">
+                  <h2>Stock alerts</h2>
+                  {ingredients.some(
+                    (i) => Number(i.is_active) && Number(i.waste_due) > 0,
+                  ) && (
+                    <button
+                      type="button"
+                      className="compact-btn"
+                      onClick={() => {
+                        setNotice("");
+                        setError(null);
+                        setTab("Stock operations");
+                      }}
+                    >
+                      Manage expired stock →
+                    </button>
+                  )}
+                </div>
                 {ingredients.filter(
                   (i) =>
                     Number(i.is_active) &&
@@ -479,15 +530,30 @@ export default function Management({ user, token, expired }) {
                             Number(i.waste_due) > 0),
                       )
                       .map((i) => (
-                        <li key={i.id}>
-                          <strong>{i.name}</strong> · {i.eligible_stock}{" "}
-                          {i.unit} eligible
+                        <li key={i.id} className="alert-action-row">
+                          <div>
+                            <strong>{i.name}</strong> · {i.eligible_stock}{" "}
+                            {i.unit} eligible
+                            {Number(i.waste_due) > 0 && (
+                              <span>
+                                {" "}
+                                ·{" "}
+                                <span className="stock-badge danger">
+                                  EXPIRED / USE-BY
+                                </span>{" "}
+                                {i.waste_due} {i.unit} set aside for waste
+                                recording.
+                              </span>
+                            )}
+                          </div>
                           {Number(i.waste_due) > 0 && (
-                            <span>
-                              {" "}
-                              · {i.waste_due} {i.unit} expired or past use-by;
-                              set aside for waste recording.
-                            </span>
+                            <button
+                              type="button"
+                              className="danger compact-btn"
+                              onClick={() => openIngredientExpiredWaste(i.id)}
+                            >
+                              Record waste
+                            </button>
                           )}
                         </li>
                       ))}
@@ -1149,43 +1215,106 @@ export default function Management({ user, token, expired }) {
                       "Containers",
                     ]}
                   >
-                    {data.batches.map((b) => (
-                      <tr key={b.id}>
-                        <td>
-                          #{b.id} · {b.reference}
-                          <small>
-                            {b.supplier} {b.lot_reference}
-                          </small>
-                        </td>
-                        <td>
-                          {b.ingredient_name} ({b.unit})
-                        </td>
-                        <td>{b.expiration_date ?? "No expiry"}</td>
-                        <td>{b.remaining_qty}</td>
-                        <td>{b.qty_sealed}</td>
-                        <td>{b.qty_opened}</td>
-                        <td>
-                          <details>
-                            <summary>View containers</summary>
-                            {data.containers
-                              .filter(
-                                (c) => Number(c.batch_id) === Number(b.id),
-                              )
-                              .map((c) => (
-                                <p className="container-detail" key={c.id}>
-                                  #{c.id}: {c.remaining_qty} {b.unit}
-                                  <br />
-                                  {c.opened_at
-                                    ? `Opened ${c.opened_at}`
-                                    : "Sealed"}
-                                  <br />
-                                  {c.use_by ? `Use by ${c.use_by}` : ""}
-                                </p>
-                              ))}
-                          </details>
-                        </td>
-                      </tr>
-                    ))}
+                    {data.batches.map((b) => {
+                      const todayDate = (data.server_time || "").slice(0, 10);
+                      const batchContainers = data.containers.filter(
+                        (c) => Number(c.batch_id) === Number(b.id),
+                      );
+                      const hasWasteDue = batchContainers.some(
+                        (c) =>
+                          containerStatus(c, b, data.server_time).isWasteDue,
+                      );
+                      const batchExpired =
+                        Number(b.remaining_qty) > 0 &&
+                        b.expiration_date &&
+                        todayDate &&
+                        b.expiration_date < todayDate;
+                      const batchExpiresToday =
+                        Number(b.remaining_qty) > 0 &&
+                        b.expiration_date &&
+                        todayDate &&
+                        b.expiration_date === todayDate;
+                      return (
+                        <tr key={b.id}>
+                          <td>
+                            #{b.id} · {b.reference}
+                            <small>
+                              {b.supplier} {b.lot_reference}
+                            </small>
+                          </td>
+                          <td>
+                            {b.ingredient_name} ({b.unit})
+                          </td>
+                          <td>
+                            <div>{b.expiration_date ?? "No expiry"}</div>
+                            {Number(b.quarantined) ? (
+                              <span className="stock-badge warn">
+                                QUARANTINED
+                              </span>
+                            ) : batchExpired ? (
+                              <span className="stock-badge danger">
+                                EXPIRED
+                              </span>
+                            ) : batchExpiresToday ? (
+                              <span className="stock-badge amber">
+                                EXPIRES TODAY
+                              </span>
+                            ) : null}
+                          </td>
+                          <td>{b.remaining_qty}</td>
+                          <td>{b.qty_sealed}</td>
+                          <td>{b.qty_opened}</td>
+                          <td>
+                            <details open={hasWasteDue}>
+                              <summary>
+                                View containers ({batchContainers.length})
+                              </summary>
+                              {batchContainers.map((c) => {
+                                const st = containerStatus(
+                                  c,
+                                  b,
+                                  data.server_time,
+                                );
+                                return (
+                                  <div className="container-detail" key={c.id}>
+                                    <div className="container-detail-head">
+                                      <strong>
+                                        #{c.id}: {c.remaining_qty} {b.unit}
+                                      </strong>
+                                      <span
+                                        className={`stock-badge ${st.tone}`}
+                                      >
+                                        {st.label}
+                                      </span>
+                                    </div>
+                                    {c.opened_at && (
+                                      <small>Opened {c.opened_at}</small>
+                                    )}
+                                    {Number(c.remaining_qty) > 0 && (
+                                      <div className="container-detail-actions">
+                                        <button
+                                          type="button"
+                                          className={
+                                            st.isWasteDue
+                                              ? "danger compact-btn"
+                                              : "compact-btn"
+                                          }
+                                          onClick={() => openQuickWaste(c, b)}
+                                        >
+                                          {st.isWasteDue
+                                            ? "Dispose expired"
+                                            : "Record waste"}
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </details>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </Table>
                 )}
               </section>

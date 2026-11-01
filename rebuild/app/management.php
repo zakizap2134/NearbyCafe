@@ -29,43 +29,63 @@ function inventory_operation(
 ): array {
     $key = uuid_value($body["operation_key"] ?? null);
     $kind = $body["kind"] ?? "";
-    if (!in_array($kind, ["waste", "adjust", "batch"], true)) {
+    if (!in_array($kind, ["waste", "adjust", "batch", "clear_expired"], true)) {
         problem(
             422,
             "VALIDATION",
-            "Choose waste, adjustment or batch correction.",
+            "Choose waste, adjustment, batch correction or expired stock write-off.",
         );
     }
-    $reason = label_text($body["reason"] ?? null, "Reason", 180);
-    $id = positive_id($body["id"] ?? null);
-    $normalized = ["kind" => $kind, "id" => $id, "reason" => $reason];
-    if ($kind === "batch") {
-        $normalized += [
-            "expiration_date" => valid_date($body["expiration_date"] ?? null),
-            "supplier" => optional_text($body["supplier"] ?? null, "Supplier"),
-            "lot_reference" => optional_text(
-                $body["lot_reference"] ?? null,
-                "Lot reference",
-            ),
-            "quarantined" => active_flag([
-                "is_active" => $body["quarantined"] ?? 0,
-            ]),
+    $defaultReason =
+        $kind === "clear_expired"
+            ? "Shift audit: Write off expired or past use-by stock"
+            : null;
+    $reason = label_text(
+        ($body["reason"] ?? "") !== "" ? $body["reason"] : $defaultReason,
+        "Reason",
+        180,
+    );
+    if ($kind === "clear_expired") {
+        $ingFilter =
+            isset($body["ingredient_id"]) && $body["ingredient_id"] !== ""
+                ? positive_id($body["ingredient_id"])
+                : null;
+        $normalized = [
+            "kind" => $kind,
+            "ingredient_id" => $ingFilter,
+            "reason" => $reason,
         ];
     } else {
-        $normalized += [
-            "quantity" => fixed(
-                $body["quantity"] ?? null,
-                3,
-                "Quantity",
-                $kind === "adjust",
-            ),
-            "expected_remaining" => fixed(
-                $body["expected_remaining"] ?? null,
-                3,
-                "Expected remaining quantity",
-                true,
-            ),
-        ];
+        $id = positive_id($body["id"] ?? null);
+        $normalized = ["kind" => $kind, "id" => $id, "reason" => $reason];
+        if ($kind === "batch") {
+            $normalized += [
+                "expiration_date" => valid_date($body["expiration_date"] ?? null),
+                "supplier" => optional_text($body["supplier"] ?? null, "Supplier"),
+                "lot_reference" => optional_text(
+                    $body["lot_reference"] ?? null,
+                    "Lot reference",
+                ),
+                "quarantined" => active_flag([
+                    "is_active" => $body["quarantined"] ?? 0,
+                ]),
+            ];
+        } else {
+            $normalized += [
+                "quantity" => fixed(
+                    $body["quantity"] ?? null,
+                    3,
+                    "Quantity",
+                    $kind === "adjust",
+                ),
+                "expected_remaining" => fixed(
+                    $body["expected_remaining"] ?? null,
+                    3,
+                    "Expected remaining quantity",
+                    true,
+                ),
+            ];
+        }
     }
     $hash = hash("sha256", json_encode($normalized, JSON_THROW_ON_ERROR));
     $uid = (int) $session["user"]["id"];
@@ -100,7 +120,93 @@ function inventory_operation(
             return $result + ["duplicate" => true];
         }
         $at = database_time($db);
-        if ($kind === "batch") {
+        if ($kind === "clear_expired") {
+            $sql =
+                "SELECT c.*,b.ingredient_id,b.expiration_date,b.quarantined FROM stock_containers c JOIN stock_batches b ON b.id=c.batch_id WHERE c.remaining_qty>0 AND b.quarantined=0";
+            $params = [];
+            if ($normalized["ingredient_id"] !== null) {
+                $sql .= " AND b.ingredient_id=?";
+                $params[] = $normalized["ingredient_id"];
+            }
+            $sql .= " ORDER BY c.id FOR UPDATE";
+            $candidates = query($db, $sql, $params)->fetchAll();
+            $expiredList = array_values(
+                array_filter($candidates, fn($c) => !stock_eligible($c, $at)),
+            );
+            if (!$expiredList) {
+                problem(
+                    422,
+                    "NO_EXPIRED_STOCK",
+                    "No expired or past use-by containers remain to write off.",
+                );
+            }
+            $touchedBatches = [];
+            $cleared = [];
+            foreach ($expiredList as $c) {
+                $cid = (int) $c["id"];
+                $bid = (int) $c["batch_id"];
+                $iid = (int) $c["ingredient_id"];
+                query(
+                    $db,
+                    "SELECT id FROM ingredients WHERE id=? FOR UPDATE",
+                    [$iid],
+                )->fetch();
+                $before = fixed($c["remaining_qty"], 3, "Remaining", true);
+                if ($before <= 0) {
+                    continue;
+                }
+                $delta = -$before;
+                query(
+                    $db,
+                    "UPDATE stock_containers SET remaining_qty='0.000' WHERE id=?",
+                    [$cid],
+                );
+                query(
+                    $db,
+                    "UPDATE ingredients SET current_stock=current_stock+? WHERE id=?",
+                    [decimal($delta, 3), $iid],
+                );
+                $touchedBatches[$bid] = true;
+                $detailSuffix =
+                    $c["expiration_date"] !== null &&
+                    $c["expiration_date"] < substr($at, 0, 10)
+                        ? " [Expired " . $c["expiration_date"] . "]"
+                        : " [Past use-by " . ($c["use_by"] ?? $at) . "]";
+                $combined = $reason . $detailSuffix;
+                preg_match('/^.{0,180}/us', $combined, $rm);
+                $itemReason = $rm[0] ?? substr($combined, 0, 180);
+                record_movement(
+                    $db,
+                    $iid,
+                    $bid,
+                    $cid,
+                    null,
+                    $uid,
+                    "WASTE",
+                    $delta,
+                    $itemReason,
+                    $at,
+                );
+                $cleared[] = [
+                    "container_id" => $cid,
+                    "batch_id" => $bid,
+                    "ingredient_id" => $iid,
+                    "wasted_qty" => decimal($before, 3),
+                ];
+            }
+            foreach (array_keys($touchedBatches) as $bid) {
+                update_batch_totals($db, (int) $bid);
+            }
+            $result = [
+                "cleared_count" => count($cleared),
+                "containers" => $cleared,
+            ];
+            audit($db, $uid, "EXPIRED_WASTE_CLEARED", $ref, [
+                "cleared_count" => count($cleared),
+                "containers" => $cleared,
+                "reason" => $reason,
+            ]);
+        } elseif ($kind === "batch") {
             $before = query(
                 $db,
                 "SELECT * FROM stock_batches WHERE id=? FOR UPDATE",

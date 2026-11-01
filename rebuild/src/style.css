@@ -1400,6 +1400,110 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
   font-size: 11px;
   font-weight: 700;
 }
+.stock-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.stock-badge.danger {
+  background: #fbeae8;
+  color: #8c302b;
+  border: 1px solid #e2b4b0;
+}
+.stock-badge.amber {
+  background: #fef4dc;
+  color: #8a5a00;
+  border: 1px solid #ecd08b;
+}
+.stock-badge.info {
+  background: #e8f1fa;
+  color: #1c5385;
+  border: 1px solid #b8d3ee;
+}
+.stock-badge.ok {
+  background: #e7f3ec;
+  color: #21593c;
+  border: 1px solid #b8dcc7;
+}
+.stock-badge.warn {
+  background: #f5ece0;
+  color: #7a4b15;
+  border: 1px solid #dec39d;
+}
+.stock-badge.neutral {
+  background: #eff1ec;
+  color: #616c5e;
+  border: 1px solid #d5dbd0;
+}
+.expired-queue-panel {
+  border-color: #e2b4b0;
+  background: #fffafa;
+  margin-bottom: 22px;
+}
+.expired-queue-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.expired-queue-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px solid #ead4d1;
+  border-radius: 9px;
+  font-size: 13px;
+}
+.expired-queue-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.alert-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.qty-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 6px 0 10px;
+  font-size: 13px;
+}
+.waste-presets-block {
+  margin: 4px 0 8px;
+}
+.preset-caption {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #50634d;
+  margin-bottom: 6px;
+}
+.container-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.container-detail-actions {
+  margin-top: 6px;
+}
 @media (max-width: 600px) {
   .order-success-cash-grid {
     grid-template-columns: 1fr;
