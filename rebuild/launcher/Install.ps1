@@ -102,16 +102,18 @@ try{
  $ruleName='NearbyCafe_'+$suffix
  if(Get-NetFirewallRule -Name $ruleName -ErrorAction SilentlyContinue){Remove-NetFirewallRule -Name $ruleName}
  if(!$LocalOnly){New-NetFirewallRule -Name $ruleName -DisplayName 'Nearby Cafe - shop Wi-Fi' -Direction Inbound -Action Allow -Protocol TCP -LocalPort $WebPort -Program $httpd -Profile Private -RemoteAddress LocalSubnet|Out-Null}
- $shell=New-Object -ComObject WScript.Shell;$link=$shell.CreateShortcut((Join-Path $OwnerDesktop 'Nearby Café.lnk'))
+ $shortcutName="Nearby Caf$([char]0x00E9).lnk"
+ $shell=New-Object -ComObject WScript.Shell;$link=$shell.CreateShortcut((Join-Path $OwnerDesktop $shortcutName))
  $link.TargetPath="$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
  $link.Arguments=(@('-NoProfile','-STA','-WindowStyle','Hidden','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'NearbyCafe.ps1'))|ForEach-Object{ConvertTo-NearbyArgument $_}) -join ' '
  $link.WorkingDirectory=$root;$link.IconLocation=(Join-Path $PSScriptRoot 'icons\nearby-cafe.ico')+',0';$link.Description='Start Nearby Cafe';$link.Save()
  Write-NearbyEvent $root 'SETUP_COMPLETE';$networkNote=''
  if(!$LocalOnly){$public=@(Get-NearbyPublicNetworks);if($public.Count -gt 0){Write-NearbyEvent $root 'NETWORK_PROFILE_PUBLIC';$networkNote="`r`n`r`nWARNING: Windows marks this network as Public: "+($public -join ', ')+". Tablets will be blocked until the shop Wi-Fi is set to Private (Settings > Network & internet > Wi-Fi > network properties > Private). Then run CHECK-SHOP-NETWORK.bat."}}
- if(!$Quiet){Show-SetupMessage ('Setup is complete. Double-click Nearby Café on the desktop. Keep XAMPP installed; daily use does not need its control panel. Read WINDOWS_LAUNCHER_SETUP.md for first-use checks.'+$networkNote)}
+ if(!$Quiet){Show-SetupMessage ("Setup is complete. Double-click Nearby Caf$([char]0x00E9) on the desktop. Keep XAMPP installed; daily use does not need its control panel. Read WINDOWS_LAUNCHER_SETUP.md for first-use checks."+$networkNote)}
 }catch{
  $code=$_.Exception.Message;if($code -notmatch '^[A-Z0-9_]+$'){$code='SETUP_FAILED'}
  Write-NearbyEvent $root $code
- if(!$Quiet){Show-SetupMessage ("Setup stopped. Reference: "+$code+"`r`nRead WINDOWS_LAUNCHER_SETUP.md or ask your developer. Database files have not been reset.") $true}
+ if($Quiet){throw $code}
+ Show-SetupMessage ("Setup stopped. Reference: "+$code+"`r`nRead WINDOWS_LAUNCHER_SETUP.md or ask your developer. Database files have not been reset.") $true
  exit 1
 }finally{if($setupGuard){$setupGuard.Dispose()}}

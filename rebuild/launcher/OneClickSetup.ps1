@@ -11,6 +11,7 @@ param(
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
+$global:LASTEXITCODE=0
 Add-Type -AssemblyName System.Windows.Forms,System.Drawing
 Import-Module (Join-Path $PSScriptRoot 'Windows.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'Setup.Helpers.psm1') -Force
@@ -218,15 +219,17 @@ return [
  # 6. Run Install.ps1 to register services, ACLs, firewall rule, and Desktop shortcut
  $installScript=Join-Path $PSScriptRoot 'Install.ps1'
  & $installScript -Elevated -Quiet -XamppRoot $x -WebPort $WebPort -OwnerSid $OwnerSid -OwnerDesktop $OwnerDesktop -LocalOnly:$LocalOnly -KeepDatabaseRunning:$KeepDatabaseRunning
- if($LASTEXITCODE -and $LASTEXITCODE -ne 0){throw 'SERVICE_SETUP_FAILED'}
+ if(-not(Test-Path -LiteralPath (Join-Path $root 'config\launcher.local.json') -PathType Leaf)){throw 'SERVICE_SETUP_FAILED'}
 
  # 7. Ensure MariaDB is running and provision/migrate database schema
  $cfg=Get-NearbyConfig $root
+ $dbStartedBySetup=$false
  $dbProbe=Get-NearbyProbe ([pscustomobject]@{Php=$php;Root=$root}) 'database'
  if(-not $dbProbe.ok){
   $dbSvc=Get-Service -Name $cfg.DatabaseService -ErrorAction SilentlyContinue
   if($dbSvc -and $dbSvc.Status -ne 'Running'){
    Start-Service -Name $cfg.DatabaseService
+   $dbStartedBySetup=$true
   }
   for($i=0;$i -lt 40;$i++){
    $dbProbe=Get-NearbyProbe ([pscustomobject]@{Php=$php;Root=$root}) 'database'
@@ -288,15 +291,40 @@ HOW TO COMPLETE OWNER SETUP:
   }
  }
 
- # 9. Start NearbyCafeWeb service and verify HTTP readiness
+ # 9. Start NearbyCafeWeb service, record launcher ownership, and verify HTTP readiness
+ $webStartedBySetup=$false
  $webSvc=Get-Service -Name $cfg.WebService -ErrorAction SilentlyContinue
  if($webSvc -and $webSvc.Status -ne 'Running'){
   Start-Service -Name $cfg.WebService
+  $webStartedBySetup=$true
  }
+ for($i=0;$i -lt 30;$i++){
+  $ws=Get-Service -Name $cfg.WebService -ErrorAction SilentlyContinue
+  if($ws -and $ws.Status -eq 'Running'){break}
+  Start-Sleep -Milliseconds 300
+ }
+ try{
+  $ownState=Get-NearbyOwnership $root
+  if($dbStartedBySetup){
+   $dbInfo=Get-NearbyServiceInfo $cfg 'database'
+   $ownState['database']=@{Pid=$dbInfo.Pid;Start=$dbInfo.Start;Binary=$dbInfo.Binary}
+  }
+  if($webStartedBySetup){
+   $webInfo=Get-NearbyServiceInfo $cfg 'web'
+   $ownState['web']=@{Pid=$webInfo.Pid;Start=$webInfo.Start;Binary=$webInfo.Binary}
+  }
+  Save-NearbyState $root $ownState
+  $ownFile=Join-Path $root 'storage\launcher\ownership.json'
+  if(($OwnerSid -match '^S-1-5-21-(\d+-){3}\d+$') -and (Test-Path -LiteralPath $ownFile)){
+   Set-NearbyDirectoryAccess $ownFile $OwnerSid 'Modify'
+  }
+ }catch{}
+
+ $ops=Get-NearbyAdapters $cfg
  $readyProbe=Get-NearbyProbe $cfg 'ready'
  if($readyProbe.ok){
   for($i=0;$i -lt 30;$i++){
-   if(Test-NearbyHttpReady $cfg ([string]$readyProbe.data.epoch)){break}
+   if(& $ops.HttpReady ([string]$readyProbe.data.epoch)){break}
    Start-Sleep -Milliseconds 300
   }
  }
