@@ -52,13 +52,20 @@ Until the integration PR is merged, the default `main` still contains the old ap
 
 The repository layout is `README.md`, `docs/` ([organized into `setup/`, `operations/`, `academic/`, and `archive/`](docs/README.md)), retained historical course documents in `Docu/`, and one runnable application in `rebuild/`. Within `rebuild`: `src/` is frontend source, `app/` is private PHP, `database/` is schema source, `tools/` is CLI support, `launcher/` is Windows startup, and **only `public/` is web-served**. Never create `rebuild/rebuild`.
 
-## Fresh installation — developer performs once
+## Fresh installation
 
-Use [the numbered installation guide](docs/setup/INSTALLATION.md). In brief:
+### Option A: 1-Click Client Setup (Recommended)
+1. Install [XAMPP](https://www.apachefriends.org/) (PHP 8.2+, Apache, MariaDB) at `C:\xampp`.
+2. Inside `rebuild`, double-click **`One-Click-Setup.bat`** (accept the Administrator prompt).
+3. The installer automatically provisions `config/local.php`, initializes the database, registers Windows background services, places the **Nearby Café** shortcut on the desktop, and creates `NEARBY_CAFE_OWNER_SETUP_CODE.txt` on the Desktop.
+4. The browser opens automatically: click **Set up owner account**, paste the setup code, and choose the Owner password.
+
+### Option B: Manual Developer Provisioning
+Use [the detailed installation guide](docs/setup/INSTALLATION.md). In brief:
 
 1. Install XAMPP and provision a genuinely new, separate database using the documented tools. Never run fresh-install steps over client data.
-2. Place the application at `C:\Projects\VenueVue\rebuild` (or the chosen clone's `rebuild`). Copy the safe configuration example only if `config/local.php` does not exist; enter actual connection settings.
-3. Build the frontend if using Git source. Prepare the one-time initial Owner setup code, then run `Setup-Nearby-Cafe.bat` once while logged into the Owner's Windows account; an authorized administrator accepts the installation prompt.
+2. Place the application at `C:\Projects\NearbyCafe\rebuild`. Copy the safe configuration example only if `config/local.php` does not exist; enter actual connection settings.
+3. Build the frontend if using Git source (`npm ci && npm run build`). Prepare the one-time initial Owner setup code (`php tools/install.php` and `php tools/prepare-owner-setup.php`), then run `Setup-Nearby-Cafe.bat` once while logged into the Owner's Windows account.
 4. Open the desktop **Nearby Café** shortcut. In the browser choose **Set up owner account** and use the initial setup code. After sign-in, prepare an ongoing recovery code under **Management → Account security** and keep it offline. These are two different codes.
 
 There is no public staff registration or third role. The Owner creates Baristas. The initial Owner setup closes after provisioning.

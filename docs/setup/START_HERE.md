@@ -2,9 +2,10 @@
 
 **23 October 2026.** This package includes rebuild Stages 1–5, original Tasks 1–7, browser recovery Tasks 1–5, the Unicode password update, and the new Windows launcher/icons. Earlier patches are not required.
 
-1. Developer: follow **[WINDOWS_LAUNCHER_SETUP.md](WINDOWS_LAUNCHER_SETUP.md)**. It covers both upgrading your existing `C:\Projects\VenueVue\rebuild` installation and a fresh installation.
-2. After that one-time setup, Owner/Admin double-clicks **Nearby Café** on the desktop. See **[OWNER_START_USE_STOP.txt](../txt/OWNER_START_USE_STOP.txt)**.
-3. Review **[LAUNCHER_VERIFICATION.md](../archive/rebuild-stages/LAUNCHER_VERIFICATION.md)** before client handover. Automated checks passed; native Windows/XAMPP, Chrome/Edge UI and physical-device acceptance remain to be completed on the actual laptop.
+1. **1-Click Setup (Fastest):** Inside `rebuild`, double-click **`One-Click-Setup.bat`** to automatically configure, initialize the database, register services, and launch the application.
+2. Developer manual setup: follow **[INSTALLATION.md](INSTALLATION.md)** and **[WINDOWS_LAUNCHER_SETUP.md](WINDOWS_LAUNCHER_SETUP.md)**.
+3. After setup, Owner/Admin double-clicks **Nearby Café** on the desktop for daily shop operations. See **[OWNER_START_USE_STOP.txt](../txt/OWNER_START_USE_STOP.txt)**.
+4. Review **[LAUNCHER_VERIFICATION.md](../archive/rebuild-stages/LAUNCHER_VERIFICATION.md)** before client handover. Automated checks passed; native Windows/XAMPP, Chrome/Edge UI and physical-device acceptance remain to be completed on the actual laptop.
 
 The included production frontend runs without Node/npm during ordinary shop use. XAMPP must remain installed because its PHP, Apache and MariaDB files are used. The launcher manages Windows services; opening the XAMPP control panel is unnecessary during daily use.
 

@@ -1,8 +1,31 @@
 # Windows installation and safe upgrades
 
-Start from the [root README](../../README.md). Commands below are **PowerShell**, unless marked otherwise. The examples use `C:\Projects\VenueVue\rebuild`. Substitute your actual application folder consistently.
+Start from the [root README](../../README.md). Commands below are **PowerShell**, unless marked otherwise. The examples use `C:\Projects\NearbyCafe\rebuild`. Substitute your actual application folder consistently.
 
-## Fresh installation only
+## Recommended: 1-Click Client Setup (Automatic)
+
+For new client machines or quick developer setup, use **`One-Click-Setup.bat`**. It automates all prerequisite checks, configuration, database initialization, service registration, and owner code generation in a single step without touching the command line.
+
+### Quick Start:
+1. Ensure full **XAMPP 8.2+** (Apache, PHP 8.2+, MariaDB) is installed at `C:\xampp`.
+2. Extract or clone VenueVue to `C:\Projects\NearbyCafe` (or your chosen path).
+3. Inside `rebuild`, double-click **`One-Click-Setup.bat`** (or right-click and choose **Run as administrator**).
+4. An Administrator prompt will request elevation:
+   - Verifies XAMPP installation and database options.
+   - Automatically provisions `config\local.php` if missing.
+   - Verifies built frontend assets (or auto-builds them if npm is present).
+   - Starts MariaDB and provisions the schema via `tools\install.php` and `tools\migrate-stage4.php`.
+   - Generates the one-time Owner Setup Code, saves it to your Desktop as `NEARBY_CAFE_OWNER_SETUP_CODE.txt`, copies it to the clipboard, and shows a confirmation dialog.
+   - Registers the `NearbyCafeWeb_*` and `NearbyCafeDatabase_*` Windows services and configures the shop Wi-Fi firewall rule.
+   - Creates the **Nearby Café** desktop shortcut.
+   - Starts the application and opens `http://localhost:5174` directly in your browser.
+5. In the browser, click **Set up owner account**, paste your Setup Code (Ctrl+V), and set your Owner display name, username, and password ($\ge 12$ characters).
+
+---
+
+## Manual Developer Installation (Step-by-Step)
+
+If you prefer to configure database credentials or provision the schema manually:
 
 1. Install full XAMPP with matching Apache 2.4, thread-safe PHP 8.2+ and MariaDB. Keep it installed. Enable PDO MySQL, OpenSSL and JSON; the application uses PCRE for Unicode counting without requiring mbstring. Start MySQL through XAMPP for developer provisioning.
 2. Extract the complete delivered ZIP into a temporary folder. Its `source` folder is the repository root. Copy `source\rebuild` to `C:\Projects\VenueVue\rebuild`. A Git clone instead already contains `rebuild`; do not nest it again. The expected path is `C:\Projects\VenueVue\rebuild\tools\preflight.php`.
