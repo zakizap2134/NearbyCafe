@@ -12,6 +12,7 @@ import { transactionKey } from "../checkout-store";
 import {
   money,
   variantLabel,
+  productImageUrl,
   ErrorNotice,
   Field,
   Select,
@@ -269,20 +270,75 @@ export default function Management({ user, token, expired }) {
   function handleProductImageSelect(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      setError(new Error("Product image must be 2 MB or smaller."));
+    if (!/^image\/(jpeg|jpg|png|webp)$/i.test(file.type)) {
+      setError(new Error("Choose a JPG, PNG or WebP image."));
       e.target.value = "";
       return;
     }
+    if (file.size > 10 * 1024 * 1024) {
+      setError(new Error("Selected image is too large (max 10 MB)."));
+      e.target.value = "";
+      return;
+    }
+    setError(null);
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === "string") {
+      const dataUrl = typeof reader.result === "string" ? reader.result : "";
+      if (!dataUrl) return;
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const maxDim = 600;
+          let width = img.naturalWidth || img.width || maxDim;
+          let height = img.naturalHeight || img.height || maxDim;
+          if (width > maxDim || height > maxDim || file.size > 1500 * 1024) {
+            if (width >= height) {
+              height = Math.max(1, Math.round((height * maxDim) / width));
+              width = maxDim;
+            } else {
+              width = Math.max(1, Math.round((width * maxDim) / height));
+              height = maxDim;
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              const outMime =
+                file.type === "image/png" ? "image/png" : "image/jpeg";
+              const compressed = canvas.toDataURL(outMime, 0.86);
+              if (
+                compressed &&
+                compressed.startsWith("data:image/") &&
+                compressed.length < 2.5 * 1024 * 1024
+              ) {
+                setProduct((prev) => ({
+                  ...prev,
+                  image_data: compressed,
+                  remove_image: 0,
+                }));
+                return;
+              }
+            }
+          }
+        } catch {
+          /* Fall back to raw dataUrl below */
+        }
+        if (file.size > 2 * 1024 * 1024) {
+          setError(new Error("Product image must be 2 MB or smaller."));
+          return;
+        }
         setProduct((prev) => ({
           ...prev,
-          image_data: reader.result,
+          image_data: dataUrl,
           remove_image: 0,
         }));
-      }
+      };
+      img.onerror = () => {
+        setError(new Error("Selected image could not be decoded."));
+      };
+      img.src = dataUrl;
     };
     reader.readAsDataURL(file);
   }
@@ -652,7 +708,7 @@ export default function Management({ user, token, expired }) {
                         maxLength={60}
                         {...input(product, setProduct, "category")}
                       />
-                      <Field label="Choose Image (Optional · JPG, PNG, WebP up to 2 MB)">
+                      <Field label="Choose Image (Optional · JPG, PNG, WebP)">
                         <input
                           ref={productImageInputRef}
                           type="file"
@@ -666,7 +722,7 @@ export default function Management({ user, token, expired }) {
                           <img
                             src={
                               product.image_data ||
-                              `${import.meta.env.BASE_URL}uploads/products/${product.image_filename}`
+                              productImageUrl(product.image_filename)
                             }
                             alt={product.name || "Product preview"}
                           />
@@ -739,7 +795,7 @@ export default function Management({ user, token, expired }) {
                               {p.image_filename ? (
                                 <img
                                   className="product-table-thumb"
-                                  src={`${import.meta.env.BASE_URL}uploads/products/${p.image_filename}`}
+                                  src={productImageUrl(p.image_filename)}
                                   alt={p.name}
                                   loading="lazy"
                                 />

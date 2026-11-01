@@ -36,6 +36,7 @@ try {
         "register/status" => "GET",
         "management/status" => "GET",
         "catalogue" => "GET",
+        "product/image" => "GET",
         "management" => "GET",
         "management/save" => "POST",
         "checkout" => "POST",
@@ -110,6 +111,9 @@ try {
                 problem(400, "INVALID_JSON", "Send a JSON object.");
             }
         }
+    }
+    if ($route === "product/image") {
+        serve_product_image((string) ($_GET["file"] ?? ""));
     }
     $db = connection();
     schema_ready($db);

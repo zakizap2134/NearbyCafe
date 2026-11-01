@@ -7,6 +7,10 @@ export const money = (value) =>
   );
 export const variantLabel = (v, products = []) =>
   `${v.product_name ?? products.find((p) => Number(p.id) === Number(v.product_id))?.name ?? "Drink"} ${v.size}${v.temperature === "NA" ? "" : ` ${v.temperature}`}`;
+export const productImageUrl = (filename) =>
+  filename
+    ? `${import.meta.env.BASE_URL}api/index.php?route=product/image&file=${encodeURIComponent(filename)}`
+    : "";
 export function ErrorNotice({ error }) {
   return (
     error && (
@@ -89,7 +93,7 @@ export function Receipt({ sale, onVoid, onReloadItems, onPrint, onClose }) {
             </tr>
           </thead>
           <tbody>
-            {sale.items.map((line, i) => (
+            {(sale.items ?? []).map((line, i) => (
               <tr key={i}>
                 <td>{line.variant_label}</td>
                 <td>{line.qty}</td>

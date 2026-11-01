@@ -91,11 +91,30 @@ function today_sales(PDO $db, string $at): array
 }
 function product_uploads_dir(): string
 {
-    $dir = __DIR__ . "/../public/uploads/products";
+    $dir = __DIR__ . "/../storage/uploads/products";
     if (!is_dir($dir)) {
         @mkdir($dir, 0775, true);
     }
     return $dir;
+}
+function find_product_image_path(?string $filename): ?string
+{
+    if (
+        !is_string($filename) ||
+        $filename === "" ||
+        !preg_match('/^prod_[0-9]+_[0-9]+_[a-f0-9]{8}\.(jpg|png|webp)$/D', $filename)
+    ) {
+        return null;
+    }
+    foreach ([
+        product_uploads_dir() . "/" . $filename,
+        __DIR__ . "/../public/uploads/products/" . $filename,
+    ] as $candidate) {
+        if (is_file($candidate)) {
+            return $candidate;
+        }
+    }
+    return null;
 }
 function remove_product_image_file(?string $filename): void
 {
@@ -104,11 +123,37 @@ function remove_product_image_file(?string $filename): void
         $filename !== "" &&
         preg_match('/^prod_[0-9]+_[0-9]+_[a-f0-9]{8}\.(jpg|png|webp)$/D', $filename)
     ) {
-        $path = product_uploads_dir() . "/" . $filename;
-        if (is_file($path)) {
-            @unlink($path);
+        foreach ([
+            product_uploads_dir() . "/" . $filename,
+            __DIR__ . "/../public/uploads/products/" . $filename,
+        ] as $path) {
+            if (is_file($path)) {
+                @unlink($path);
+            }
         }
     }
+}
+function serve_product_image(string $filename): never
+{
+    $path = find_product_image_path($filename);
+    if ($path === null) {
+        http_response_code(404);
+        header("Content-Type: text/plain; charset=utf-8");
+        echo "Not Found";
+        exit();
+    }
+    $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    $mime = match ($ext) {
+        "png" => "image/png",
+        "webp" => "image/webp",
+        default => "image/jpeg",
+    };
+    http_response_code(200);
+    header("Content-Type: " . $mime);
+    header("Cache-Control: public, max-age=86400");
+    header("X-Content-Type-Options: nosniff");
+    readfile($path);
+    exit();
 }
 function process_product_image(
     int $productId,
@@ -217,7 +262,7 @@ function process_product_image(
         problem(
             503,
             "IMAGE_STORAGE",
-            "Could not save product image to public/uploads/products.",
+            "Could not save product image to storage/uploads/products.",
         );
     }
     if ($oldFilename !== null && $oldFilename !== $filename) {

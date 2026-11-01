@@ -3,6 +3,7 @@ import { api } from "../api";
 import {
   money,
   variantLabel,
+  productImageUrl,
   ErrorNotice,
   Receipt,
   OrderSuccessModal,
@@ -238,28 +239,32 @@ export default function Register({ user, token, expired }) {
       setError(e);
     }
   }
-  const pending = orders.filter(
-      (o) => o.state === "submitted" || o.state === "review",
+  const pending = (orders ?? []).filter(
+      (o) => o && (o.state === "submitted" || o.state === "review"),
     ),
-    history = orders.filter(
-      (o) => o.state === "confirmed" || o.state === "resolved",
+    history = (orders ?? []).filter(
+      (o) => o && (o.state === "confirmed" || o.state === "resolved"),
     );
-  const products =
-    menu?.variants
-      .filter((v) =>
-        (v.product_name + " " + v.category)
-          .toLowerCase()
-          .includes(search.toLowerCase()),
-      )
-      .reduce((all, v) => {
-        (all[v.product_id] ??= {
-          name: v.product_name,
-          category: v.category,
-          image_filename: v.image_filename,
-          variants: [],
-        }).variants.push(v);
-        return all;
-      }, {}) ?? {};
+  const products = (Array.isArray(menu?.variants) ? menu.variants : [])
+    .filter((v) =>
+      `${v?.product_name ?? ""} ${v?.category ?? ""}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
+    )
+    .reduce((all, v) => {
+      const pid = v.product_id ?? v.id;
+      const entry = (all[pid] ??= {
+        name: v.product_name ?? "Drink",
+        category: v.category ?? "",
+        image_filename: v.image_filename || null,
+        variants: [],
+      });
+      if (!entry.image_filename && v.image_filename) {
+        entry.image_filename = v.image_filename;
+      }
+      entry.variants.push(v);
+      return all;
+    }, {});
   return (
     <>
       <div className="page-heading">
@@ -399,7 +404,7 @@ export default function Register({ user, token, expired }) {
                     <div className="drink-card-top">
                       <div className="drink-media">
                         <img
-                          src={`${import.meta.env.BASE_URL}uploads/products/${p.image_filename}`}
+                          src={productImageUrl(p.image_filename)}
                           alt={p.name}
                           loading="lazy"
                           onError={(e) => {
@@ -613,9 +618,9 @@ export default function Register({ user, token, expired }) {
                         "Reviewed; no sale"
                       )}
                     </td>
-                    <td>{money(o.body.cash_received)}</td>
+                    <td>{money(o.body?.cash_received)}</td>
                     <td>
-                      {o.state === "confirmed" ? (
+                      {o.state === "confirmed" && o.sale ? (
                         <div className="table-actions">
                           <button
                             type="button"
