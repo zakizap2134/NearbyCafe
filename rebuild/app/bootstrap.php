@@ -62,6 +62,17 @@ function settings(): array
         );
     }
     $value = require $file;
+    if (is_array($value) && !isset($value["db"]) && is_array($value["database"] ?? null)) {
+        $value["db"] = $value["database"];
+    }
+    if (is_array($value["db"] ?? null)) {
+        if (!isset($value["db"]["password"]) && isset($value["db"]["pass"])) {
+            $value["db"]["password"] = $value["db"]["pass"];
+        }
+        if (isset($value["db"]["port"]) && is_numeric($value["db"]["port"])) {
+            $value["db"]["port"] = (int) $value["db"]["port"];
+        }
+    }
     if (!is_array($value) || !is_array($value["db"] ?? null)) {
         problem(
             503,
@@ -233,6 +244,45 @@ function ensure_void_and_image_schema(PDO $db): void
     } catch (Throwable) {
         // Columns or constraint already exist
     }
+    $userCols = array_column(
+        $db->query("SHOW COLUMNS FROM `users`")->fetchAll(),
+        "Field",
+    );
+    if (!in_array("email", $userCols, true)) {
+        $db->exec(
+            "ALTER TABLE `users` ADD COLUMN `email` VARCHAR(191) CHARACTER SET ascii COLLATE ascii_general_ci NULL DEFAULT NULL AFTER `display_name`",
+        );
+    }
+    if (!in_array("shop_name", $userCols, true)) {
+        $db->exec(
+            "ALTER TABLE `users` ADD COLUMN `shop_name` VARCHAR(120) NULL DEFAULT NULL AFTER `email`",
+        );
+    }
+    $emailIdx = (int) $db
+        ->query(
+            "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='email' AND NON_UNIQUE=0",
+        )
+        ->fetchColumn();
+    if ($emailIdx === 0) {
+        try {
+            $db->exec("ALTER TABLE `users` ADD UNIQUE KEY `idx_users_email` (`email`)");
+        } catch (PDOException) {
+            // Ignore if duplicate null/index already exists
+        }
+    }
+    $db->exec(
+        "CREATE TABLE IF NOT EXISTS `password_resets` (
+            `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `user_id` INT UNSIGNED NOT NULL,
+            `token_hash` CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE,
+            `expires_at` DATETIME NOT NULL,
+            `used_at` DATETIME NULL DEFAULT NULL,
+            `created_at` DATETIME NOT NULL,
+            INDEX `idx_reset_user`(`user_id`),
+            INDEX `idx_reset_expiry`(`expires_at`),
+            FOREIGN KEY(`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB",
+    );
 }
 function schema_ready(PDO $db): void
 {
