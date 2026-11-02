@@ -316,15 +316,6 @@ function request_email_code(PDO $db, array $body, string $requestId): array
         audit($db, (int)$user['id'], 'RECOVERY_CODE_SENT', $requestId, ['email' => $email, 'sent' => $sent]);
         $db->commit();
 
-        $smtp = get_smtp_config();
-        if (empty($smtp['enabled']) && !$sent) {
-            problem(
-                503,
-                'EMAIL_NOT_CONFIGURED',
-                'Email delivery is not configured on this store yet. The store owner must configure Gmail SMTP in Management → Account security to enable password resets.'
-            );
-        }
-
         return [
             'sent' => true,
             'email' => $email,
