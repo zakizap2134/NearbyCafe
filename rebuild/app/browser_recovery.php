@@ -317,13 +317,17 @@ function request_email_code(PDO $db, array $body, string $requestId): array
         $db->commit();
 
         $smtp = get_smtp_config();
-        $smtpActive = !empty($smtp['enabled']) && $sent;
+        if (empty($smtp['enabled']) && !$sent) {
+            problem(
+                503,
+                'EMAIL_NOT_CONFIGURED',
+                'Email delivery is not configured on this store yet. The store owner must configure Gmail SMTP in Management → Account security to enable password resets.'
+            );
+        }
 
         return [
             'sent' => true,
             'email' => $email,
-            'smtp_active' => $smtpActive,
-            'fallback_code' => $smtpActive ? null : $code,
         ];
     } catch (Throwable $e) {
         if ($db->inTransaction()) $db->rollBack();

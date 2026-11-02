@@ -10,7 +10,6 @@ export default function OwnerRecovery() {
   const [step, setStep] = useState("request"); // 'request' | 'verify' | 'success'
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
-  const [fallbackCode, setFallbackCode] = useState(null);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [busy, setBusy] = useState(false);
@@ -27,16 +26,10 @@ export default function OwnerRecovery() {
     }
     setBusy(true);
     try {
-      const res = await api("recovery/email-request", { body: { email: cleanEmail } });
+      await api("recovery/email-request", { body: { email: cleanEmail } });
       setStep("verify");
-      if (res?.fallback_code) {
-        setCode(res.fallback_code);
-        setFallbackCode(res.fallback_code);
-        setNotice("Email delivery server is not configured yet. Your verification code is ready below!");
-      } else {
-        setFallbackCode(null);
-        setNotice(`We sent a 6-digit verification code to ${cleanEmail}. Check your inbox (and spam folder)!`);
-      }
+      setCode("");
+      setNotice(`We sent a 6-digit verification code to ${cleanEmail}. Check your inbox (and spam folder)!`);
     } catch (err) {
       setError(err);
     } finally {
@@ -93,7 +86,7 @@ export default function OwnerRecovery() {
             <>
               <h1>Forgot password?</h1>
               <p className="subtle">
-                Enter your registered email address. We'll send you a 6-digit verification code to reset your password.
+                Enter your registered email address. We'll send a secure 6-digit verification code to your inbox to reset your password.
               </p>
 
               {error && (
@@ -101,7 +94,7 @@ export default function OwnerRecovery() {
                   <strong>{error.message}</strong>
                   {error.code === "ACCOUNT_NOT_FOUND" && (
                     <p style={{ marginTop: "8px", fontSize: "0.85rem", color: "#5d4037" }}>
-                      💡 If you recently set up or changed your account, verify your email spelling or sign in with your username to update your email under Management.
+                      💡 Check your email spelling. If you haven't set up your recovery email yet, sign in with your username and visit Management → Account security.
                     </p>
                   )}
                 </div>
@@ -149,38 +142,6 @@ export default function OwnerRecovery() {
 
               {notice && <div className="success recovery-notice">{notice}</div>}
 
-              {fallbackCode && (
-                <div
-                  style={{
-                    background: "#fef8f0",
-                    border: "2px dashed #a93226",
-                    borderRadius: "8px",
-                    padding: "16px",
-                    marginBottom: "20px",
-                    textAlign: "center",
-                  }}
-                >
-                  <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#8a2419", display: "block", marginBottom: "4px" }}>
-                    ON-SCREEN VERIFICATION CODE
-                  </span>
-                  <div
-                    style={{
-                      fontSize: "2.2rem",
-                      fontWeight: "800",
-                      letterSpacing: "6px",
-                      color: "#a93226",
-                      fontFamily: "monospace",
-                      margin: "8px 0",
-                    }}
-                  >
-                    {fallbackCode}
-                  </div>
-                  <p style={{ fontSize: "0.85rem", color: "#7f6055", margin: 0 }}>
-                    Email delivery (SMTP) is not yet configured, so your code was generated on-screen. We have pre-filled it below for you.
-                  </p>
-                </div>
-              )}
-
               {error && (
                 <div className="error recovery-notice" role="alert">
                   <strong>{error.message}</strong>
@@ -203,7 +164,7 @@ export default function OwnerRecovery() {
                   autoFocus
                 />
                 <p className="setup-hint" style={{ textAlign: "center", marginBottom: "16px" }}>
-                  Code for <strong>{email}</strong> (valid for 15 minutes)
+                  Enter the 6-digit code sent to <strong>{email}</strong> (valid for 15 minutes)
                 </p>
 
                 <StaffPassword
@@ -288,13 +249,13 @@ export default function OwnerRecovery() {
           <section className="recovery-staff">
             <h2>Need help?</h2>
             <p>
-              • <strong>Instant verification:</strong> If your café has Gmail SMTP configured, your 6-digit code arrives directly in your inbox within 1–2 minutes.
+              • <strong>Check your Spam or Junk folder</strong> if the 6-digit code does not arrive in your inbox within 1–2 minutes.
             </p>
             <p>
-              • <strong>On-Screen Code Fallback:</strong> If email delivery is not yet configured, your 6-digit code is displayed right on your screen so you are never locked out.
+              • <strong>Security protected:</strong> For account safety, verification codes are sent exclusively to your private email inbox and are never shown publicly on the web page.
             </p>
             <p>
-              • <strong>Different email?</strong> Click <em>Change email</em> to try another address, or ask your shop administrator.
+              • <strong>Different email?</strong> Click <em>Change email</em> if your store account is registered under a different address.
             </p>
             <p>
               • <strong>Staff / Baristas:</strong> You can also ask your Store Owner to reset your password directly in <strong>Management → Staff</strong>.
