@@ -1,11 +1,222 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import Brand from "../components/Brand";
 import StaffPassword, { staffPasswordError } from "../components/StaffPassword";
 import SaveRecoveryCode from "../components/SaveRecoveryCode";
 import RecoveryNotice from "../components/RecoveryNotice";
 import "./owner-recovery.css";
+
+function EmailResetRequestCard() {
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [sentMessage, setSentMessage] = useState("");
+
+  async function handleRequest(e) {
+    e.preventDefault();
+    if (busy) return;
+    setError(null);
+    setSentMessage("");
+    const trimmed = email.trim();
+    if (!trimmed || trimmed.length > 191 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setError(new Error("Enter your registered email address (for example, owner@example.com)."));
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await api("recovery/email-request", { body: { email: trimmed } });
+      setSentMessage(
+        res?.message ||
+          "If an active account matches that email address, a password reset link has been sent. Please check your inbox and spam folder.",
+      );
+      setEmail("");
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="recovery-staff" aria-labelledby="email-recovery-title">
+      <p className="recovery-eyebrow">ONLINE EMAIL RECOVERY</p>
+      <h2 id="email-recovery-title">Reset password via Email</h2>
+      <p>
+        Enter the email address linked to your account. We will send you a 15-minute password reset link.
+      </p>
+      {error && <RecoveryNotice error={error} id="email-reset-error" />}
+      {sentMessage && (
+        <div className="success" role="status" style={{ marginBottom: "14px" }}>
+          <p style={{ margin: 0 }}>{sentMessage}</p>
+          <p style={{ margin: "8px 0 0", fontSize: "0.9rem" }}>
+            <Link to="/reset-password" style={{ fontWeight: 700, color: "inherit" }}>
+              Have your reset token? Click here to enter it manually →
+            </Link>
+          </p>
+        </div>
+      )}
+      <form onSubmit={handleRequest} noValidate>
+        <fieldset disabled={busy}>
+          <label htmlFor="recovery-email-input" style={{ display: "block", fontWeight: 700, marginBottom: "6px" }}>
+            Registered email address
+          </label>
+          <input
+            id="recovery-email-input"
+            type="email"
+            autoComplete="email"
+            placeholder="owner@example.com"
+            required
+            maxLength={191}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={{ width: "100%", marginBottom: "12px" }}
+          />
+          <button type="submit" className="primary full" disabled={busy}>
+            {busy ? "Sending reset link…" : "Send password reset email"}
+          </button>
+        </fieldset>
+      </form>
+      <p style={{ marginTop: "10px", fontSize: "0.9rem" }}>
+        <Link to="/reset-password" className="forgot-password-link" style={{ padding: "4px 0", minHeight: "auto" }}>
+          Already have a reset token? Reset password here
+        </Link>
+      </p>
+    </section>
+  );
+}
+
+export function EmailTokenReset() {
+  const [searchParams] = useSearchParams();
+  const initialToken = searchParams.get("token") || "";
+  const [token, setToken] = useState(initialToken);
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [doneUser, setDoneUser] = useState("");
+
+  useEffect(() => {
+    if (initialToken) setToken(initialToken);
+  }, [initialToken]);
+
+  async function submitTokenReset(e) {
+    e.preventDefault();
+    if (busy || doneUser) return;
+    setError(null);
+    const cleaned = token.trim().replaceAll("-", "");
+    if (!/^[a-fA-F0-9]{64}$/.test(cleaned) || token.length > 100) {
+      setError(new Error("Enter the 64-character reset token from your email."));
+      return;
+    }
+    const invalid = staffPasswordError(password, confirmation);
+    if (invalid) {
+      setError(new Error(invalid));
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await api("recovery/email-reset", {
+        body: {
+          token: token.trim(),
+          new_password: password,
+          confirm_password: confirmation,
+        },
+      });
+      setPassword("");
+      setConfirmation("");
+      setDoneUser(res?.username || "your account");
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="owner-recovery-page">
+      <header className="recovery-brand-bar">
+        <Brand compact header />
+        <div>
+          <span className="recovery-eyebrow">NEARBY CAFÉ</span>
+          <p>Complete your email password reset.</p>
+        </div>
+      </header>
+      <div className="recovery-content">
+        <section className="panel owner-recovery-card" aria-labelledby="token-reset-title">
+          <p className="recovery-eyebrow">EMAIL PASSWORD RESET</p>
+          <h1 id="token-reset-title" tabIndex={-1}>
+            Choose a new password
+          </h1>
+          <p>
+            Enter the reset token from your email and choose a new password (at least 12 characters).
+          </p>
+          <RecoveryNotice error={error} id="token-reset-error" />
+          {doneUser ? (
+            <div className="success" role="status">
+              <strong>Password updated!</strong>
+              <p>
+                The password for <strong>{doneUser}</strong> has been reset and previous sessions have been signed out.
+              </p>
+              <Link className="primary full" to="/login" style={{ display: "inline-flex", justifyContent: "center", marginTop: "12px", textDecoration: "none" }}>
+                Continue to Sign in
+              </Link>
+            </div>
+          ) : (
+            <form onSubmit={submitTokenReset} noValidate autoComplete="off" aria-busy={busy}>
+              <fieldset disabled={busy}>
+                <label htmlFor="reset-token-input">Reset token from email</label>
+                <input
+                  id="reset-token-input"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  required
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  maxLength={100}
+                  placeholder="Paste 64-character token from email"
+                  style={{ width: "100%", marginBottom: "20px" }}
+                />
+                <StaffPassword
+                  label="New password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={busy}
+                  required
+                  autoComplete="new-password"
+                />
+                <StaffPassword
+                  label="Confirm new password"
+                  value={confirmation}
+                  onChange={(e) => setConfirmation(e.target.value)}
+                  disabled={busy}
+                  required
+                  autoComplete="new-password"
+                />
+                <p id="token-password-rules">
+                  Choose a password you can remember and enter it twice. Use at least 12 characters.
+                </p>
+                <button type="submit" className="primary full" disabled={busy}>
+                  {busy ? "Saving new password…" : "Save new password"}
+                </button>
+              </fieldset>
+            </form>
+          )}
+          <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "12px" }}>
+            <Link className="recovery-back" to="/forgot-password">
+              Request another reset email
+            </Link>
+            <Link className="recovery-back" to="/login">
+              Back to sign in
+            </Link>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+
 export default function OwnerRecovery() {
   const navigate = useNavigate();
   const [username, setUsername] = useState(""), [code, setCode] = useState(""), [password, setPassword] = useState(""), [confirmation, setConfirmation] = useState("");
@@ -35,7 +246,7 @@ export default function OwnerRecovery() {
     <header className="recovery-brand-bar"><Brand compact header /><div><span className="recovery-eyebrow">NEARBY CAFÉ</span><p>Your account, safely back in reach.</p></div></header>
     <div className="recovery-content"><section className="panel owner-recovery-card" aria-labelledby="owner-recovery-title">
       <p className="recovery-eyebrow">ACCOUNT HELP</p><h1 id="owner-recovery-title" tabIndex={-1}>Forgot password?</h1><h2>Owner/Admin recovery</h2>
-      <p>Use the recovery code you saved to create a new Owner password. You do not need email. Keep the shop’s host laptop and Wi-Fi running.</p>
+      <p>Reset your password via your registered Email (on the right) or use the offline recovery code you saved below.</p>
       <div className="recovery-note" id="recovery-code-help"><strong>Use your Owner recovery code</strong><p>This is the code saved from Account security or a previous password reset. The initial setup code used to create the first Owner account will not work here.</p></div>
       <RecoveryNotice error={error} id="owner-reset-error" />
       {uncertain ? <div ref={uncertainNotice} tabIndex={-1} className="error recovery-notice" role="alert" aria-atomic="true"><strong>The result could not be confirmed.</strong>
@@ -54,12 +265,13 @@ export default function OwnerRecovery() {
       <Link className="recovery-back" to="/login">Back to sign in</Link>
       {replacement && <SaveRecoveryCode introduction="Your Owner password has changed. Save this replacement code before returning to sign-in." code={replacement} username={username.trim()} onDone={() => { setReplacement(""); clearSecrets(); navigate("/login", { replace: true }); }} />}
     </section><aside className="recovery-support panel" aria-label="Other ways to get help">
+      <EmailResetRequestCard />
       <section className="recovery-staff" aria-labelledby="barista-recovery-title"><h2 id="barista-recovery-title">Barista: contact the Owner</h2>
-        <p>Ask your Owner/Admin to reset your password in <strong>Management → Account security</strong>. Barista passwords can only be reset with Owner authorization.</p>
+        <p>Ask your Owner/Admin to reset your password in <strong>Management → Account security</strong> (or use Email Reset above if your email is linked to your Barista account).</p>
         <p>Afterward, sign in using the same account, browser profile and shop address to return to your saved orders.</p>
       </section>
-      <p><strong>Lost both your Owner password and recovery code?</strong> Contact the authorized host administrator or project support. Keep the database intact. Creating another Owner or reinstalling is not a recovery method.</p>
-      <p>If you can still sign in, prepare or replace your code in <strong>Management → Account security</strong>.</p>
+      <p><strong>Lost both your Owner password and recovery code?</strong> Use the Email Recovery box above, or contact the authorized host administrator. Keep the database intact.</p>
+      <p>If you can still sign in, prepare or replace your recovery email and offline code in <strong>Management → Account security</strong>.</p>
     </aside></div>
   </main>;
 }

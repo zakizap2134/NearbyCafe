@@ -2,7 +2,13 @@
 declare(strict_types=1);
 require_once __DIR__.'/bootstrap.php';
 function login(PDO $db,array $body,string $requestId): array {
-    $name=username($body['username']??null);$password=$body['password']??null;
+    $rawInput=$body['username']??null;
+    if (is_string($rawInput) && str_contains($rawInput,'@') && filter_var(trim($rawInput),FILTER_VALIDATE_EMAIL) && strlen(trim($rawInput))<=191) {
+        $name=strtolower(trim($rawInput));
+    } else {
+        $name=username($rawInput);
+    }
+    $password=$body['password']??null;
     if (!is_string($password) || strlen($password)>72 || str_contains($password,"\0")) problem(422,'VALIDATION','Enter a valid password.');
     // Account and remote-IP buckets separately discourage distributed guessing and username spraying.
     $buckets=[hash('sha256','user:'.$name),hash('sha256','ip:'.($_SERVER['REMOTE_ADDR']??'local'))];
@@ -15,7 +21,7 @@ function login(PDO $db,array $body,string $requestId): array {
             $failures=query($db,'SELECT failures FROM login_limits WHERE bucket=?',[$bucket])->fetchColumn();
             if ((int)$failures>=($index===0?5:30)) problem(429,'LOGIN_LIMIT','Too many sign-in attempts. Wait 15 minutes before trying again.');
         }
-        $user=query($db,'SELECT * FROM users WHERE username=?',[$name])->fetch();
+        $user=query($db,'SELECT * FROM users WHERE username=? OR (email IS NOT NULL AND LOWER(email)=?) LIMIT 1',[$name,$name])->fetch();
         $hash=$user['password_hash']??'$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.';
         $valid=password_verify($password,$hash);
         if (!$user || !$valid || !(int)$user['is_active']) {

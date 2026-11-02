@@ -385,6 +385,7 @@ function staff_save(PDO $db, array $session, array $body, string $ref): array
 {
     $name = username($body["username"] ?? null);
     $display = label_text($body["display_name"] ?? null, "Display name");
+    $email = valid_email($body["email"] ?? null, false);
     $id = isset($body["id"]) ? positive_id($body["id"]) : null;
     if (isset($body["role"]) && $body["role"] !== "BARISTA") {
         problem(
@@ -414,27 +415,62 @@ function staff_save(PDO $db, array $session, array $body, string $ref): array
             if (!$old) {
                 problem(422, "STAFF_REQUIRED", "Choose an existing Barista.");
             }
+            $emailToSave = array_key_exists("email", $body) ? $email : ($old["email"] ?? null);
             query(
                 $db,
-                "UPDATE users SET username=?,display_name=?,is_active=?,updated_at=NOW() WHERE id=?",
-                [$name, $display, $active, $id],
+                "UPDATE users SET username=?,display_name=?,email=?,is_active=?,updated_at=NOW() WHERE id=?",
+                [$name, $display, $emailToSave, $active, $id],
             );
             query($db, "DELETE FROM sessions WHERE user_id=?", [$id]);
         } else {
             query(
                 $db,
-                "INSERT INTO users(username,display_name,password_hash,role,is_active,created_at,updated_at) VALUES(?,?,?,'BARISTA',?,NOW(),NOW())",
-                [$name, $display, $hash, $active],
+                "INSERT INTO users(username,display_name,email,password_hash,role,is_active,created_at,updated_at) VALUES(?,?,?,?,'BARISTA',?,NOW(),NOW())",
+                [$name, $display, $email, $hash, $active],
             );
             $id = (int) $db->lastInsertId();
         }
         audit($db, (int) $session["user"]["id"], "STAFF_SAVED:" . $id, $ref, [
             "username" => $name,
             "display_name" => $display,
+            "email" => $email,
             "is_active" => $active,
         ]);
         $db->commit();
         return ["id" => $id];
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $e;
+    }
+}
+
+function owner_profile_save(PDO $db, array $session, array $body, string $ref): array
+{
+    $email = valid_email($body["email"] ?? null, true);
+    $rawShop = $body["shop_name"] ?? null;
+    $shopName = is_string($rawShop) && trim($rawShop) !== "" ? trim($rawShop) : "Nearby Café";
+    if (strlen($shopName) > 120) {
+        problem(422, "VALIDATION", "Shop name must contain 1–120 bytes.");
+    }
+    $uid = (int) $session["user"]["id"];
+    $db->beginTransaction();
+    try {
+        lock_state($db);
+        owner_reauth($db, $session, $body, $ref);
+        query(
+            $db,
+            "UPDATE users SET email=?,shop_name=?,updated_at=NOW() WHERE id=? AND role='OWNER'",
+            [$email, $shopName, $uid],
+        );
+        audit($db, $uid, "OWNER_PROFILE_UPDATED", $ref, [
+            "email" => $email,
+            "shop_name" => $shopName,
+        ]);
+        $updated = query($db, "SELECT * FROM users WHERE id=?", [$uid])->fetch();
+        $db->commit();
+        return ["user" => public_user($updated)];
     } catch (Throwable $e) {
         if ($db->inTransaction()) {
             $db->rollBack();

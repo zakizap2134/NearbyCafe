@@ -435,6 +435,7 @@ export function Staff({ token, expired, onResetPassword }) {
   const blank = {
       username: "",
       display_name: "",
+      email: "",
       password: "",
       confirm_password: "",
       owner_password: "",
@@ -480,6 +481,14 @@ export function Staff({ token, expired, onResetPassword }) {
               new TextEncoder().encode(form.display_name.trim()).length > 100
             )
               throw new Error("Display name must contain 1–100 bytes.");
+            if (
+              form.email?.trim() &&
+              (form.email.trim().length > 191 ||
+                !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()))
+            )
+              throw new Error(
+                "Enter a valid staff email address (or leave it blank).",
+              );
             const validation =
               !form.id &&
               staffPasswordError(form.password, form.confirm_password);
@@ -500,6 +509,7 @@ export function Staff({ token, expired, onResetPassword }) {
                   ...body,
                   username: body.username.trim(),
                   display_name: body.display_name.trim(),
+                  email: body.email?.trim() || "",
                 },
               });
               setForm(blank);
@@ -549,6 +559,13 @@ export function Staff({ token, expired, onResetPassword }) {
             required
             maxLength={100}
             {...field("display_name")}
+          />
+          <Field
+            label="Staff email (optional, for email password reset)"
+            type="email"
+            maxLength={191}
+            placeholder="barista@example.com"
+            {...field("email")}
           />
           {!form.id && (
             <>
@@ -616,18 +633,19 @@ export function Staff({ token, expired, onResetPassword }) {
       ) : !staff.length ? (
         <p>No Barista accounts yet.</p>
       ) : (
-        <Table headers={["Name", "Username", "Status", "Edit"]}>
+        <Table headers={["Name", "Username", "Email", "Status", "Edit"]}>
           {staff.map((s) => (
             <tr key={s.id}>
               <td>{s.display_name}</td>
               <td>{s.username}</td>
+              <td>{s.email || "—"}</td>
               <td>{Number(s.is_active) ? "Active" : "Inactive"}</td>
               <td>
                 <button
                   disabled={action.busy}
                   onClick={() => {
                     action.setError(null);
-                    setForm({ ...blank, ...s });
+                    setForm({ ...blank, ...s, email: s.email || "" });
                   }}
                 >
                   Edit {s.username}

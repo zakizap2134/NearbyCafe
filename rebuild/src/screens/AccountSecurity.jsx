@@ -12,8 +12,65 @@ export default function AccountSecurity({ user, token, expired, onPrepared }) {
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(false),
     [error, setError] = useState(null),
-    [notice, setNotice] = useState("");
+    [notice, setNotice] = useState(""),
+    [ownerEmail, setOwnerEmail] = useState(user?.email || ""),
+    [shopName, setShopName] = useState(user?.shop_name || "Nearby Café"),
+    [profilePassword, setProfilePassword] = useState(""),
+    [profileBusy, setProfileBusy] = useState(false),
+    [profileError, setProfileError] = useState(null),
+    [profileNotice, setProfileNotice] = useState("");
   const running = useRef(false);
+  async function saveOwnerProfile(e) {
+    e.preventDefault();
+    if (profileBusy) return;
+    setProfileError(null);
+    setProfileNotice("");
+    const trimmedEmail = ownerEmail.trim();
+    if (
+      !trimmedEmail ||
+      trimmedEmail.length > 191 ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)
+    ) {
+      setProfileError(
+        new Error("Enter a valid email address (for example, owner@example.com)."),
+      );
+      return;
+    }
+    if (!shopName.trim() || new TextEncoder().encode(shopName.trim()).length > 120) {
+      setProfileError(new Error("Shop name must contain 1–120 bytes."));
+      return;
+    }
+    if (
+      !profilePassword ||
+      new TextEncoder().encode(profilePassword).length > 72 ||
+      profilePassword.includes("\0")
+    ) {
+      setProfileError(new Error("Enter your current owner password."));
+      return;
+    }
+    setProfileBusy(true);
+    try {
+      const res = await api("management/owner-profile", {
+        token,
+        body: {
+          email: trimmedEmail,
+          shop_name: shopName.trim(),
+          owner_password: profilePassword,
+        },
+      });
+      if (res?.user?.email) setOwnerEmail(res.user.email);
+      if (res?.user?.shop_name) setShopName(res.user.shop_name);
+      setProfileNotice(
+        "Owner recovery email and shop profile saved! You can now use Email Recovery on the Forgot password screen.",
+      );
+    } catch (err) {
+      setProfileError(err);
+      if (err.status === 401) expired();
+    } finally {
+      setProfileBusy(false);
+      setProfilePassword("");
+    }
+  }
   async function load() {
     setLoading(true);
     setError(null);
@@ -165,6 +222,55 @@ export default function AccountSecurity({ user, token, expired, onPrepared }) {
         )}
       </section>
       <OwnerRecoveryCode user={user} token={token} expired={expired} onPrepared={onPrepared} />
+      <section className="panel" style={{ gridColumn: "1 / -1" }}>
+        <h2>Owner recovery email & store profile</h2>
+        <p className="subtle small">
+          Link your email address so you can reset your Owner password online via{" "}
+          <strong>Forgot password? → Reset password via Email</strong>.
+        </p>
+        <ErrorNotice error={profileError} />
+        {profileNotice && (
+          <p className="success" role="status">
+            {profileNotice}
+          </p>
+        )}
+        <form onSubmit={saveOwnerProfile} noValidate>
+          <fieldset disabled={profileBusy}>
+            <label>
+              Café / Shop name
+              <input
+                type="text"
+                required
+                maxLength={120}
+                value={shopName}
+                onChange={(e) => setShopName(e.target.value)}
+              />
+            </label>
+            <label>
+              Owner recovery email address
+              <input
+                type="email"
+                required
+                maxLength={191}
+                placeholder="owner@example.com"
+                value={ownerEmail}
+                onChange={(e) => setOwnerEmail(e.target.value)}
+              />
+            </label>
+            <StaffPassword
+              label="Your current owner password"
+              disabled={profileBusy}
+              autoComplete="current-password"
+              required
+              value={profilePassword}
+              onChange={(e) => setProfilePassword(e.target.value)}
+            />
+            <button className="primary">
+              {profileBusy ? "Saving…" : "Save recovery email"}
+            </button>
+          </fieldset>
+        </form>
+      </section>
     </div>
   );
 }
