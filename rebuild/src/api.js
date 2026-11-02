@@ -22,7 +22,12 @@ export async function api(
         cache: "no-store",
         signal: signal ?? AbortSignal.timeout(timeout),
         headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(token
+            ? {
+                Authorization: `Bearer ${token}`,
+                "X-Session-Token": token,
+              }
+            : {}),
           ...(body === undefined ? {} : { "Content-Type": "application/json" }),
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),

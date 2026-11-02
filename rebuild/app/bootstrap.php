@@ -152,42 +152,86 @@ function ensure_void_and_image_schema(PDO $db): void
     if ($db->inTransaction()) {
         return;
     }
-    $prodCols = array_column(
-        $db->query("SHOW COLUMNS FROM `products`")->fetchAll(),
-        "Field",
-    );
-    $saleCols = array_column(
-        $db->query("SHOW COLUMNS FROM `sales`")->fetchAll(),
-        "Field",
-    );
-    if (
-        !in_array("image_filename", $prodCols, true) ||
-        array_diff(
-            ["status", "void_reason", "voided_by", "voided_at"],
-            $saleCols,
-        )
-    ) {
-        $file = __DIR__ . "/../database/005_void_and_images.sql";
-        if (is_file($file)) {
-            $sql = file_get_contents($file);
-            if ($sql !== false) {
-                foreach (explode(";", $sql) as $statement) {
-                    if (trim($statement) !== "") {
-                        $db->exec($statement);
-                    }
-                }
-            }
-        }
-    }
-    $fkExists = (int) $db
-        ->query(
-            "SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='sales' AND COLUMN_NAME='voided_by' AND REFERENCED_TABLE_NAME='users'",
-        )
-        ->fetchColumn();
-    if ($fkExists === 0) {
-        $db->exec(
-            "ALTER TABLE sales ADD CONSTRAINT fk_sales_voided_by FOREIGN KEY (voided_by) REFERENCES users(id)",
+    // Auto-migrate users columns: email and shop_name
+    try {
+        $userCols = array_column(
+            $db->query("SHOW COLUMNS FROM `users`")->fetchAll(),
+            "Field",
         );
+        if (!in_array("email", $userCols, true)) {
+            $db->exec("ALTER TABLE `users` ADD COLUMN `email` VARCHAR(191) NULL AFTER `display_name`");
+        }
+        if (!in_array("shop_name", $userCols, true)) {
+            $db->exec("ALTER TABLE `users` ADD COLUMN `shop_name` VARCHAR(120) NULL AFTER `email`");
+        }
+        $emailIdx = (int) $db
+            ->query(
+                "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='email' AND NON_UNIQUE=0",
+            )
+            ->fetchColumn();
+        if ($emailIdx === 0) {
+            $db->exec("ALTER TABLE `users` ADD UNIQUE KEY `idx_users_email` (`email`)");
+        }
+    } catch (Throwable) {
+        // Continue if already migrated or table structure is locked
+    }
+
+    // Auto-migrate password_resets table
+    try {
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS `password_resets` (
+                `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                `user_id` INT UNSIGNED NOT NULL,
+                `token_hash` CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE,
+                `expires_at` DATETIME NOT NULL,
+                `used_at` DATETIME NULL DEFAULT NULL,
+                `created_at` DATETIME NOT NULL,
+                INDEX `idx_reset_user`(`user_id`),
+                INDEX `idx_reset_expiry`(`expires_at`),
+                FOREIGN KEY(`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+            ) ENGINE=InnoDB",
+        );
+    } catch (Throwable) {
+        // Table or FK already exists
+    }
+
+    // Auto-migrate product image and sale void columns
+    try {
+        $prodCols = array_column(
+            $db->query("SHOW COLUMNS FROM `products`")->fetchAll(),
+            "Field",
+        );
+        $saleCols = array_column(
+            $db->query("SHOW COLUMNS FROM `sales`")->fetchAll(),
+            "Field",
+        );
+        if (!in_array("image_filename", $prodCols, true)) {
+            $db->exec("ALTER TABLE `products` ADD COLUMN `image_filename` VARCHAR(255) NULL DEFAULT NULL AFTER `category`");
+        }
+        if (!in_array("status", $saleCols, true)) {
+            $db->exec("ALTER TABLE `sales` ADD COLUMN `status` ENUM('completed', 'voided') NOT NULL DEFAULT 'completed' AFTER `vat_rate`");
+        }
+        if (!in_array("void_reason", $saleCols, true)) {
+            $db->exec("ALTER TABLE `sales` ADD COLUMN `void_reason` VARCHAR(255) NULL DEFAULT NULL AFTER `status`");
+        }
+        if (!in_array("voided_by", $saleCols, true)) {
+            $db->exec("ALTER TABLE `sales` ADD COLUMN `voided_by` INT UNSIGNED NULL DEFAULT NULL AFTER `void_reason`");
+        }
+        if (!in_array("voided_at", $saleCols, true)) {
+            $db->exec("ALTER TABLE `sales` ADD COLUMN `voided_at` DATETIME NULL DEFAULT NULL AFTER `voided_by`");
+        }
+        $fkExists = (int) $db
+            ->query(
+                "SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='sales' AND COLUMN_NAME='voided_by' AND REFERENCED_TABLE_NAME='users'",
+            )
+            ->fetchColumn();
+        if ($fkExists === 0) {
+            $db->exec(
+                "ALTER TABLE sales ADD CONSTRAINT fk_sales_voided_by FOREIGN KEY (voided_by) REFERENCES users(id)",
+            );
+        }
+    } catch (Throwable) {
+        // Columns or constraint already exist
     }
 }
 function schema_ready(PDO $db): void
@@ -310,24 +354,82 @@ function new_password(string $value, mixed $confirmation): string
     validate_new_password($value, $confirmation);
     return password_hash($value, PASSWORD_BCRYPT);
 }
+function valid_email(mixed $value, bool $required = true): ?string
+{
+    if ($value === null || (is_string($value) && trim($value) === "")) {
+        if ($required) {
+            problem(422, "VALIDATION", "Enter a valid email address.");
+        }
+        return null;
+    }
+    if (!is_string($value)) {
+        problem(422, "VALIDATION", "Enter a valid email address.");
+    }
+    $clean = strtolower(trim($value));
+    if (
+        strlen($clean) > 191 ||
+        !filter_var($clean, FILTER_VALIDATE_EMAIL)
+    ) {
+        problem(
+            422,
+            "VALIDATION",
+            "Enter a valid email address (for example, owner@example.com).",
+        );
+    }
+    return $clean;
+}
 function public_user(array $row): array
 {
     return [
         "id" => (int) $row["id"],
         "username" => $row["username"],
         "display_name" => $row["display_name"],
+        "email" => $row["email"] ?? null,
+        "shop_name" => $row["shop_name"] ?? null,
         "role" => $row["role"],
     ];
 }
+function session_token_from_request(): string
+{
+    $header = $_SERVER["HTTP_AUTHORIZATION"] ?? ($_SERVER["REDIRECT_HTTP_AUTHORIZATION"] ?? "");
+    if (empty($header) && function_exists("getallheaders")) {
+        $headers = getallheaders();
+        $header = $headers["Authorization"] ?? ($headers["authorization"] ?? "");
+    }
+    if (empty($header) && function_exists("apache_request_headers")) {
+        $headers = apache_request_headers();
+        $header = $headers["Authorization"] ?? ($headers["authorization"] ?? "");
+    }
+    if (preg_match('/^Bearer ([a-f0-9]{64})$/D', $header, $m)) {
+        return $m[1];
+    }
+
+    // Fallback: X-Session-Token header (never stripped by Apache FastCGI/shared hosting)
+    $xToken = $_SERVER["HTTP_X_SESSION_TOKEN"] ?? ($_SERVER["REDIRECT_HTTP_X_SESSION_TOKEN"] ?? "");
+    if (empty($xToken) && function_exists("getallheaders")) {
+        $headers = getallheaders();
+        $xToken = $headers["X-Session-Token"] ?? ($headers["x-session-token"] ?? "");
+    }
+    if (preg_match('/^[a-f0-9]{64}$/D', trim($xToken))) {
+        return trim($xToken);
+    }
+
+    // Fallback: query parameter
+    $qToken = $_GET["token"] ?? "";
+    if (is_string($qToken) && preg_match('/^[a-f0-9]{64}$/D', trim($qToken))) {
+        return trim($qToken);
+    }
+
+    return "";
+}
+
 function session_user(PDO $db): array
 {
-    $header =
-        $_SERVER["HTTP_AUTHORIZATION"] ??
-        ($_SERVER["REDIRECT_HTTP_AUTHORIZATION"] ?? "");
-    if (!preg_match('/^Bearer ([a-f0-9]{64})$/D', $header, $m)) {
+    $token = session_token_from_request();
+    if ($token === "") {
         problem(401, "AUTH_REQUIRED", "Sign in to continue.");
     }
-    $hash = hash("sha256", $m[1]);
+    $hash = hash("sha256", $token);
     $user = query(
         $db,
         "SELECT u.*,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>NOW() AND u.is_active=1",

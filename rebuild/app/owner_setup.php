@@ -7,6 +7,12 @@ function owner_setup_file(): string
     return getenv('VV_OWNER_SETUP_FILE') ?: __DIR__ . '/../storage/owner-setup.json';
 }
 
+function owner_setup_requires_code(): bool
+{
+    $env = getenv('VV_OWNER_SETUP_FILE');
+    return $env !== false && trim($env) !== '';
+}
+
 function owner_setup_needed(PDO $db): bool
 {
     // A disabled/deleted account must not reopen initial setup. The existing CLI
@@ -34,30 +40,35 @@ function owner_setup_credential(PDO $db): ?array
 function owner_setup_status(PDO $db): array
 {
     $needed = owner_setup_needed($db);
-    return ['needed' => $needed, 'ready' => $needed && owner_setup_credential($db) !== null];
+    $reqCode = owner_setup_requires_code();
+    return [
+        'needed' => $needed,
+        'ready' => $needed && (!$reqCode || owner_setup_credential($db) !== null),
+        'requires_code' => $reqCode,
+    ];
 }
 
 // Fixed windows use server-observed addresses, never client-supplied proxy headers.
 function owner_setup_limits(PDO $db): array {
-    $limits = [hash('sha256', 'owner-setup:ip:' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown')) => 5, hash('sha256', 'owner-setup:global') => 30];
+    $limits = [hash('sha256', 'owner-setup:ip:' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown')) => 10, hash('sha256', 'owner-setup:global') => 50];
     foreach ($limits as $bucket => $max) {
         query($db, 'DELETE FROM login_limits WHERE bucket=? AND window_started<=DATE_SUB(NOW(),INTERVAL 15 MINUTE)', [$bucket]);
         $row = query($db, 'SELECT failures,GREATEST(1,900-TIMESTAMPDIFF(SECOND,window_started,NOW())) AS retry_after FROM login_limits WHERE bucket=?', [$bucket])->fetch();
         if ($row && (int)$row['failures'] >= $max) {
             header('Retry-After: ' . (int)$row['retry_after']); $db->commit();
-            problem(429, 'SETUP_LIMIT', 'Too many setup-code attempts. Wait up to 15 minutes before trying again.');
+            problem(429, 'SETUP_LIMIT', 'Too many setup attempts. Wait up to 15 minutes before trying again.');
         }
     }
     return $limits;
 }
 function owner_setup_failed(PDO $db, array $limits, string $requestId): void {
     foreach ($limits as $bucket => $max) query($db, 'INSERT INTO login_limits(bucket,failures,window_started) VALUES(?,1,NOW()) ON DUPLICATE KEY UPDATE failures=failures+1', [$bucket]);
-    audit($db, null, 'OWNER_SETUP_CODE_FAILED', $requestId); $db->commit();
+    audit($db, null, 'OWNER_SETUP_FAILED', $requestId); $db->commit();
 }
 
 function register_initial_owner(PDO $db, array $body, string $requestId): array
 {
-    // Reuse the workflow lock used by CLI owner creation. UI visibility is never authorization.
+    ensure_void_and_image_schema($db);
     $db->beginTransaction();
     try {
         lock_state($db);
@@ -65,21 +76,33 @@ function register_initial_owner(PDO $db, array $body, string $requestId): array
             problem(409, 'OWNER_EXISTS', 'Owner setup is closed because this workspace already has accounts. Sign in with your existing account.');
         }
         $limits = owner_setup_limits($db);
-        $credential = owner_setup_credential($db);
-        if ($credential === null) {
-            problem(403, 'SETUP_NOT_READY', 'The setup code is unavailable or expired. Ask your development team for a new setup code.');
+        $requiresCode = owner_setup_requires_code();
+
+        if ($requiresCode) {
+            $credential = owner_setup_credential($db);
+            if ($credential === null) {
+                problem(403, 'SETUP_NOT_READY', 'The setup code is unavailable or expired. Ask your development team for a new setup code.');
+            }
+            $code = $body['setup_code'] ?? null;
+            if (!is_string($code) || strlen($code) > 100) {
+                owner_setup_failed($db, $limits, $requestId);
+                problem(422, 'VALIDATION', 'Enter the setup code supplied by your development team.');
+            }
+            $code = strtoupper(str_replace('-', '', trim($code)));
+            if (!preg_match('/^[A-F0-9]{64}$/D', $code)
+                || !hash_equals($credential['code_hash'], hash('sha256', $code))) {
+                owner_setup_failed($db, $limits, $requestId);
+                problem(403, 'SETUP_CODE_INVALID', 'The setup code is incorrect. Check the code supplied by your development team.');
+            }
         }
-        $code = $body['setup_code'] ?? null;
-        if (!is_string($code) || strlen($code) > 100) {
-            owner_setup_failed($db, $limits, $requestId);
-            problem(422, 'VALIDATION', 'Enter the setup code supplied by your development team.');
+
+        $rawShop = $body['shop_name'] ?? null;
+        $shopName = is_string($rawShop) && trim($rawShop) !== '' ? trim($rawShop) : 'Nearby Café';
+        if (strlen($shopName) > 120) {
+            problem(422, 'VALIDATION', 'Shop name must contain 1–120 characters.');
         }
-        $code = strtoupper(str_replace('-', '', trim($code)));
-        if (!preg_match('/^[A-F0-9]{64}$/D', $code)
-            || !hash_equals($credential['code_hash'], hash('sha256', $code))) {
-            owner_setup_failed($db, $limits, $requestId);
-            problem(403, 'SETUP_CODE_INVALID', 'The setup code is incorrect. Check the code supplied by your development team.');
-        }
+
+        $email = valid_email($body['email'] ?? null, true);
         $name = username($body['username'] ?? null);
         $display = $body['display_name'] ?? null;
         if (!is_string($display) || trim($display) === '' || strlen(trim($display)) > 100) {
@@ -94,15 +117,48 @@ function register_initial_owner(PDO $db, array $body, string $requestId): array
             problem(422, 'VALIDATION', 'Passwords do not match.');
         }
         $hash = new_password($password, $confirm);
-        query($db, "INSERT INTO users(username,display_name,password_hash,role,created_at,updated_at) VALUES(?,?,?,'OWNER',NOW(),NOW())", [$name, trim($display), $hash]);
+
+        query(
+            $db,
+            "INSERT INTO users(username,display_name,email,shop_name,password_hash,role,created_at,updated_at) VALUES(?,?,?,?,?,'OWNER',NOW(),NOW())",
+            [$name, trim($display), $email, $shopName, $hash]
+        );
         $id = (int) $db->lastInsertId();
-        // This durable marker consumes initial setup authorization atomically with the account.
-        audit($db, $id, 'OWNER_PROVISIONED', $requestId);
-        foreach ($limits as $bucket => $max) query($db, 'DELETE FROM login_limits WHERE bucket=?', [$bucket]);
+
+        // Atomically record that the shop has been provisioned
+        audit($db, $id, 'OWNER_PROVISIONED', $requestId, [
+            'shop_name' => $shopName,
+            'email' => $email,
+            'username' => $name,
+        ]);
+
+        foreach ($limits as $bucket => $max) {
+            query($db, 'DELETE FROM login_limits WHERE bucket=?', [$bucket]);
+        }
+
+        // Generate immediate session token to log the owner directly into the dashboard
+        $token = bin2hex(random_bytes(32));
+        $expires = date('Y-m-d H:i:s', time() + settings()['session_hours'] * 3600);
+        query(
+            $db,
+            'INSERT INTO sessions(token_hash,user_id,created_at,expires_at) VALUES(?,?,NOW(),?)',
+            [hash('sha256', $token), $id, $expires]
+        );
+
+        $user = query($db, 'SELECT * FROM users WHERE id=?', [$id])->fetch();
         $db->commit();
-        return ['created' => true, 'username' => $name];
+
+        return [
+            'created' => true,
+            'username' => $name,
+            'user' => public_user($user),
+            'token' => $token,
+            'expires_at' => $expires,
+        ];
     } catch (Throwable $e) {
-        if ($db->inTransaction()) $db->rollBack();
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
         throw $e;
     }
 }

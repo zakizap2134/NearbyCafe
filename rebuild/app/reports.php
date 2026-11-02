@@ -193,3 +193,18 @@ function history_data(PDO $db, array $params, bool $stock = false): array
         "rows" => $rows,
     ];
 }
+
+function reports_data(PDO $db, mixed $params): array
+{
+    $p = is_array($params) ? $params : (is_string($params) ? ['view' => $params] : []);
+    return report_data($db, $p, false);
+}
+
+function serve_csv_export(PDO $db, string $type = ""): never
+{
+    $csv = report_data($db, $_GET, true);
+    header("Content-Type: text/csv; charset=utf-8");
+    header("Content-Disposition: attachment; filename=\"" . $csv["filename"] . "\"");
+    echo $csv["content"];
+    exit();
+}

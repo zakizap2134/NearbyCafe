@@ -1,65 +1,307 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import Brand from "../components/Brand";
 import StaffPassword, { staffPasswordError } from "../components/StaffPassword";
-import SaveRecoveryCode from "../components/SaveRecoveryCode";
-import RecoveryNotice from "../components/RecoveryNotice";
 import "./owner-recovery.css";
+
 export default function OwnerRecovery() {
   const navigate = useNavigate();
-  const [username, setUsername] = useState(""), [code, setCode] = useState(""), [password, setPassword] = useState(""), [confirmation, setConfirmation] = useState("");
-  const [busy, setBusy] = useState(false), [error, setError] = useState(null), [uncertain, setUncertain] = useState(false), [replacement, setReplacement] = useState("");
-  const running = useRef(false), generation = useRef(0), uncertainNotice = useRef(null);
-  useEffect(() => { if (uncertain) uncertainNotice.current?.focus(); }, [uncertain]);
-  useEffect(() => { document.getElementById("owner-recovery-title")?.focus(); return () => { generation.current += 1; }; }, []);
-  function clearSecrets() { setCode(""); setPassword(""); setConfirmation(""); }
-  async function submit(event) {
-    event.preventDefault(); if (running.current || uncertain || replacement) return; setError(null);
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9._@-]{2,63}$/.test(username.trim())) { setError(new Error("Enter your username (3–64 characters using letters, numbers, dots, @, underscores or hyphens).")); return; }
-    if (!/^[a-fA-F0-9]{64}$/.test(code.trim().replaceAll("-", "")) || code.length > 100) { setError(new Error("Enter your current offline recovery code: 64 letters/numbers, with or without its hyphens.")); return; }
-    const invalid = staffPasswordError(password, confirmation); if (invalid) { setError(new Error(invalid)); return; }
-    const current = generation.current, body = { username: username.trim(), recovery_code: code.trim(), new_password: password, confirm_password: confirmation };
-    running.current = true; setBusy(true); clearSecrets();
+  const [step, setStep] = useState("request"); // 'request' | 'verify' | 'success'
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [fallbackCode, setFallbackCode] = useState(null);
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [notice, setNotice] = useState("");
+
+  async function handleSendCode(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    setError(null);
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setError(new Error("Please enter a valid email address."));
+      return;
+    }
+    setBusy(true);
     try {
-      const result = await api("recovery/owner", { body }); if (current !== generation.current) return;
-      if (result?.reset !== true || result?.sessions_revoked !== true || !/^[A-F0-9]{8}(?:-[A-F0-9]{8}){7}$/.test(result.recovery_code)) throw new Error("Unreadable recovery confirmation");
-      setReplacement(result.recovery_code);
-    } catch (e) {
-      if (current !== generation.current) return;
-      const known = (e.status === 403 && ["RECOVERY_INVALID", "RECOVERY_ORIGIN"].includes(e.code)) || (e.status === 429 && e.code === "RECOVERY_LIMIT") || (e.status === 422 && e.code === "VALIDATION");
-      if (known) setError(e); else setUncertain(true);
-    } finally { running.current = false; if (current === generation.current) setBusy(false); }
+      const res = await api("recovery/email-request", { body: { email: cleanEmail } });
+      setStep("verify");
+      if (res?.fallback_code) {
+        setCode(res.fallback_code);
+        setFallbackCode(res.fallback_code);
+        setNotice("Email delivery server is not configured yet. Your verification code is ready below!");
+      } else {
+        setFallbackCode(null);
+        setNotice(`We sent a 6-digit verification code to ${cleanEmail}. Check your inbox (and spam folder)!`);
+      }
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
   }
-  return <main className="owner-recovery-page">
-    <header className="recovery-brand-bar"><Brand compact header /><div><span className="recovery-eyebrow">NEARBY CAFÉ</span><p>Your account, safely back in reach.</p></div></header>
-    <div className="recovery-content"><section className="panel owner-recovery-card" aria-labelledby="owner-recovery-title">
-      <p className="recovery-eyebrow">ACCOUNT HELP</p><h1 id="owner-recovery-title" tabIndex={-1}>Forgot password?</h1><h2>Owner/Admin recovery</h2>
-      <p>Use the recovery code you saved to create a new Owner password. You do not need email. Keep the shop’s host laptop and Wi-Fi running.</p>
-      <div className="recovery-note" id="recovery-code-help"><strong>Use your Owner recovery code</strong><p>This is the code saved from Account security or a previous password reset. The initial setup code used to create the first Owner account will not work here.</p></div>
-      <RecoveryNotice error={error} id="owner-reset-error" />
-      {uncertain ? <div ref={uncertainNotice} tabIndex={-1} className="error recovery-notice" role="alert" aria-atomic="true"><strong>The result could not be confirmed.</strong>
-        <p>The password may already have changed. Try signing in with the new password you just entered.</p>
-        <p>After successful sign-in, open <strong>Management → Account security</strong> to generate a replacement recovery code using your current password. The code from this attempt cannot be retrieved.</p>
-        <p>Do not assume the old password or code still works. If you cannot sign in, contact authorized support and keep your existing code and shop data.</p>
-      </div> : replacement ? <p role="status" className="success">Your Owner password has changed and previous Owner sessions have ended. Save the replacement recovery code, then sign in with your new password.</p> : <form onSubmit={submit} noValidate autoComplete="off" aria-busy={busy} aria-describedby={error ? "owner-reset-error" : undefined}><fieldset disabled={busy}>
-        <label htmlFor="recovery-username">Username</label><input id="recovery-username" value={username} onChange={e => setUsername(e.target.value)} required autoComplete="username" autoCapitalize="none" spellCheck={false} maxLength={64} />
-        <StaffPassword label="Current offline recovery code" value={code} onChange={e => setCode(e.target.value)} disabled={busy} required autoComplete="off" aria-describedby="recovery-code-help" maxLength={100} />
-        <StaffPassword label="New password" value={password} onChange={e => setPassword(e.target.value)} disabled={busy} required autoComplete="off" aria-describedby="recovery-password-rules" />
-        <StaffPassword label="Confirm new password" value={confirmation} onChange={e => setConfirmation(e.target.value)} disabled={busy} required autoComplete="off" aria-describedby="recovery-password-rules" />
-        <p id="recovery-password-rules">Choose a password you can remember and enter it twice. Use at least 12 characters.</p>
-        <button type="submit" className="primary full" disabled={busy}>{busy ? "Resetting password…" : "Reset Owner password"}</button>
-      </fieldset></form>}
-      {busy && <p role="status">Waiting for confirmation. This request will not retry automatically. If you leave now, its result may be unknown.</p>}
-      <Link className="recovery-back" to="/login">Back to sign in</Link>
-      {replacement && <SaveRecoveryCode introduction="Your Owner password has changed. Save this replacement code before returning to sign-in." code={replacement} username={username.trim()} onDone={() => { setReplacement(""); clearSecrets(); navigate("/login", { replace: true }); }} />}
-    </section><aside className="recovery-support panel" aria-label="Other ways to get help">
-      <section className="recovery-staff" aria-labelledby="barista-recovery-title"><h2 id="barista-recovery-title">Barista: contact the Owner</h2>
-        <p>Ask your Owner/Admin to reset your password in <strong>Management → Account security</strong>. Barista passwords can only be reset with Owner authorization.</p>
-        <p>Afterward, sign in using the same account, browser profile and shop address to return to your saved orders.</p>
-      </section>
-      <p><strong>Lost both your Owner password and recovery code?</strong> Contact the authorized host administrator or project support. Keep the database intact. Creating another Owner or reinstalling is not a recovery method.</p>
-      <p>If you can still sign in, prepare or replace your code in <strong>Management → Account security</strong>.</p>
-    </aside></div>
-  </main>;
+
+  async function handleVerifyAndReset(e) {
+    e.preventDefault();
+    setError(null);
+    const cleanCode = code.replace(/\s+/g, "");
+    if (!/^[0-9]{6}$/.test(cleanCode)) {
+      setError(new Error("Enter the 6-digit code sent to your email."));
+      return;
+    }
+    const passwordError = staffPasswordError(password, confirmation);
+    if (passwordError) {
+      setError(new Error(passwordError));
+      return;
+    }
+    setBusy(true);
+    try {
+      await api("recovery/email-reset", {
+        body: {
+          email: email.trim(),
+          code: cleanCode,
+          new_password: password,
+          confirm_password: confirmation,
+        },
+      });
+      setStep("success");
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="owner-recovery-page">
+      <header className="recovery-brand-bar">
+        <Brand compact header />
+        <div>
+          <span className="recovery-eyebrow">NEARBY CAFÉ</span>
+          <p>Your account, safely back in reach.</p>
+        </div>
+      </header>
+
+      <div className="recovery-content">
+        <section className="panel owner-recovery-card">
+          <p className="recovery-eyebrow">PASSWORD RECOVERY</p>
+
+          {step === "request" && (
+            <>
+              <h1>Forgot password?</h1>
+              <p className="subtle">
+                Enter your registered email address. We'll send you a 6-digit verification code to reset your password.
+              </p>
+
+              {error && (
+                <div className="error recovery-notice" role="alert">
+                  <strong>{error.message}</strong>
+                  {error.code === "ACCOUNT_NOT_FOUND" && (
+                    <p style={{ marginTop: "8px", fontSize: "0.85rem", color: "#5d4037" }}>
+                      💡 If you recently set up or changed your account, verify your email spelling or sign in with your username to update your email under Management.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <form onSubmit={handleSendCode} noValidate>
+                <label htmlFor="recovery-email">Email address</label>
+                <input
+                  id="recovery-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  placeholder="owner@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={busy}
+                  autoFocus
+                />
+
+                <button
+                  type="submit"
+                  className="primary full"
+                  disabled={busy}
+                  style={{ marginTop: "16px" }}
+                >
+                  {busy ? "Sending code…" : "Send verification code"}
+                </button>
+              </form>
+
+              <div style={{ marginTop: "24px" }}>
+                <Link className="recovery-back" to="/login">
+                  Back to sign in
+                </Link>
+              </div>
+            </>
+          )}
+
+          {step === "verify" && (
+            <>
+              <div className="recovery-step-indicator">
+                <span className="recovery-step-badge">2</span> Step 2: Enter code & set new password
+              </div>
+
+              <h1>Enter 6-digit code</h1>
+
+              {notice && <div className="success recovery-notice">{notice}</div>}
+
+              {fallbackCode && (
+                <div
+                  style={{
+                    background: "#fef8f0",
+                    border: "2px dashed #a93226",
+                    borderRadius: "8px",
+                    padding: "16px",
+                    marginBottom: "20px",
+                    textAlign: "center",
+                  }}
+                >
+                  <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "#8a2419", display: "block", marginBottom: "4px" }}>
+                    ON-SCREEN VERIFICATION CODE
+                  </span>
+                  <div
+                    style={{
+                      fontSize: "2.2rem",
+                      fontWeight: "800",
+                      letterSpacing: "6px",
+                      color: "#a93226",
+                      fontFamily: "monospace",
+                      margin: "8px 0",
+                    }}
+                  >
+                    {fallbackCode}
+                  </div>
+                  <p style={{ fontSize: "0.85rem", color: "#7f6055", margin: 0 }}>
+                    Email delivery (SMTP) is not yet configured, so your code was generated on-screen. We have pre-filled it below for you.
+                  </p>
+                </div>
+              )}
+
+              {error && (
+                <div className="error recovery-notice" role="alert">
+                  <strong>{error.message}</strong>
+                </div>
+              )}
+
+              <form onSubmit={handleVerifyAndReset} noValidate>
+                <label htmlFor="recovery-code">Verification code</label>
+                <input
+                  id="recovery-code"
+                  className="recovery-code-input"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  autoComplete="one-time-code"
+                  placeholder="123456"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  disabled={busy}
+                  autoFocus
+                />
+                <p className="setup-hint" style={{ textAlign: "center", marginBottom: "16px" }}>
+                  Code for <strong>{email}</strong> (valid for 15 minutes)
+                </p>
+
+                <StaffPassword
+                  label="New password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={busy}
+                  required
+                  autoComplete="new-password"
+                />
+
+                <StaffPassword
+                  label="Confirm new password"
+                  value={confirmation}
+                  onChange={(e) => setConfirmation(e.target.value)}
+                  disabled={busy}
+                  required
+                  autoComplete="new-password"
+                />
+
+                <p id="recovery-password-rules" style={{ fontSize: "0.85rem", color: "#7f6055", marginBottom: "16px" }}>
+                  Choose a secure password with at least 12 characters.
+                </p>
+
+                <button
+                  type="submit"
+                  className="primary full"
+                  disabled={busy}
+                >
+                  {busy ? "Resetting password…" : "Reset password & sign in"}
+                </button>
+
+                <div className="recovery-resend-row">
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => {
+                      setError(null);
+                      setStep("request");
+                    }}
+                    disabled={busy}
+                  >
+                    Change email
+                  </button>
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={handleSendCode}
+                    disabled={busy}
+                  >
+                    Resend code
+                  </button>
+                </div>
+              </form>
+
+              <div style={{ marginTop: "24px" }}>
+                <Link className="recovery-back" to="/login">
+                  Back to sign in
+                </Link>
+              </div>
+            </>
+          )}
+
+          {step === "success" && (
+            <div style={{ textAlign: "center", padding: "16px 0" }}>
+              <h1 style={{ color: "#2e7d32", marginBottom: "12px" }}>Password Reset!</h1>
+              <p style={{ fontSize: "1.05rem", lineHeight: "1.5", marginBottom: "24px" }}>
+                Your password has been successfully updated. All active sessions have ended.
+              </p>
+              <button
+                type="button"
+                className="primary full"
+                onClick={() => navigate("/login", { replace: true })}
+              >
+                Sign in with new password
+              </button>
+            </div>
+          )}
+        </section>
+
+        <aside className="recovery-support panel">
+          <section className="recovery-staff">
+            <h2>Need help?</h2>
+            <p>
+              • <strong>Instant verification:</strong> If your café has Gmail SMTP configured, your 6-digit code arrives directly in your inbox within 1–2 minutes.
+            </p>
+            <p>
+              • <strong>On-Screen Code Fallback:</strong> If email delivery is not yet configured, your 6-digit code is displayed right on your screen so you are never locked out.
+            </p>
+            <p>
+              • <strong>Different email?</strong> Click <em>Change email</em> to try another address, or ask your shop administrator.
+            </p>
+            <p>
+              • <strong>Staff / Baristas:</strong> You can also ask your Store Owner to reset your password directly in <strong>Management → Staff</strong>.
+            </p>
+          </section>
+        </aside>
+      </div>
+    </main>
+  );
 }

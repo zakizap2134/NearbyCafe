@@ -187,7 +187,8 @@ function Login({ onSuccess, sessionNotice }) {
       .then((data) => {
         if (!live) return;
         setSetup(data);
-        if (!data.needed) setSetupOpen(false);
+        if (data.needed) setSetupOpen(true);
+        else setSetupOpen(false);
       })
       .catch((failure) => {
         if (live && failure.name !== "AbortError") setSetupError(failure);
@@ -206,12 +207,8 @@ function Login({ onSuccess, sessionNotice }) {
     e.preventDefault();
     if (submitting.current) return;
     setError(null);
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9._@-]{2,63}$/.test(name.trim())) {
-      setError(
-        new Error(
-          "Enter your username (3–64 characters using letters, numbers, dots, @, underscores or hyphens).",
-        ),
-      );
+    if (!name.trim()) {
+      setError(new Error("Enter your username or email address."));
       return;
     }
     if (
@@ -266,21 +263,26 @@ function Login({ onSuccess, sessionNotice }) {
             <>
               <OwnerSetup
                 ready={setup?.ready}
+                requiresCode={setup?.requires_code}
                 refreshing={setupLoading}
                 onRefresh={() => setSetupAttempt((value) => value + 1)}
                 onCancel={() => {
                   setSetupOpen(false);
                   setSetupAttempt((value) => value + 1);
                 }}
-                onComplete={(username) => {
-                  setName(username);
-                  setPassword("");
-                  setError(null);
-                  setSetup({ needed: false, ready: false });
-                  setSetupOpen(false);
-                  setNotice(
-                    "Your owner account is ready. Sign in with the username and password you just created.",
-                  );
+                onComplete={(data) => {
+                  if (data?.token && data?.user) {
+                    onSuccess(data);
+                  } else {
+                    setName(data?.username || "");
+                    setPassword("");
+                    setError(null);
+                    setSetup({ needed: false, ready: false });
+                    setSetupOpen(false);
+                    setNotice(
+                      "Your owner account is ready. Sign in with the credentials you just created.",
+                    );
+                  }
                 }}
               />
               <ErrorMessage error={setupError} />

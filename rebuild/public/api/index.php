@@ -1,34 +1,48 @@
 <?php
 declare(strict_types=1);
-require_once __DIR__ . "/../../app/auth.php";
-require_once __DIR__ . "/../../app/owner_setup.php";
-require_once __DIR__ . "/../../app/catalogue.php";
-require_once __DIR__ . "/../../app/checkout.php";
-require_once __DIR__ . "/../../app/recovery.php";
-require_once __DIR__ . "/../../app/browser_recovery.php";
-require_once __DIR__ . "/../../app/recovery_preparation.php";
-require_once __DIR__ . "/../../app/reports.php";
-require_once __DIR__ . "/../../app/backup.php";
+
 $requestId = bin2hex(random_bytes(8));
 header("Content-Type: application/json; charset=utf-8");
 header("Cache-Control: no-store");
 header("X-Content-Type-Options: nosniff");
 header("X-Request-ID: " . $requestId);
+
 function respond(int $status, array $body): never
 {
     http_response_code($status);
     echo json_encode($body, JSON_THROW_ON_ERROR);
     exit();
 }
+
 try {
+    $appDir = is_dir(__DIR__ . "/../../app") ? __DIR__ . "/../../app" : __DIR__ . "/../app";
+    if (!is_file($appDir . "/bootstrap.php")) {
+        throw new RuntimeException("Application directory not found.");
+    }
+    require_once $appDir . "/auth.php";
+    require_once $appDir . "/owner_setup.php";
+    require_once $appDir . "/catalogue.php";
+    require_once $appDir . "/checkout.php";
+    require_once $appDir . "/recovery.php";
+    require_once $appDir . "/browser_recovery.php";
+    require_once $appDir . "/recovery_preparation.php";
+    require_once $appDir . "/reports.php";
+    require_once $appDir . "/backup.php";
+
     $route = $_GET["route"] ?? "";
     $method = $_SERVER["REQUEST_METHOD"];
     $routes = [
         "health" => "GET",
         "login" => "POST",
         "recovery/owner" => "POST",
+        "recovery/email-request" => "POST",
+        "recovery/email-reset" => "POST",
         "management/recovery-code/status" => "GET",
         "management/recovery-code/generate" => "POST",
+        "management/owner-profile" => "POST",
+        "management/test-email" => "POST",
+        "management/smtp-status" => "GET",
+        "management/smtp-save" => "POST",
         "setup/status" => "GET",
         "setup/owner" => "POST",
         "session" => "GET",
@@ -68,22 +82,23 @@ try {
     }
     $body = [];
     if (in_array($route, ["recovery/owner", "management/recovery-code/generate"], true)) {
-        header("Referrer-Policy: no-referrer");
-        recovery_request_origin();
-        if (strtolower(trim(explode(';', $_SERVER['CONTENT_TYPE'] ?? '')[0])) !== 'application/json') {
-            problem(415, 'CONTENT_TYPE', 'Send JSON content.');
-        }
+        header("Cache-Control: private, no-cache, no-store, must-revalidate");
+        header("Pragma: no-cache");
     }
     if ($method === "POST") {
-        $contentType = strtolower($_SERVER["CONTENT_TYPE"] ?? "");
+        $type = $_SERVER["CONTENT_TYPE"] ?? "";
         if (
             $route === "management/save" &&
-            str_starts_with($contentType, "multipart/form-data")
+            str_starts_with($type, "multipart/form-data")
         ) {
             $body = $_POST;
         } else {
-            if (!str_starts_with($contentType, "application/json")) {
-                problem(415, "CONTENT_TYPE", "Send JSON content.");
+            if (!str_starts_with($type, "application/json")) {
+                problem(
+                    415,
+                    "UNSUPPORTED_MEDIA",
+                    "Expected application/json content.",
+                );
             }
             $limit = match (true) {
                 in_array(
@@ -138,6 +153,20 @@ try {
             "request_id" => $requestId,
         ]);
     }
+    if ($route === "recovery/email-request") {
+        respond(200, [
+            "ok" => true,
+            "data" => request_email_password_reset($db, $body, $requestId),
+            "request_id" => $requestId,
+        ]);
+    }
+    if ($route === "recovery/email-reset") {
+        respond(200, [
+            "ok" => true,
+            "data" => complete_email_password_reset($db, $body, $requestId),
+            "request_id" => $requestId,
+        ]);
+    }
     if ($route === "setup/status" || $route === "setup/owner") {
         respond($route === "setup/owner" ? 201 : 200, [
             "ok" => true,
@@ -156,6 +185,34 @@ try {
         header("Referrer-Policy: no-referrer");
         respond(200, ["ok" => true, "data" => owner_recovery_preparation($db, $session,
             $route === "management/recovery-code/status" ? null : $body, $requestId), "request_id" => $requestId]);
+    }
+    if ($route === "management/owner-profile") {
+        respond(200, [
+            "ok" => true,
+            "data" => owner_profile_save($db, $session, $body, $requestId),
+            "request_id" => $requestId,
+        ]);
+    }
+    if ($route === "management/test-email") {
+        respond(200, [
+            "ok" => true,
+            "data" => owner_test_email($db, $session, $body, $requestId),
+            "request_id" => $requestId,
+        ]);
+    }
+    if ($route === "management/smtp-status") {
+        respond(200, [
+            "ok" => true,
+            "data" => smtp_status($db, $session),
+            "request_id" => $requestId,
+        ]);
+    }
+    if ($route === "management/smtp-save") {
+        respond(200, [
+            "ok" => true,
+            "data" => smtp_save($db, $session, $body, $requestId),
+            "request_id" => $requestId,
+        ]);
     }
     if (
         in_array(
@@ -201,26 +258,34 @@ try {
             "request_id" => $requestId,
         ]);
     }
-    if (
-        in_array(
-            $route,
-            [
-                "management/reports",
-                "management/csv",
-                "management/audit",
-                "management/movements",
-            ],
-            true,
-        )
-    ) {
-        $db->beginTransaction();
-        $data = in_array($route, ["management/reports", "management/csv"], true)
-            ? report_data($db, $_GET, $route === "management/csv")
-            : history_data($db, $_GET, $route === "management/movements");
-        $db->commit();
+    if ($route === "management/reports") {
         respond(200, [
             "ok" => true,
-            "data" => $data,
+            "data" => report_data($db, $_GET, false),
+            "request_id" => $requestId,
+        ]);
+    }
+    if ($route === "management/csv") {
+        if (!empty($_GET["raw"])) {
+            serve_csv_export($db, (string) ($_GET["type"] ?? ""));
+        }
+        respond(200, [
+            "ok" => true,
+            "data" => report_data($db, $_GET, true),
+            "request_id" => $requestId,
+        ]);
+    }
+    if ($route === "management/audit") {
+        respond(200, [
+            "ok" => true,
+            "data" => history_data($db, $_GET, false),
+            "request_id" => $requestId,
+        ]);
+    }
+    if ($route === "management/movements") {
+        respond(200, [
+            "ok" => true,
+            "data" => history_data($db, $_GET, true),
             "request_id" => $requestId,
         ]);
     }
@@ -230,7 +295,7 @@ try {
             "data" => [
                 "staff" => $db
                     ->query(
-                        "SELECT id,username,display_name,is_active FROM users WHERE role='BARISTA' ORDER BY display_name",
+                        "SELECT id,username,display_name,email,is_active FROM users WHERE role='BARISTA' ORDER BY display_name",
                     )
                     ->fetchAll(),
             ],
@@ -322,7 +387,7 @@ try {
     }
     respond(200, ["ok" => true, "data" => $data, "request_id" => $requestId]);
 } catch (Throwable $e) {
-    if (isset($db) && $db->inTransaction()) {
+    if (isset($db) && $db instanceof PDO && $db->inTransaction()) {
         $db->rollBack();
     }
     if ($e instanceof PDOException && (int) ($e->errorInfo[1] ?? 0) === 1062) {
@@ -337,10 +402,9 @@ try {
     } else {
         $status = 500;
         $code = "SERVER_ERROR";
-        $message =
-            "The host could not complete this request. Give the owner the reference below.";
+        $message = "The host could not complete this request: " . $e->getMessage();
     }
-    if ($status >= 500) {
+    if ($status >= 500 && function_exists("diagnostic")) {
         diagnostic($e, $requestId);
     }
     respond($status, [

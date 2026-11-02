@@ -363,7 +363,7 @@ export function History({ token, expired, stock = false }) {
           <p className="subtle">
             {data.from} through {data.to} · Manila time
           </p>
-          {!data.rows.length ? (
+          {!data?.rows?.length ? (
             <p>No matching records.</p>
           ) : (
             <Table
@@ -965,19 +965,19 @@ export function StockOperations({
   const expiredContainers = decoratedContainers.filter(
     (row) => row.status.isWasteDue,
   );
-  const selected = data.containers.find(
+  const selected = (data?.containers ?? []).find(
       (c) => String(c.id) === String(form.id),
     ),
     batch =
       form.kind === "batch"
-        ? data.batches.find((b) => String(b.id) === String(form.id))
+        ? (data?.batches ?? []).find((b) => String(b.id) === String(form.id))
         : batchById.get(Number(selected?.batch_id)),
     selectedStatus = selected
-      ? containerStatus(selected, batch, data.server_time)
+      ? containerStatus(selected, batch, data?.server_time)
       : null;
   function select(id) {
     if (form.kind === "batch") {
-      const b = data.batches.find((b) => String(b.id) === id);
+      const b = (data?.batches ?? []).find((b) => String(b.id) === id);
       setForm({
         ...form,
         id,
@@ -987,9 +987,9 @@ export function StockOperations({
         quarantined: b?.quarantined ?? 0,
       });
     } else {
-      const c = data.containers.find((c) => String(c.id) === id);
+      const c = (data?.containers ?? []).find((c) => String(c.id) === id);
       const b = c ? batchById.get(Number(c.batch_id)) : null;
-      const st = c ? containerStatus(c, b, data.server_time) : null;
+      const st = c ? containerStatus(c, b, data?.server_time) : null;
       setForm({
         ...form,
         id,
@@ -1183,7 +1183,7 @@ export function StockOperations({
                   Choose {form.kind === "batch" ? "batch" : "container"}
                 </option>
                 {form.kind === "batch"
-                  ? data.batches.map((b) => (
+                  ? (data?.batches ?? []).map((b) => (
                       <option key={b.id} value={b.id}>
                         #{b.id} · {b.ingredient_name} · {b.reference}
                       </option>
@@ -1315,7 +1315,7 @@ export function StockOperations({
             </button>
           </fieldset>
         </form>
-        {!data.batches.length && (
+        {!(data?.batches?.length) && (
           <p>No batches yet. Receive a delivery from Stock first.</p>
         )}
       </section>

@@ -13,3 +13,64 @@
 .recovery-staff{margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid #dfcfc5}.recovery-staff h2{margin-top:0}
 @media(max-width:900px){.recovery-content{grid-template-columns:minmax(0,1fr)}.owner-recovery-page{max-width:760px}}
 @media(max-width:480px){.owner-recovery-page{padding:16px}.recovery-brand-bar{margin-bottom:24px;gap:16px}.recovery-brand-bar>div:last-child{font-size:.875rem}.recovery-content{gap:16px}}
+
+.recovery-code-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+  font-size: 2rem !important;
+  letter-spacing: 0.35em !important;
+  text-align: center !important;
+  font-weight: 800 !important;
+  color: #a93226 !important;
+  background: #fdf6f0 !important;
+  border: 2px solid #dfcfc5 !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+.recovery-code-input:focus {
+  border-color: #a93226 !important;
+  outline: 3px solid rgba(169, 50, 38, 0.2) !important;
+}
+.recovery-step-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  color: #7f6055;
+  font-weight: 700;
+  background: #fdf2ed;
+  padding: 6px 12px;
+  border-radius: 20px;
+}
+.recovery-step-badge {
+  background: #a93226;
+  color: #fff;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+}
+.recovery-resend-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+}
+.link-button {
+  background: none;
+  border: none;
+  color: #a93226;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 4px;
+}
+.link-button:hover {
+  color: #773028;
+}

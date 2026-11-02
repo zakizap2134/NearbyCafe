@@ -442,6 +442,165 @@ function staff_save(PDO $db, array $session, array $body, string $ref): array
         throw $e;
     }
 }
+
+function owner_profile_save(PDO $db, array $session, array $body, string $ref): array
+{
+    $email = valid_email($body["email"] ?? null, true);
+    $rawShop = $body["shop_name"] ?? null;
+    $shopName = is_string($rawShop) && trim($rawShop) !== "" ? trim($rawShop) : "Nearby Café";
+    if (strlen($shopName) > 120) {
+        problem(422, "VALIDATION", "Shop name must contain 1–120 characters.");
+    }
+    $uid = (int) $session["user"]["id"];
+    $db->beginTransaction();
+    try {
+        lock_state($db);
+        owner_reauth($db, $session, $body, $ref);
+        query(
+            $db,
+            "UPDATE users SET email=?, shop_name=?, updated_at=NOW() WHERE id=? AND role='OWNER'",
+            [$email, $shopName, $uid],
+        );
+        audit($db, $uid, "OWNER_PROFILE_UPDATED", $ref, [
+            "email" => $email,
+            "shop_name" => $shopName,
+        ]);
+        $updated = query($db, "SELECT * FROM users WHERE id=?", [$uid])->fetch();
+        $db->commit();
+        return ["user" => public_user($updated)];
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $e;
+    }
+}
+
+function owner_test_email(PDO $db, array $session, array $body, string $ref): array
+{
+    require_once __DIR__ . '/browser_recovery.php';
+    $uid = (int) $session["user"]["id"];
+    $user = query($db, "SELECT * FROM users WHERE id=?", [$uid])->fetch();
+    $email = valid_email($user["email"] ?? null, true);
+
+    $code = (string) random_int(100000, 999999);
+    $sent = send_reset_code_email($email, (string)$user["display_name"], $code);
+    audit($db, $uid, "TEST_EMAIL_SENT", $ref, ["email" => $email]);
+    return ["sent" => $sent, "email" => $email, "code" => $code];
+}
+
+function smtp_status(PDO $db, array $session): array
+{
+    require_once __DIR__ . '/browser_recovery.php';
+    current_session($db, $session, true);
+    $smtp = get_smtp_config();
+    $configured = !empty($smtp['enabled']) && !empty($smtp['username']);
+    return [
+        'enabled' => !empty($smtp['enabled']),
+        'configured' => $configured,
+        'host' => (string)($smtp['host'] ?? 'smtp.gmail.com'),
+        'port' => (int)($smtp['port'] ?? 587),
+        'encryption' => (string)($smtp['encryption'] ?? 'tls'),
+        'username' => (string)($smtp['username'] ?? ''),
+        'has_password' => !empty($smtp['password']),
+        'from_name' => (string)($smtp['from_name'] ?? 'Nearby Café'),
+        'from_email' => (string)($smtp['from_email'] ?? ($smtp['username'] ?? '')),
+    ];
+}
+
+function smtp_save(PDO $db, array $session, array $body, string $ref): array
+{
+    require_once __DIR__ . '/browser_recovery.php';
+    owner_reauth($db, $session, $body, $ref);
+    $enabled = !empty($body['enabled']);
+
+    $storageDir = __DIR__ . '/../storage';
+    if (!is_dir($storageDir)) {
+        @mkdir($storageDir, 0755, true);
+    }
+
+    if (!$enabled) {
+        $existing = get_smtp_config();
+        $existing['enabled'] = false;
+        @file_put_contents($storageDir . '/smtp.json', json_encode($existing, JSON_PRETTY_PRINT));
+        audit($db, (int)$session['user']['id'], 'SMTP_DISABLED', $ref, []);
+        return [
+            'ok' => true,
+            'enabled' => false,
+            'configured' => false,
+            'message' => 'Online email delivery turned off. Password reset codes will be displayed directly on screen.',
+        ];
+    }
+
+    $username = trim((string)($body['username'] ?? ''));
+    if ($username === '' || !filter_var($username, FILTER_VALIDATE_EMAIL)) {
+        problem(422, 'VALIDATION', 'Enter a valid Gmail or email address (e.g. zakizaps@gmail.com).');
+    }
+
+    $existing = get_smtp_config();
+    $rawPassword = (string)($body['password'] ?? '');
+    $password = str_replace(' ', '', $rawPassword);
+    if ($password === '') {
+        $password = (string)($existing['password'] ?? '');
+    }
+    if ($password === '') {
+        problem(422, 'VALIDATION', 'Enter your 16-character Google App Password.');
+    }
+
+    $host = trim((string)($body['host'] ?? 'smtp.gmail.com'));
+    if ($host === '') $host = 'smtp.gmail.com';
+    $port = (int)($body['port'] ?? 587);
+    if ($port <= 0 || $port > 65535) $port = 587;
+    $encryption = strtolower(trim((string)($body['encryption'] ?? 'tls')));
+    if (!in_array($encryption, ['tls', 'ssl'], true)) $encryption = 'tls';
+    $fromName = trim((string)($body['from_name'] ?? 'Nearby Café'));
+    if ($fromName === '') $fromName = 'Nearby Café';
+    $fromEmail = trim((string)($body['from_email'] ?? $username));
+    if ($fromEmail === '') $fromEmail = $username;
+
+    $config = [
+        'enabled' => true,
+        'host' => $host,
+        'port' => $port,
+        'encryption' => $encryption,
+        'username' => $username,
+        'password' => $password,
+        'from_name' => $fromName,
+        'from_email' => $fromEmail,
+        'updated_at' => date(DATE_ATOM),
+    ];
+
+    // Live test connection
+    $errorMsg = '';
+    $connected = test_smtp_socket_connection($config, $errorMsg);
+    if (!$connected) {
+        problem(400, 'SMTP_FAILED', "Email connection test failed: $errorMsg");
+    }
+
+    // Save configuration
+    file_put_contents($storageDir . '/smtp.json', json_encode($config, JSON_PRETTY_PRINT));
+
+    // Send a real test email with a 6-digit code to the user's recovery email or username
+    $user = query($db, "SELECT * FROM users WHERE id=?", [$session['user']['id']])->fetch();
+    $targetEmail = valid_email($user['email'] ?? $username, true);
+    $testCode = (string)random_int(100000, 999999);
+    send_reset_code_email($targetEmail, (string)($user['display_name'] ?? 'Store Owner'), $testCode);
+
+    audit($db, (int)$session['user']['id'], 'SMTP_CONFIGURED', $ref, [
+        'host' => $host,
+        'username' => $username,
+        'test_recipient' => $targetEmail,
+    ]);
+
+    return [
+        'ok' => true,
+        'enabled' => true,
+        'configured' => true,
+        'message' => "Connected to Gmail SMTP successfully! A live test verification code ($testCode) was sent to $targetEmail. Check your inbox!",
+        'recipient' => $targetEmail,
+    ];
+}
+
 function delete_catalogue(
     PDO $db,
     array $session,

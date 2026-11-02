@@ -52,15 +52,18 @@ function SecretField({
 }
 
 export default function OwnerSetup({
-  ready,
+  ready = true,
+  requiresCode = false,
   onComplete,
   onCancel,
   onRefresh,
   refreshing,
 }) {
   const [fields, setFields] = useState({
+    shop_name: "Nearby Café",
     display_name: "",
     username: "",
+    email: "",
     password: "",
     confirm_password: "",
     setup_code: "",
@@ -69,37 +72,50 @@ export default function OwnerSetup({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [closed, setClosed] = useState(false);
+
   const update = (key) => (event) => {
     const value = event.target.value;
     setFields((current) => ({ ...current, [key]: value }));
   };
+
   async function submit(event) {
     event.preventDefault();
     if (running.current || closed || !ready) return;
     setError(null);
+
     const bytes = (value) => new TextEncoder().encode(value).length;
     let message;
-    if (!fields.display_name.trim() || bytes(fields.display_name.trim()) > 100)
+    if (!fields.shop_name.trim() || fields.shop_name.trim().length > 120) {
+      message = "Shop name must contain 1–120 characters.";
+    } else if (!fields.display_name.trim() || bytes(fields.display_name.trim()) > 100) {
       message = "Display name must contain 1–100 bytes.";
-    else if (!/^[a-zA-Z0-9][a-zA-Z0-9._@-]{2,63}$/.test(fields.username.trim()))
+    } else if (!/^[a-zA-Z0-9][a-zA-Z0-9._@-]{2,63}$/.test(fields.username.trim())) {
       message =
         "Username must be 3–64 characters, start with a letter or number, and use only letters, numbers, dots, @, underscores or hyphens.";
-    else if (staffPasswordError(fields.password, fields.confirm_password))
+    } else if (
+      !fields.email.trim() ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.trim())
+    ) {
+      message = "Enter a valid email address (for example, owner@example.com).";
+    } else if (staffPasswordError(fields.password, fields.confirm_password)) {
       message = staffPasswordError(fields.password, fields.confirm_password);
-    else if (
+    } else if (
+      requiresCode &&
       !/^[A-Fa-f0-9]{64}$/.test(fields.setup_code.trim().replaceAll("-", ""))
-    )
-      message =
-        "Enter the complete setup code supplied by your development team.";
+    ) {
+      message = "Enter the complete setup code supplied by your development team.";
+    }
+
     if (message) {
       setError({ message });
       return;
     }
+
     running.current = true;
     setBusy(true);
     try {
       const data = await api("setup/owner", { body: fields });
-      onComplete(data.username);
+      onComplete(data);
     } catch (failure) {
       setError(failure);
       if (failure.code === "OWNER_EXISTS") setClosed(true);
@@ -114,27 +130,44 @@ export default function OwnerSetup({
       setBusy(false);
     }
   }
+
   return (
     <>
       <p className="eyebrow">WELCOME TO NEARBY CAFÉ</p>
-      <h2>Set up owner account</h2>
+      <h2>Set up your store & owner account</h2>
       <p className="subtle">
-        Create the first Owner / Admin account for this workspace.
+        Welcome! Set up your shop name and create your primary Owner / Admin account to get started.
       </p>
-      {!ready && (
+
+      {requiresCode && !ready && (
         <div className="setup-notice" role="status">
           <p>
-            Your development team needs to prepare a setup code before you can
-            register.
+            Your development team needs to prepare a setup code before you can register.
           </p>
           <button type="button" onClick={onRefresh} disabled={refreshing}>
             {refreshing ? "Checking…" : "Check setup again"}
           </button>
         </div>
       )}
+
       <form onSubmit={submit} noValidate aria-busy={busy}>
+        <label htmlFor="setup-shop">
+          Café / Shop name
+          <input
+            id="setup-shop"
+            aria-label="Café or shop name"
+            required
+            maxLength={120}
+            value={fields.shop_name}
+            onChange={update("shop_name")}
+            disabled={busy}
+            autoFocus
+          />
+          <span className="setup-hint">The name displayed on your receipts and dashboard.</span>
+        </label>
+
         <label htmlFor="setup-display">
-          Display name
+          Owner full name / display name
           <input
             id="setup-display"
             aria-label="Display name"
@@ -144,13 +177,10 @@ export default function OwnerSetup({
             value={fields.display_name}
             onChange={update("display_name")}
             disabled={busy}
-            autoFocus
-            aria-describedby="setup-display-help"
           />
-          <span className="setup-hint" id="setup-display-help">
-            The name shown in your workspace. Up to 100 bytes.
-          </span>
+          <span className="setup-hint">Your name shown in the workspace. Up to 100 bytes.</span>
         </label>
+
         <label htmlFor="setup-username">
           Username
           <input
@@ -164,22 +194,39 @@ export default function OwnerSetup({
             value={fields.username}
             onChange={update("username")}
             disabled={busy}
-            aria-describedby="setup-username-help"
           />
-          <span className="setup-hint" id="setup-username-help">
-            3–64 characters. Start with a letter or number. Letters, numbers,
-            dots, @, underscores and hyphens are allowed. Sign-in is
-            case-insensitive.
+          <span className="setup-hint">
+            3–64 characters. Letters, numbers, dots, underscores or hyphens.
           </span>
         </label>
+
+        <label htmlFor="setup-email">
+          Owner recovery email
+          <input
+            id="setup-email"
+            type="email"
+            aria-label="Owner email address"
+            autoComplete="email"
+            required
+            maxLength={191}
+            value={fields.email}
+            onChange={update("email")}
+            disabled={busy}
+          />
+          <span className="setup-hint">
+            Used to reset your password if you ever forget it.
+          </span>
+        </label>
+
         <SecretField
           id="setup-password"
           label="Password"
           value={fields.password}
           onChange={update("password")}
           disabled={busy}
-          help="Use at least 12 characters. Choose a password you do not use elsewhere."
+          help="Use at least 12 characters. Choose a secure password you do not use elsewhere."
         />
+
         <SecretField
           id="setup-confirm"
           label="Confirm password"
@@ -187,32 +234,32 @@ export default function OwnerSetup({
           onChange={update("confirm_password")}
           disabled={busy}
         />
-        <SecretField
-          id="setup-code"
-          label="One-time setup code"
-          value={fields.setup_code}
-          onChange={update("setup_code")}
-          disabled={busy}
-          code
-          help="Paste the code your development team gave you. Hyphens are optional. This code is for first-time setup only."
-        />
+
+        {requiresCode && (
+          <SecretField
+            id="setup-code"
+            label="One-time setup code"
+            value={fields.setup_code}
+            onChange={update("setup_code")}
+            disabled={busy}
+            code
+            help="Paste the code your development team gave you. Hyphens are optional."
+          />
+        )}
+
         {error && (
           <div className="error" role="alert">
             <strong>{error.message}</strong>
             {error.reference && (
               <small>Support reference: {error.reference}</small>
             )}
-            {error.code === "NETWORK" && (
-              <p>
-                If registration may have finished, return to sign-in and try
-                your new account before retrying.
-              </p>
-            )}
           </div>
         )}
-        <button className="primary full" disabled={busy || !ready || closed}>
-          {busy ? "Creating owner account…" : "Create owner account"}
+
+        <button className="primary full" disabled={busy || (requiresCode && !ready) || closed}>
+          {busy ? "Setting up store…" : "Complete setup & launch store"}
         </button>
+
         <button
           className="full setup-back"
           type="button"
@@ -222,9 +269,6 @@ export default function OwnerSetup({
           Back to sign in
         </button>
       </form>
-      <p className="login-help">
-        Keep the host laptop and shop Wi-Fi running during setup.
-      </p>
     </>
   );
 }

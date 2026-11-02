@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { Select, ErrorNotice } from "../components/workflow";
 import StaffPassword, { staffPasswordError } from "../components/StaffPassword";
-import OwnerRecoveryCode from "../components/OwnerRecoveryCode";
+import OwnerEmailSecurity from "../components/OwnerEmailSecurity";
 export default function AccountSecurity({ user, token, expired, onPrepared }) {
   const [staff, setStaff] = useState(null),
     [id, setId] = useState(""),
@@ -164,7 +164,7 @@ export default function AccountSecurity({ user, token, expired, onPrepared }) {
           </form>
         )}
       </section>
-      <OwnerRecoveryCode user={user} token={token} expired={expired} onPrepared={onPrepared} />
+      <OwnerEmailSecurity user={user} token={token} expired={expired} />
     </div>
   );
 }

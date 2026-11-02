@@ -109,6 +109,7 @@ function find_product_image_path(?string $filename): ?string
     foreach ([
         product_uploads_dir() . "/" . $filename,
         __DIR__ . "/../public/uploads/products/" . $filename,
+        __DIR__ . "/../uploads/products/" . $filename,
     ] as $candidate) {
         if (is_file($candidate)) {
             return $candidate;
@@ -126,6 +127,7 @@ function remove_product_image_file(?string $filename): void
         foreach ([
             product_uploads_dir() . "/" . $filename,
             __DIR__ . "/../public/uploads/products/" . $filename,
+            __DIR__ . "/../uploads/products/" . $filename,
         ] as $path) {
             if (is_file($path)) {
                 @unlink($path);
