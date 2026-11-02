@@ -8,16 +8,16 @@ Your developer completes installation once. You do not need to open XAMPP or typ
 
 ## Passwords and recovery
 
-Use at least 12 characters. Very long passwords with accented letters or emoji can reach the technical storage limit sooner. Keep the exact password you entered; spaces are not removed.
+Use at least 12 characters. Keep the exact password you entered; spaces are not removed.
 
-After your initial sign-in, go to **Management → Account security** to prepare a recovery code. Save the displayed code offline with Copy or Download, or write it down carefully. You must confirm you saved it before closing. A replacement invalidates the earlier code.
+After your initial sign-in, go to **Management → Account security** to set your **Owner recovery email** and connect your **Gmail SMTP**:
+1. **Set Recovery Email**: Enter your email address and current password, then click **Save profile & recovery email**.
+2. **Connect Gmail SMTP**: Generate a 16-character App Password from Google ([myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)), paste it into the SMTP setup form, and click **Connect & Test Email Delivery**.
+3. **Send test code**: Click **Send test 6-digit code** to confirm that reset codes arrive in your inbox.
 
-- **Initial setup code:** supplied by the developer, used once to create the first Owner.
-- **Owner recovery code:** prepared in Account security, used with Forgot password. Store it securely and never share it with staff.
+Forgot the Owner password? Choose **Forgot password?** on the login screen, enter your registered email address, and check your inbox for your 6-digit verification code. Enter the code and your new password to sign in. For security, codes are sent exclusively to your private email and are never displayed on screen.
 
-Forgot the Owner password? Choose **Forgot password? → Owner/Admin recovery**, enter your username, saved recovery code and matching new passwords. Save the new replacement recovery code after success, then sign in. If the connection is lost, the result may already have committed: try the new password, then replace the recovery code in Account security after sign-in.
-
-Baristas ask the Owner for a reset. Losing both the Owner password and recovery code requires authorized support. Do not delete the account or edit its database password field.
+Baristas ask the Owner for a reset directly under **Management → Staff**.
 
 ## If something goes wrong
 

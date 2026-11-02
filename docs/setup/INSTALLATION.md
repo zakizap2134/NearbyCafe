@@ -1,29 +1,89 @@
-# Windows installation and safe upgrades
+# Nearby Café — Installation and Deployment Guide
 
-Start from the [root README](../../README.md). Commands below are **PowerShell**, unless marked otherwise. The examples use `C:\Projects\NearbyCafe\rebuild`. Substitute your actual application folder consistently.
-
-## File & Folder Locations Reference
-
-| Component / File | Default Path on Windows | Description |
-|---|---|---|
-| **XAMPP Root** | `C:\xampp\` | Apache (`apache\bin\httpd.exe`), PHP (`php\php.exe`), MariaDB (`mysql\bin\mysqld.exe`). |
-| **Repository Root** | `C:\Projects\NearbyCafe\` | Cloned or extracted repository directory (must be outside `C:\xampp\htdocs`). |
-| **Application Folder** | `C:\Projects\NearbyCafe\rebuild\` | Main runnable application folder. |
-| **1-Click Installer** | `C:\Projects\NearbyCafe\rebuild\One-Click-Setup.bat` | Automated 1-click setup script (`launcher\OneClickSetup.ps1`). |
-| **1-Click Uninstaller** | `C:\Projects\NearbyCafe\rebuild\Uninstall-Nearby-Cafe.bat` | Automated service/shortcut/config uninstaller and optional DB reset (`launcher\Uninstall.ps1`). |
-| **Daily Launcher Shortcut** | `Desktop\Nearby Café.lnk` | Starts, opens, and stops Nearby Café services. |
-| **Owner Setup Code File** | `Desktop\NEARBY_CAFE_OWNER_SETUP_CODE.txt` | Generated during fresh `One-Click-Setup.bat` run (valid 24h). |
-| **Database Config** | `C:\Projects\NearbyCafe\rebuild\config\local.php` | Local database connection config (`venuevue_rebuild` on `127.0.0.1:3306`). |
-| **Launcher Config** | `C:\Projects\NearbyCafe\rebuild\config\launcher.local.json` | Service names, installation ID, and port (`5174`). |
-| **Apache Config** | `C:\Projects\NearbyCafe\rebuild\config\nearby-httpd.conf` | Dedicated Apache virtual host / directory config for `rebuild\public`. |
-| **Product Image Uploads** | `C:\Projects\NearbyCafe\rebuild\storage\uploads\products\` | Uploaded menu images served via `api/index.php?route=product/image`. |
-| **Runtime & Logs** | `C:\Projects\NearbyCafe\rebuild\storage\launcher\` | Contains `launcher.log`, `apache-error.log`, `ownership.json`, and `operation.lock`. |
+This guide covers both deployment pathways for Nearby Café (VenueVue):
+1. **Cloud Web Deployment**: Deploying online to shared web hosting (e.g. InfinityFree, cPanel, or Apache) with MariaDB/MySQL, HTTPS, and Gmail SMTP email recovery.
+2. **Offline Local POS Deployment**: Installing locally on a dedicated Windows laptop running XAMPP 8.2+ for shop Wi-Fi counter sales.
 
 ---
 
-## Recommended: 1-Click Client Setup (Automatic)
+## File & Folder Locations Reference
 
-For new client machines or quick developer setup, use **`C:\Projects\NearbyCafe\rebuild\One-Click-Setup.bat`**. It automates all prerequisite checks, configuration, database initialization, service registration, and owner code generation in a single step without touching the command line.
+| Component / Artifact | Path / Location | Description |
+|---|---|---|
+| **Cloud Deployment Package** | `Desktop\venuevue-nearbycafe.zip` | Release ZIP containing built frontend, backend modules, `.htaccess`, and database schema. |
+| **Web Root on Hosting** | `htdocs/` (or `public_html/`) | Public web root on the shared host. |
+| **Database Connection Config** | `htdocs/config/local.php` (or `rebuild/config/local.php`) | Database connection credentials (`host`, `name`, `user`, `password`). Never committed to Git. |
+| **SMTP Configuration** | `rebuild/storage/smtp.json` | Web-managed SMTP credentials saved automatically from the Management dashboard. |
+| **Server Outbox Log** | `rebuild/storage/mail-outbox.log` | Private server-side log of dispatched reset codes for admin auditing. |
+| **Product Images** | `rebuild/storage/uploads/products/` | Uploaded product photos, served securely via `api/index.php?route=product/image`. |
+| **1-Click Local Installer** | `rebuild\One-Click-Setup.bat` | Automated 1-click setup script for Windows local host laptops. |
+| **1-Click Local Uninstaller** | `rebuild\Uninstall-Nearby-Cafe.bat` | Automated service/shortcut uninstaller and optional database reset tool. |
+| **Daily Launcher Shortcut** | `Desktop\Nearby Café.lnk` | Starts, opens, and stops Nearby Café services on local Windows installs. |
+
+---
+
+## Part 1: Cloud Web Deployment (InfinityFree / cPanel / Shared Host)
+
+### Step 1: Upload the Deployment ZIP
+1. Open your hosting **Control Panel** (e.g. InfinityFree vPanel or cPanel) and open **File Manager**.
+2. Navigate inside the **`htdocs`** (or `public_html`) directory.
+3. Click **Upload** $\rightarrow$ **Upload Zip** $\rightarrow$ select **`Desktop\venuevue-nearbycafe.zip`**.
+4. The File Manager unpacks all application files, including:
+   - Root files: `index.html`, `favicon.ico`, `.htaccess`, and `assets/` (bundled JS & CSS)
+   - Application directories: `app/`, `config/`, `database/`, `storage/`, and `api/`
+
+### Step 2: Configure MySQL Database Credentials
+1. In your hosting control panel, open **MySQL Databases** and note:
+   - **MySQL Host** (e.g., `sql305.infinityfree.com`)
+   - **Database Name** (e.g., `if0_43331399_venuevue`)
+   - **MySQL Username** (e.g., `if0_43331399`)
+   - **Password** (your vPanel / hosting password)
+2. In File Manager, edit **`htdocs/config/local.php`**:
+   ```php
+   <?php
+   declare(strict_types=1);
+
+   return [
+       'db' => [
+           'host' => 'sql305.infinityfree.com',
+           'port' => 3306,
+           'name' => 'if0_43331399_venuevue',
+           'user' => 'if0_43331399',
+           'password' => 'YOUR_VPANEL_PASSWORD_HERE',
+       ],
+       'session_hours' => 12,
+       'vat_rate' => '0.1200',
+       'app_url' => 'https://nearbycafe.infinityfreeapp.com',
+   ];
+   ```
+3. Save the file. When anyone visits the website, VenueVue automatically runs database schema migrations (`ensure_void_and_image_schema`).
+
+### Step 3: Complete First-Time Web Onboarding
+1. Open your website domain in your browser: `https://your-domain.com`.
+2. Because the database is brand new, the **Welcome to Nearby Café** setup screen (`/#/setup`) opens automatically:
+   - Enter your **Shop Name** (e.g., *Nearby Café*).
+   - Enter your **Owner Display Name** and **Username**.
+   - Enter your **Owner Recovery Email** (e.g., `yourname@gmail.com`).
+   - Choose a password with at least 12 characters.
+3. Click **Create store & start workspace**. You are logged in immediately as the Store Owner.
+
+### Step 4: Configure Gmail SMTP for Live Email Delivery
+1. Go to **Management → Account security**.
+2. Under **Email Delivery & Gmail SMTP Setup**:
+   - **Sender Gmail**: Enter your Gmail address (e.g., `nearbycafe.pos@gmail.com`).
+   - **Google 16-Character App Password**:
+     1. Open [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) (ensure 2-Step Verification is ON in your Google Account).
+     2. Create an App Password with the name *Nearby Café*.
+     3. Copy the 16 letters and paste them into the form.
+   - Enter your current Owner password.
+   - Click **Connect & Test Email Delivery**.
+3. VenueVue connects directly to Google SMTP, verifies the handshake, saves the settings in `storage/smtp.json`, and sends a live test verification code to your inbox!
+
+---
+
+## Part 2: Offline Windows 1-Click Setup (Local POS)
+
+For running Nearby Café locally on a shop laptop using XAMPP:
 
 ### Quick Start:
 1. Ensure full **XAMPP 8.2+** (Apache, PHP 8.2+, MariaDB) is installed at `C:\xampp`.
@@ -31,95 +91,30 @@ For new client machines or quick developer setup, use **`C:\Projects\NearbyCafe\
 3. Open `C:\Projects\NearbyCafe\rebuild` in File Explorer and double-click **`One-Click-Setup.bat`** (or right-click and choose **Run as administrator**).
 4. Accept the Windows Administrator (UAC) prompt:
    - Verifies XAMPP installation (`C:\xampp`) and database options (`C:\xampp\mysql\bin\my.ini`).
-   - Automatically creates `C:\Projects\NearbyCafe\rebuild\config\local.php` if missing.
-   - Verifies built frontend assets at `C:\Projects\NearbyCafe\rebuild\public\index.html` (or auto-builds them if `npm` is installed).
-   - Registers the `NearbyCafeWeb_*` and `NearbyCafeDatabase_*` Windows services and configures the shop Wi-Fi firewall rule.
-   - Starts MariaDB and provisions the schema via `tools\install.php` and `tools\migrate-stage4.php`.
-   - Generates the one-time Owner Setup Code, saves it to your Desktop as `Desktop\NEARBY_CAFE_OWNER_SETUP_CODE.txt`, copies it to the clipboard, and shows a confirmation dialog.
+   - Creates `C:\Projects\NearbyCafe\rebuild\config\local.php` (pointing to `127.0.0.1:3306`, database `venuevue_rebuild`).
+   - Registers dedicated Windows background services (`NearbyCafeWeb` and `NearbyCafeDatabase`) and configures the shop Wi-Fi firewall rule for port `5174`.
+   - Starts MariaDB and provisions the schema.
    - Creates the **Nearby Café** desktop shortcut (`Desktop\Nearby Café.lnk`).
-   - Starts the application and opens `http://localhost:5174` directly in your browser.
-5. In the browser, click **Set up owner account**, paste your Setup Code (`Ctrl+V`), and set your Owner display name, username, and password ($\ge 12$ characters).
-6. After signing in, open **Management → Account security** to generate your permanent offline Recovery Code, then delete `Desktop\NEARBY_CAFE_OWNER_SETUP_CODE.txt`.
+   - Opens `http://localhost:5174` in your browser.
+5. In the browser, complete the **Welcome to Nearby Café** setup form to create your Owner account.
 
 ---
 
-## Uninstalling or Resetting for a Clean Test (`Uninstall-Nearby-Cafe.bat`)
+## How to Uninstall or Reset for Clean Testing (`Uninstall-Nearby-Cafe.bat`)
 
-To uninstall services and shortcuts, or to wipe the test database so you can test `One-Click-Setup.bat` from scratch:
+To reset a local installation or test a clean setup from scratch:
 1. Open `C:\Projects\NearbyCafe\rebuild` in File Explorer.
 2. Double-click **`Uninstall-Nearby-Cafe.bat`** and accept the Administrator prompt.
-3. When prompted **"Do you also want to delete the shop database (venuevue_rebuild)?"**:
-   - Choose **Yes** to drop `venuevue_rebuild` and test a 100% fresh installation from zero.
-   - Choose **No** to remove only the services, Desktop shortcut, and config files while preserving all database records.
+3. When prompted:
+   - Choose **Yes** to delete the database (`venuevue_rebuild`) for a 100% clean slate.
+   - Choose **No** to keep your sales and products while removing only the services and Desktop shortcut.
 
 ---
 
-## Manual Developer Installation (Step-by-Step)
+## Upgrades and Updates
 
-If you prefer to configure database credentials or provision the schema manually:
-
-1. Install full XAMPP with matching Apache 2.4, thread-safe PHP 8.2+ and MariaDB. Keep it installed. Enable PDO MySQL, OpenSSL and JSON; the application uses PCRE for Unicode counting without requiring mbstring. Start MySQL through XAMPP for developer provisioning.
-2. Extract the complete delivered ZIP into a temporary folder. Its `source` folder is the repository root. Copy `source\rebuild` to `C:\Projects\VenueVue\rebuild`. A Git clone instead already contains `rebuild`; do not nest it again. The expected path is `C:\Projects\VenueVue\rebuild\tools\preflight.php`.
-3. Open PowerShell and configure the new installation. This guard refuses to overwrite existing configuration:
-
-   ```powershell
-   Set-Location "C:\Projects\VenueVue\rebuild"
-   if (Test-Path .\config\local.php) { throw "Configuration already exists. Use upgrade instructions." }
-   Copy-Item .\config\local.example.php .\config\local.php
-   notepad .\config\local.php
-   ```
-
-   Enter the real database host/port/user/password and a **new dedicated database name**. The example is a template, not supplied credentials. Keep `local.php` private. Check syntax:
-
-   ```powershell
-   & "C:\xampp\php\php.exe" -l config\local.php
-   ```
-
-4. **Only for the genuinely new installation**, initialize the schema and prepare Owner registration:
-
-   ```powershell
-   & "C:\xampp\php\php.exe" tools\install.php
-   & "C:\xampp\php\php.exe" tools\prepare-owner-setup.php
-   & "C:\xampp\php\php.exe" tools\preflight.php --allow-owner-setup
-   ```
-
-   The developer needs database creation/table privileges for provisioning. Privately give the Owner the generated initial setup code (24-hour validity). Do not paste it into Git, chat screenshots or logs. If a database already contains shop records, stop and use the upgrade/recovery path. Never erase data to get past an install error.
-5. **Git clone/GitHub source ZIP only:** install dependencies and build. Skip this for the provided complete ZIP with built assets:
-
-   ```powershell
-   npm ci
-   npm run build
-   ```
-
-6. While signed into the Windows account the Owner will use, run:
-
-   ```powershell
-   .\Setup-Nearby-Cafe.bat
-   ```
-
-   An authorized administrator accepts the one-time elevation. Setup registers a dedicated manual-start Apache service, reuses a verified compatible database service or registers one for the existing XAMPP database, sets scoped permissions/firewall rules and creates the desktop shortcut. It does not initialize the database or start a second instance. For a shared database, read the `-KeepDatabaseRunning` option in [detailed setup](WINDOWS_LAUNCHER_SETUP.md).
-7. Double-click **Nearby Café** on the desktop. Wait for Ready. Choose **Set up owner account** in the browser, enter the initial setup code and matching new passwords, then sign in. If setup is already closed, use the existing Owner or authorized recovery; deleting the Owner is not a setup procedure.
-8. Open **Management → Account security**, generate the ongoing recovery code, save it offline and acknowledge saving it. This is different from the initial setup code. Create Baristas through Management. Complete the [acceptance checks](../academic/VERIFICATION.md#remaining-acceptance) before client handover.
-
-## Upgrade an existing rebuild
-
-1. Finish active sales on every device and resolve pending orders where possible. Make a verified backup and a private copy of the existing folder. Preserve browser profiles and IndexedDB. A CSV export alone is not a complete backup.
-2. Use **Stop Nearby Café**; close the launcher after stopping. For a development host, close its PHP/Vite terminal windows. Do not stop a shared database used elsewhere without coordination.
-3. Extract the complete ZIP separately. Copy the **contents** of `source\rebuild` into your existing `C:\Projects\VenueVue\rebuild`, replacing supplied source/build files. Do not copy the `source` wrapper into the application, do not create `rebuild\rebuild`, and do not use `/MIR` or delete the old folder.
-4. Keep the existing `config\local.php`, `config\launcher.local.json`, `config\nearby-httpd.conf`, all runtime storage and the actual database data directory. None of these private files is shipped. Preserve accounts, hashes, stock, sales and pending browser data. No client database is accessed by this delivery.
-5. This integration requires **no new migration for schema 4**. If still on rebuild Stages 1–3, back up first and have the developer run the existing `tools\migrate-stage4.php` after reviewing it. The original root VenueVue database has a different schema and no provided automatic conversion; keep it separate.
-6. For Git source, run `npm ci` / `npm run build`. For the complete ZIP, built assets are supplied. Do not apply earlier stage/task patches on top.
-7. If the launcher was never installed, run `Setup-Nearby-Cafe.bat` once. For an existing working launcher installation, this source-only ownership fix does not require service reinstallation. Keep the path and service configuration unchanged. If the path or Windows account changes, the developer must rerun setup deliberately.
-8. Start the desktop shortcut. Sign in using the existing account, check stock and recent sales, and run preflight:
-
-   ```powershell
-   & "C:\xampp\php\php.exe" tools\preflight.php
-   ```
-
-   Verify receipt/VAT, pending-order reconciliation, reports, exports and backup access before handover. Retain the backup until acceptance passes.
-
-**Origin preservation:** keep the exact previous scheme/host/port and browser profile. Default launcher URL is `http://localhost:5174`, matching the development frontend. A tablet's IP-based URL has its own storage. Switching to `127.0.0.1`, another port or HTTPS does not transfer pending orders. Reconcile first; do not clear site data as a troubleshooting shortcut.
-
-## If the earlier launcher save failed
-
-The updated launcher preserves atomic replacement using the PowerShell `NullString` argument and cleans temporary files. A failed ownership save leaves services intact and does not claim ownership in memory. A service started before such a failure may remain running but unowned; a later launch treats it as shared and will not stop it. The developer should inspect the exact dedicated service and stop it gracefully through Windows Services only when no one is using it, then perform a fresh launch. Do not edit ownership JSON to claim another process, kill MariaDB, or delete database files.
+When updating an existing installation:
+1. Preserve `config/local.php` and `storage/` (which contains your product photos and SMTP credentials).
+2. For cloud hosting: upload the new `venuevue-nearbycafe.zip` over `htdocs`.
+3. For local installations: pull the latest Git changes and re-run `node build-frontend.mjs` (or extract the update package).
+4. Hard-refresh your browser (`Ctrl + Shift + R`) to load the new frontend assets.
