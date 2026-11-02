@@ -15,7 +15,7 @@ import Register from "./screens/Register";
 import Management from "./screens/Management";
 import Brand from "./components/Brand";
 import OwnerSetup from "./screens/OwnerSetup";
-import OwnerRecovery from "./screens/OwnerRecovery";
+import OwnerRecovery, { EmailTokenReset } from "./screens/OwnerRecovery";
 
 function ErrorMessage({ error }) {
   return (
@@ -127,7 +127,16 @@ function App() {
       </div>
     );
   if (!user)
-    return <Routes><Route path="/forgot-password" element={<OwnerRecovery />} /><Route path="*" element={<Login onSuccess={signedIn} sessionNotice={sessionNotice} />} /></Routes>;
+    return (
+      <Routes>
+        <Route path="/forgot-password" element={<OwnerRecovery />} />
+        <Route path="/reset-password" element={<EmailTokenReset />} />
+        <Route
+          path="*"
+          element={<Login onSuccess={signedIn} sessionNotice={sessionNotice} />}
+        />
+      </Routes>
+    );
   return (
     <Shell user={user} signOut={signOut}>
       <Routes>
@@ -160,6 +169,7 @@ function App() {
 }
 function Login({ onSuccess, sessionNotice }) {
   const submitting = useRef(false);
+  const autoOpenedSetup = useRef(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [name, setName] = useState(""),
     [password, setPassword] = useState(""),
@@ -187,7 +197,12 @@ function Login({ onSuccess, sessionNotice }) {
       .then((data) => {
         if (!live) return;
         setSetup(data);
-        if (!data.needed) setSetupOpen(false);
+        if (!data.needed) {
+          setSetupOpen(false);
+        } else if (!data.requires_code && !autoOpenedSetup.current) {
+          autoOpenedSetup.current = true;
+          setSetupOpen(true);
+        }
       })
       .catch((failure) => {
         if (live && failure.name !== "AbortError") setSetupError(failure);
@@ -206,7 +221,15 @@ function Login({ onSuccess, sessionNotice }) {
     e.preventDefault();
     if (submitting.current) return;
     setError(null);
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9._@-]{2,63}$/.test(name.trim())) {
+    const trimmedName = name.trim();
+    const isEmail =
+      trimmedName.includes("@") &&
+      trimmedName.length <= 191 &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedName);
+    if (
+      !isEmail &&
+      !/^[a-zA-Z0-9][a-zA-Z0-9._@-]{2,63}$/.test(trimmedName)
+    ) {
       setError(
         new Error(
           "Enter your username (3–64 characters using letters, numbers, dots, @, underscores or hyphens).",
@@ -227,7 +250,7 @@ function Login({ onSuccess, sessionNotice }) {
     setBusy(true);
     try {
       onSuccess(
-        await api("login", { body: { username: name.trim(), password } }),
+        await api("login", { body: { username: trimmedName, password } }),
       );
     } catch (e) {
       setError(e);
@@ -266,13 +289,18 @@ function Login({ onSuccess, sessionNotice }) {
             <>
               <OwnerSetup
                 ready={setup?.ready}
+                requiresCode={Boolean(setup?.requires_code)}
                 refreshing={setupLoading}
                 onRefresh={() => setSetupAttempt((value) => value + 1)}
                 onCancel={() => {
                   setSetupOpen(false);
                   setSetupAttempt((value) => value + 1);
                 }}
-                onComplete={(username) => {
+                onComplete={(username, data) => {
+                  if (data?.token && data?.user) {
+                    onSuccess(data);
+                    return;
+                  }
                   setName(username);
                   setPassword("");
                   setError(null);
@@ -304,7 +332,7 @@ function Login({ onSuccess, sessionNotice }) {
                     autoComplete="username"
                     required
                     minLength={3}
-                    maxLength={64}
+                    maxLength={191}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     disabled={busy}

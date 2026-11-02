@@ -1,14 +1,15 @@
 <?php
 declare(strict_types=1);
-require_once __DIR__ . "/../../app/auth.php";
-require_once __DIR__ . "/../../app/owner_setup.php";
-require_once __DIR__ . "/../../app/catalogue.php";
-require_once __DIR__ . "/../../app/checkout.php";
-require_once __DIR__ . "/../../app/recovery.php";
-require_once __DIR__ . "/../../app/browser_recovery.php";
-require_once __DIR__ . "/../../app/recovery_preparation.php";
-require_once __DIR__ . "/../../app/reports.php";
-require_once __DIR__ . "/../../app/backup.php";
+$appDir = is_dir(__DIR__ . "/../../app") ? __DIR__ . "/../../app" : __DIR__ . "/../app";
+require_once $appDir . "/auth.php";
+require_once $appDir . "/owner_setup.php";
+require_once $appDir . "/catalogue.php";
+require_once $appDir . "/checkout.php";
+require_once $appDir . "/recovery.php";
+require_once $appDir . "/browser_recovery.php";
+require_once $appDir . "/recovery_preparation.php";
+require_once $appDir . "/reports.php";
+require_once $appDir . "/backup.php";
 $requestId = bin2hex(random_bytes(8));
 header("Content-Type: application/json; charset=utf-8");
 header("Cache-Control: no-store");
@@ -27,8 +28,11 @@ try {
         "health" => "GET",
         "login" => "POST",
         "recovery/owner" => "POST",
+        "recovery/email-request" => "POST",
+        "recovery/email-reset" => "POST",
         "management/recovery-code/status" => "GET",
         "management/recovery-code/generate" => "POST",
+        "management/owner-profile" => "POST",
         "setup/status" => "GET",
         "setup/owner" => "POST",
         "session" => "GET",
@@ -138,6 +142,20 @@ try {
             "request_id" => $requestId,
         ]);
     }
+    if ($route === "recovery/email-request") {
+        respond(200, [
+            "ok" => true,
+            "data" => request_email_password_reset($db, $body, $requestId),
+            "request_id" => $requestId,
+        ]);
+    }
+    if ($route === "recovery/email-reset") {
+        respond(200, [
+            "ok" => true,
+            "data" => complete_email_password_reset($db, $body, $requestId),
+            "request_id" => $requestId,
+        ]);
+    }
     if ($route === "setup/status" || $route === "setup/owner") {
         respond($route === "setup/owner" ? 201 : 200, [
             "ok" => true,
@@ -230,10 +248,17 @@ try {
             "data" => [
                 "staff" => $db
                     ->query(
-                        "SELECT id,username,display_name,is_active FROM users WHERE role='BARISTA' ORDER BY display_name",
+                        "SELECT id,username,display_name,email,is_active FROM users WHERE role='BARISTA' ORDER BY display_name",
                     )
                     ->fetchAll(),
             ],
+            "request_id" => $requestId,
+        ]);
+    }
+    if ($route === "management/owner-profile") {
+        respond(200, [
+            "ok" => true,
+            "data" => owner_profile_save($db, $session, $body, $requestId),
             "request_id" => $requestId,
         ]);
     }

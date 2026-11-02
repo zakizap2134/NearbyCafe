@@ -53,14 +53,17 @@ function SecretField({
 
 export default function OwnerSetup({
   ready,
+  requiresCode = false,
   onComplete,
   onCancel,
   onRefresh,
   refreshing,
 }) {
   const [fields, setFields] = useState({
+    shop_name: "Nearby Café",
     display_name: "",
     username: "",
+    email: "",
     password: "",
     confirm_password: "",
     setup_code: "",
@@ -79,14 +82,25 @@ export default function OwnerSetup({
     setError(null);
     const bytes = (value) => new TextEncoder().encode(value).length;
     let message;
-    if (!fields.display_name.trim() || bytes(fields.display_name.trim()) > 100)
+    if (!fields.shop_name.trim() || bytes(fields.shop_name.trim()) > 120)
+      message = "Shop name must contain 1–120 bytes.";
+    else if (!fields.display_name.trim() || bytes(fields.display_name.trim()) > 100)
       message = "Display name must contain 1–100 bytes.";
     else if (!/^[a-zA-Z0-9][a-zA-Z0-9._@-]{2,63}$/.test(fields.username.trim()))
       message =
         "Username must be 3–64 characters, start with a letter or number, and use only letters, numbers, dots, @, underscores or hyphens.";
+    else if (
+      !requiresCode &&
+      (!fields.email.trim() ||
+        fields.email.trim().length > 191 ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.trim()))
+    )
+      message =
+        "Enter a valid email address for password recovery (for example, owner@example.com).";
     else if (staffPasswordError(fields.password, fields.confirm_password))
       message = staffPasswordError(fields.password, fields.confirm_password);
     else if (
+      requiresCode &&
       !/^[A-Fa-f0-9]{64}$/.test(fields.setup_code.trim().replaceAll("-", ""))
     )
       message =
@@ -98,8 +112,19 @@ export default function OwnerSetup({
     running.current = true;
     setBusy(true);
     try {
-      const data = await api("setup/owner", { body: fields });
-      onComplete(data.username);
+      const payload = {
+        shop_name: fields.shop_name.trim(),
+        display_name: fields.display_name.trim(),
+        username: fields.username.trim(),
+        password: fields.password,
+        confirm_password: fields.confirm_password,
+      };
+      if (fields.email.trim()) payload.email = fields.email.trim();
+      if (requiresCode || fields.setup_code.trim()) {
+        payload.setup_code = fields.setup_code.trim();
+      }
+      const data = await api("setup/owner", { body: payload });
+      onComplete(data.username, data);
     } catch (failure) {
       setError(failure);
       if (failure.code === "OWNER_EXISTS") setClosed(true);
@@ -117,9 +142,9 @@ export default function OwnerSetup({
   return (
     <>
       <p className="eyebrow">WELCOME TO NEARBY CAFÉ</p>
-      <h2>Set up owner account</h2>
+      <h2>{requiresCode ? "Set up owner account" : "Set up your store & owner account"}</h2>
       <p className="subtle">
-        Create the first Owner / Admin account for this workspace.
+        Create the first Owner / Admin account for this workspace. Once created, public registration automatically closes.
       </p>
       {!ready && (
         <div className="setup-notice" role="status">
@@ -133,6 +158,20 @@ export default function OwnerSetup({
         </div>
       )}
       <form onSubmit={submit} noValidate aria-busy={busy}>
+        {!requiresCode && (
+          <label htmlFor="setup-shop-name">
+            Café / Shop name
+            <input
+              id="setup-shop-name"
+              aria-label="Café / Shop name"
+              required
+              maxLength={120}
+              value={fields.shop_name}
+              onChange={update("shop_name")}
+              disabled={busy}
+            />
+          </label>
+        )}
         <label htmlFor="setup-display">
           Display name
           <input
@@ -172,6 +211,29 @@ export default function OwnerSetup({
             case-insensitive.
           </span>
         </label>
+        {!requiresCode && (
+          <label htmlFor="setup-email">
+            Owner email address
+            <input
+              id="setup-email"
+              type="email"
+              aria-label="Owner email address"
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              required
+              maxLength={191}
+              placeholder="owner@example.com"
+              value={fields.email}
+              onChange={update("email")}
+              disabled={busy}
+              aria-describedby="setup-email-help"
+            />
+            <span className="setup-hint" id="setup-email-help">
+              Used for online password reset if you ever forget your password.
+            </span>
+          </label>
+        )}
         <SecretField
           id="setup-password"
           label="Password"
@@ -187,15 +249,17 @@ export default function OwnerSetup({
           onChange={update("confirm_password")}
           disabled={busy}
         />
-        <SecretField
-          id="setup-code"
-          label="One-time setup code"
-          value={fields.setup_code}
-          onChange={update("setup_code")}
-          disabled={busy}
-          code
-          help="Paste the code your development team gave you. Hyphens are optional. This code is for first-time setup only."
-        />
+        {requiresCode && (
+          <SecretField
+            id="setup-code"
+            label="One-time setup code"
+            value={fields.setup_code}
+            onChange={update("setup_code")}
+            disabled={busy}
+            code
+            help="Paste the code your development team gave you. Hyphens are optional. This code is for first-time setup only."
+          />
+        )}
         {error && (
           <div className="error" role="alert">
             <strong>{error.message}</strong>
@@ -223,7 +287,7 @@ export default function OwnerSetup({
         </button>
       </form>
       <p className="login-help">
-        Keep the host laptop and shop Wi-Fi running during setup.
+        Barista accounts can be created by the Owner inside Management → Staff after setup.
       </p>
     </>
   );
