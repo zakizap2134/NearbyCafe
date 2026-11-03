@@ -299,6 +299,11 @@ export default function Register({ user, token, expired }) {
         sale={successSale}
         cashierName={user.display_name || user.username}
         onClose={() => setSuccessSale(null)}
+        onPrint={() => {
+          setSale(successSale);
+          setSuccessSale(null);
+          setTimeout(() => window.print(), 100);
+        }}
         onVoid={(s) => {
           setSuccessSale(null);
           setVoidTarget(s);
@@ -519,6 +524,29 @@ export default function Register({ user, token, expired }) {
             onChange={(e) => edit({ cash: e.target.value })}
             disabled={busy || !ready}
           />
+          {total > 0 && (
+            <div className="button-row" style={{ marginBottom: "10px", flexWrap: "wrap", gap: "6px" }}>
+              <button
+                type="button"
+                className="compact-btn"
+                disabled={busy || !ready}
+                onClick={() => edit({ cash: cashString(total) })}
+              >
+                Exact
+              </button>
+              {[100, 200, 500, 1000].map((amt) => (
+                <button
+                  key={amt}
+                  type="button"
+                  className="compact-btn"
+                  disabled={busy || !ready}
+                  onClick={() => edit({ cash: String(amt) })}
+                >
+                  ₱{amt}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="change">
             <span>Change</span>
             <strong>
@@ -578,6 +606,7 @@ export default function Register({ user, token, expired }) {
         <Receipt
           sale={sale}
           onClose={() => setSale(null)}
+          onPrint={() => window.print()}
           onVoid={(s) => setVoidTarget(s)}
           onReloadItems={reloadSaleToBasket}
         />

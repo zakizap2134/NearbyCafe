@@ -385,6 +385,7 @@ function staff_save(PDO $db, array $session, array $body, string $ref): array
 {
     $name = username($body["username"] ?? null);
     $display = label_text($body["display_name"] ?? null, "Display name");
+    $email = valid_email($body["email"] ?? null, false);
     $id = isset($body["id"]) ? positive_id($body["id"]) : null;
     if (isset($body["role"]) && $body["role"] !== "BARISTA") {
         problem(
@@ -405,6 +406,20 @@ function staff_save(PDO $db, array $session, array $body, string $ref): array
     try {
         lock_state($db);
         owner_reauth($db, $session, $body, $ref);
+        if ($email !== null) {
+            $dupEmail = query(
+                $db,
+                "SELECT id FROM users WHERE LOWER(email)=LOWER(?) AND id<>?",
+                [$email, $id ?? 0],
+            )->fetchColumn();
+            if ($dupEmail) {
+                problem(
+                    409,
+                    "DUPLICATE_EMAIL",
+                    "That email address is already registered to another account.",
+                );
+            }
+        }
         if ($id) {
             $old = query(
                 $db,
@@ -416,21 +431,22 @@ function staff_save(PDO $db, array $session, array $body, string $ref): array
             }
             query(
                 $db,
-                "UPDATE users SET username=?,display_name=?,is_active=?,updated_at=NOW() WHERE id=?",
-                [$name, $display, $active, $id],
+                "UPDATE users SET username=?,display_name=?,email=?,is_active=?,updated_at=NOW() WHERE id=?",
+                [$name, $display, $email, $active, $id],
             );
             query($db, "DELETE FROM sessions WHERE user_id=?", [$id]);
         } else {
             query(
                 $db,
-                "INSERT INTO users(username,display_name,password_hash,role,is_active,created_at,updated_at) VALUES(?,?,?,'BARISTA',?,NOW(),NOW())",
-                [$name, $display, $hash, $active],
+                "INSERT INTO users(username,display_name,email,password_hash,role,is_active,created_at,updated_at) VALUES(?,?,?,?,'BARISTA',?,NOW(),NOW())",
+                [$name, $display, $email, $hash, $active],
             );
             $id = (int) $db->lastInsertId();
         }
         audit($db, (int) $session["user"]["id"], "STAFF_SAVED:" . $id, $ref, [
             "username" => $name,
             "display_name" => $display,
+            "email" => $email,
             "is_active" => $active,
         ]);
         $db->commit();
@@ -528,7 +544,7 @@ function smtp_save(PDO $db, array $session, array $body, string $ref): array
             'ok' => true,
             'enabled' => false,
             'configured' => false,
-            'message' => 'Online email delivery turned off. Password reset codes will be displayed directly on screen.',
+            'message' => 'Online email delivery turned off. Password reset emails are paused until re-enabled (logged to server outbox only).',
         ];
     }
 

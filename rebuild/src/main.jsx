@@ -106,7 +106,7 @@ function App() {
     return (
       <div className="loading-screen">
         <Brand />
-        <p role="status">Connecting to your local workspace…</p>
+        <p role="status">Connecting to your workspace…</p>
       </div>
     );
   if (error)
@@ -120,8 +120,7 @@ function App() {
             Try again
           </button>
           <p>
-            On the host laptop, run the preflight check if this message
-            continues.
+            Check your network connection or ask the store owner to verify the server status if this message continues.
           </p>
         </section>
       </div>
@@ -301,12 +300,12 @@ function Login({ onSuccess, sessionNotice }) {
               )}
               <form onSubmit={submit} noValidate>
                 <label>
-                  Username
+                  Username or Email
                   <input
                     autoComplete="username"
                     required
                     minLength={3}
-                    maxLength={64}
+                    maxLength={191}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     disabled={busy}
@@ -380,8 +379,6 @@ function Login({ onSuccess, sessionNotice }) {
               {!busy && <Link className="forgot-password-link" to="/forgot-password">Forgot password?</Link>}
               <p className="login-help">
                 Need access? Ask your shop owner.
-                <br />
-                Your host laptop and shop Wi-Fi must be running.
               </p>
             </>
           )}
@@ -412,7 +409,7 @@ function Shell({ user, signOut, children }) {
       <header className="workspace-header">
         <Brand compact header />
         <div className="header-workspace">
-          <div className="header-identity"><strong>Nearby Café</strong><span>VenueVue · Local-network POS</span></div>
+          <div className="header-identity"><strong>Nearby Café</strong><span>VenueVue · Café POS</span></div>
           <nav aria-label="Workspace navigation">
             <NavLink to="/register">Register</NavLink>
             {user.role === "OWNER" && <NavLink to="/management">Management</NavLink>}
@@ -434,7 +431,7 @@ function Shell({ user, signOut, children }) {
         )}
         <main className="workspace">{children}</main>
         <footer className="app-footer">
-          Nearby Café · Powered by VenueVue <span>Local-network POS</span>
+          Nearby Café · Powered by VenueVue <span>Café POS</span>
         </footer>
       </div>
     </div>

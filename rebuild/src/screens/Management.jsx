@@ -83,12 +83,10 @@ const emptyDelivery = {
 };
 
 export default function Management({ user, token, expired }) {
-  const [recoveryPrepared, setRecoveryPrepared] = useState(null);
+  const [recoveryPrepared, setRecoveryPrepared] = useState(Boolean(user?.email));
   useEffect(() => {
-    let live = true;
-    api("management/recovery-code/status", { token }).then(state => { if (live) setRecoveryPrepared(state.prepared); }).catch(e => { if (live && e.status === 401) expired(); });
-    return () => { live = false; };
-  }, [token]);
+    setRecoveryPrepared(Boolean(user?.email));
+  }, [user?.email]);
   const [data, setData] = useState(null),
     [tab, setTab] = useState("Overview"),
     [error, setError] = useState(null),
@@ -399,7 +397,7 @@ export default function Management({ user, token, expired }) {
           Refresh records
         </button>
       </div>
-      {recoveryPrepared === false && tab !== "Account security" && <section className="panel section-space" aria-label="Prepare Owner recovery"><h2>Protect your Owner account</h2><p>Prepare an offline recovery code in Account security while you can sign in.</p><button className="primary" onClick={() => setTab("Account security")}>Prepare recovery code</button></section>}
+      {recoveryPrepared === false && tab !== "Account security" && <section className="panel section-space" aria-label="Prepare Owner recovery"><h2>Protect your Owner account</h2><p>Set up your recovery email and Gmail SMTP in Account security so you can reset your password anytime.</p><button className="primary" onClick={() => setTab("Account security")}>Set up email recovery</button></section>}
       <nav className="tabs" aria-label="Management sections">
         {[
           "Overview",
@@ -611,7 +609,12 @@ export default function Management({ user, token, expired }) {
                 )}
               </section>
               {receipt && (
-                <Receipt sale={receipt} onVoid={(s) => setVoidTarget(s)} />
+                <Receipt
+                  sale={receipt}
+                  onClose={() => setReceipt(null)}
+                  onPrint={() => window.print()}
+                  onVoid={(s) => setVoidTarget(s)}
+                />
               )}
             </>
           )}

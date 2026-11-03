@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import StaffPassword from "./StaffPassword";
 
-export default function OwnerEmailSecurity({ user, token, expired }) {
+export default function OwnerEmailSecurity({ user, token, expired, onPrepared }) {
   // Profile state
   const [shopName, setShopName] = useState(user?.shop_name || "Nearby Café");
   const [email, setEmail] = useState(user?.email || "");
+  const [registeredEmail, setRegisteredEmail] = useState(user?.email || "");
   const [ownerPassword, setOwnerPassword] = useState("");
   const [profileBusy, setProfileBusy] = useState(false);
   const [profileError, setProfileError] = useState(null);
@@ -76,7 +77,10 @@ export default function OwnerEmailSecurity({ user, token, expired }) {
       });
       setProfileNotice("Recovery email and store profile updated successfully.");
       setOwnerPassword("");
-      if (res?.user?.email) setEmail(res.user.email);
+      const savedEmail = res?.user?.email || cleanEmail;
+      setEmail(savedEmail);
+      setRegisteredEmail(savedEmail);
+      onPrepared?.(Boolean(savedEmail));
     } catch (err) {
       setProfileError(err);
       if (err.status === 401) expired();
@@ -133,7 +137,7 @@ export default function OwnerEmailSecurity({ user, token, expired }) {
   }
 
   async function handleSmtpDisable() {
-    if (!window.confirm("Turn off online email delivery? Password reset codes will be displayed on screen instead.")) {
+    if (!window.confirm("Turn off online email delivery? Password reset emails will be paused until re-enabled.")) {
       return;
     }
     const pwd = window.prompt("Enter your current Owner password to confirm turning off email delivery:");
@@ -216,21 +220,21 @@ export default function OwnerEmailSecurity({ user, token, expired }) {
             <span
               style={{
                 fontSize: "0.75rem",
-                background: user?.email ? "#2e7d32" : "#c62828",
+                background: registeredEmail ? "#2e7d32" : "#c62828",
                 color: "#fff",
                 padding: "2px 8px",
                 borderRadius: "10px",
                 fontWeight: "700",
               }}
             >
-              {user?.email ? "REGISTERED" : "NOT SET"}
+              {registeredEmail ? "REGISTERED" : "NOT SET"}
             </span>
           </div>
           <div style={{ fontSize: "1.15rem", fontWeight: "700", color: "#2d1810", wordBreak: "break-all" }}>
-            {user?.email || "No email registered yet"}
+            {registeredEmail || "No email registered yet"}
           </div>
 
-          {user?.email && (
+          {registeredEmail && (
             <div style={{ marginTop: "12px" }}>
               <button
                 type="button"
@@ -336,7 +340,7 @@ export default function OwnerEmailSecurity({ user, token, expired }) {
               whiteSpace: "nowrap",
             }}
           >
-            {isSmtpActive ? "🟢 SMTP ACTIVE" : "⚪ ON-SCREEN CODES"}
+            {isSmtpActive ? "🟢 SMTP ACTIVE" : "⚪ SMTP NOT CONFIGURED"}
           </span>
         </div>
 

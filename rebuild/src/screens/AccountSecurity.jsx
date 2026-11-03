@@ -164,7 +164,7 @@ export default function AccountSecurity({ user, token, expired, onPrepared }) {
           </form>
         )}
       </section>
-      <OwnerEmailSecurity user={user} token={token} expired={expired} />
+      <OwnerEmailSecurity user={user} token={token} expired={expired} onPrepared={onPrepared} />
     </div>
   );
 }
