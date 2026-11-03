@@ -127,7 +127,9 @@ export function Reports({ token, expired }) {
     [range, setRange] = useState({ from: today(), to: today() }),
     [data, setData] = useState(null),
     [receipt, setReceipt] = useState(null),
-    [voidTarget, setVoidTarget] = useState(null);
+    [voidTarget, setVoidTarget] = useState(null),
+    [csvFormat, setCsvFormat] = useState("structured"),
+    [csvIncludeVoided, setCsvIncludeVoided] = useState(true);
   const load = (page = 1) =>
     action.run(async () => {
       setData(
@@ -178,22 +180,81 @@ export function Reports({ token, expired }) {
               </div>
             ))}
           </div>
-          <button
-            disabled={action.busy}
-            onClick={() =>
-              action.run(async (notice) => {
-                const file = await api("management/csv", {
-                  token,
-                  query: { from: data.from, to: data.to },
-                  timeout: 60000,
-                });
-                download(file.filename, file.content, "text/csv;charset=utf-8");
-                notice("CSV downloaded with line totals and a totals row.");
-              })
-            }
-          >
-            Download sales CSV
-          </button>
+          <div className="csv-export-bar">
+            <div className="csv-export-controls">
+              <label className="csv-format-field">
+                <span>CSV export structure</span>
+                <select
+                  aria-label="CSV export structure"
+                  value={csvFormat}
+                  disabled={action.busy}
+                  onChange={(e) => setCsvFormat(e.target.value)}
+                >
+                  <option value="structured">
+                    Full Structured Report (Executive Summary + Daily Z-Reading
+                    + SKU Ranking + Line Items)
+                  </option>
+                  <option value="line_items">
+                    Line-Item Transactions Only (with 5-Part SKU & Cash
+                    Tendered/Change)
+                  </option>
+                  <option value="daily_z">
+                    Daily Z-Reading Summary Table Only
+                  </option>
+                  <option value="products">
+                    Product & 5-Part SKU Performance Table Only
+                  </option>
+                </select>
+              </label>
+              {csvFormat === "structured" && (
+                <label className="checkbox-row csv-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={csvIncludeVoided}
+                    disabled={action.busy}
+                    onChange={(e) => setCsvIncludeVoided(e.target.checked)}
+                  />
+                  <span>Include voided transactions audit section</span>
+                </label>
+              )}
+            </div>
+            <button
+              className="primary"
+              disabled={action.busy}
+              onClick={() =>
+                action.run(async (notice) => {
+                  const file = await api("management/csv", {
+                    token,
+                    query: {
+                      from: data.from,
+                      to: data.to,
+                      format: csvFormat,
+                      include_voided: csvIncludeVoided ? "1" : "0",
+                    },
+                    timeout: 60000,
+                  });
+                  download(
+                    file.filename,
+                    file.content,
+                    "text/csv;charset=utf-8",
+                  );
+                  notice(
+                    `Downloaded ${file.filename} (${
+                      csvFormat === "structured"
+                        ? "multi-section structured report"
+                        : csvFormat === "daily_z"
+                          ? "daily Z-reading summary"
+                          : csvFormat === "products"
+                            ? "product & SKU performance"
+                            : "line-item transactions with totals"
+                    }).`,
+                  );
+                })
+              }
+            >
+              Download sales CSV
+            </button>
+          </div>
           <h3>Daily summary / Z-reading</h3>
           {!data.daily.length ? (
             <p>No sales in this period.</p>

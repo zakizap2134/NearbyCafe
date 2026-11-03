@@ -54,6 +54,31 @@ fieldset {
 td .pill {
   margin-top: 0;
 }
+.csv-export-bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 18px;
+  margin-bottom: 8px;
+  background: var(--nearby-surface, #fffdf8);
+  border: 1px solid var(--nearby-border, #dfcfc5);
+  border-radius: 12px;
+}
+.csv-export-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 380px;
+  min-width: 0;
+}
+.csv-format-field {
+  margin-bottom: 0;
+}
+.csv-checkbox {
+  margin: 0;
+}
 .tabs {
   margin-bottom: 24px;
 }
@@ -1313,6 +1338,7 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
 }
 .checkbox-row {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 10px;
   font-size: 13px;
@@ -1322,7 +1348,10 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
 .checkbox-row input[type="checkbox"] {
   width: 18px;
   height: 18px;
+  min-height: 18px;
+  padding: 0;
   margin: 0;
+  flex-shrink: 0;
 }
 .receipt-actions {
   margin-top: 16px;
