@@ -9,6 +9,7 @@ import {
   Receipt,
   VoidSaleModal,
   money,
+  paymentMethodLabel,
 } from "../components/workflow";
 
 const today = () =>
@@ -233,6 +234,11 @@ export function Reports({ token, expired }) {
             {[
               ["Sales", data.totals.count],
               ["Gross", money(data.totals.gross)],
+              [
+                "Cash in drawer",
+                money(data.totals.cash_drawer_gross ?? data.totals.gross),
+              ],
+              ["Online / E-Wallet", money(data.totals.online_gross ?? 0)],
               ["VATable sales", money(data.totals.net)],
               ["VAT remittance", money(data.vat_remittance)],
             ].map(([label, value]) => (
@@ -358,6 +364,7 @@ export function Reports({ token, expired }) {
               "Sale",
               "Time",
               "Cashier",
+              "Payment",
               "Status",
               "Gross",
               "Net",
@@ -370,6 +377,14 @@ export function Reports({ token, expired }) {
                 <td>#{s.id}</td>
                 <td>{s.sale_at}</td>
                 <td>{s.cashier}</td>
+                <td>
+                  <span className="pill">
+                    {paymentMethodLabel(s.payment_method)}
+                  </span>
+                  {s.payment_reference && (
+                    <small>Ref #{s.payment_reference}</small>
+                  )}
+                </td>
                 <td>
                   {s.status === "voided" ? (
                     <span className="pill pill-voided">VOIDED</span>
@@ -477,23 +492,81 @@ export function History({ token, expired, stock = false }) {
             }
           />
           {stock ? (
-            <Select
-              label="Movement type"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            >
-              <option value="">All types</option>
-              {["RECEIVE", "SALE", "WASTE", "ADJUSTMENT"].map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </Select>
+            <>
+              <div className="quick-preset-row">
+                <span className="preset-caption">
+                  Quick movement filter (1-click load):
+                </span>
+                <div className="quick-chip-group">
+                  {[
+                    ["All movements", ""],
+                    ["Deliveries (RECEIVE)", "RECEIVE"],
+                    ["Sales (SALE)", "SALE"],
+                    ["Waste (WASTE)", "WASTE"],
+                    ["Adjustments (ADJUSTMENT)", "ADJUSTMENT"],
+                  ].map(([label, val]) => (
+                    <button
+                      key={label}
+                      type="button"
+                      className={`compact-btn quick-chip${filter === val ? " active" : ""}`}
+                      onClick={() => {
+                        setFilter(val);
+                        load(1, { ...range, type: val });
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <Select
+                label="Movement type"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              >
+                <option value="">All types</option>
+                {["RECEIVE", "SALE", "WASTE", "ADJUSTMENT"].map((t) => (
+                  <option key={t}>{t}</option>
+                ))}
+              </Select>
+            </>
           ) : (
-            <Field
-              label="Action contains"
-              maxLength={64}
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            />
+            <>
+              <div className="quick-preset-row">
+                <span className="preset-caption">
+                  Quick audit filter (1-click load):
+                </span>
+                <div className="quick-chip-group">
+                  {[
+                    ["All actions", ""],
+                    ["Sales & Voids", "SALE"],
+                    ["Logins", "LOGIN"],
+                    ["Stock & Waste", "STOCK"],
+                    ["Staff", "STAFF"],
+                    ["Catalogue", "SAVED"],
+                    ["Backups", "BACKUP"],
+                  ].map(([label, val]) => (
+                    <button
+                      key={label}
+                      type="button"
+                      className={`compact-btn quick-chip${filter.toUpperCase() === val && (val !== "" || filter === "") ? " active" : ""}`}
+                      onClick={() => {
+                        setFilter(val);
+                        load(1, { ...range, action: val });
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <Field
+                label="Action contains"
+                maxLength={64}
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              />
+            </>
           )}
           <button>Load history</button>
         </fieldset>
@@ -583,6 +656,9 @@ export function Staff({ token, expired, onResetPassword }) {
       is_active: 1,
     },
     [form, setForm] = useState(blank),
+    [usernameCustom, setUsernameCustom] = useState(false),
+    [generatedPwd, setGeneratedPwd] = useState(""),
+    [copiedNotice, setCopiedNotice] = useState(""),
     [staff, setStaff] = useState(null),
     action = useAction(expired);
   const refresh = async () =>
@@ -590,11 +666,47 @@ export function Staff({ token, expired, onResetPassword }) {
   useEffect(() => {
     action.run(refresh);
   }, [token]);
+  function suggestStaffUsername(displayName) {
+    const clean = String(displayName || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, "")
+      .split(/\s+/)
+      .filter(Boolean);
+    if (!clean.length) return "";
+    const first = clean[0].slice(0, 20);
+    return `barista_${first}`;
+  }
+  function generateTempStaffPassword() {
+    const randDigits = String(1000 + Math.floor(Math.random() * 9000));
+    const namePart =
+      String(form.display_name || "Staff")
+        .replace(/[^A-Za-z]/g, "")
+        .slice(0, 6) || "Barista";
+    const capPart =
+      namePart.charAt(0).toUpperCase() + namePart.slice(1).toLowerCase();
+    const pwd = `Cafe!${capPart}${randDigits}#`;
+    setForm((f) => ({
+      ...f,
+      password: pwd,
+      confirm_password: pwd,
+    }));
+    setGeneratedPwd(pwd);
+    setCopiedNotice("");
+  }
   const field = (key) => ({
     value: form[key],
     onChange: (e) => {
       const value = e.target.value;
-      setForm((f) => ({ ...f, [key]: value }));
+      setForm((f) => {
+        const next = { ...f, [key]: value };
+        if (key === "username") {
+          setUsernameCustom(true);
+        } else if (key === "display_name" && !f.id && !usernameCustom) {
+          next.username = suggestStaffUsername(value);
+        }
+        return next;
+      });
     },
   });
   return (
@@ -710,9 +822,43 @@ export function Staff({ token, expired, onResetPassword }) {
           />
           {!form.id && (
             <>
-              <p className="subtle small">
-                Use at least 12 characters.
-              </p>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "8px",
+                  marginBottom: "6px",
+                }}
+              >
+                <p className="subtle small" style={{ margin: 0 }}>
+                  Use at least 12 characters.
+                </p>
+                <div className="button-row" style={{ marginTop: 0 }}>
+                  <button
+                    type="button"
+                    className="compact-btn"
+                    disabled={action.busy}
+                    onClick={generateTempStaffPassword}
+                  >
+                    Generate strong temp password
+                  </button>
+                  {generatedPwd && (
+                    <button
+                      type="button"
+                      className="compact-btn"
+                      onClick={() => {
+                        const text = `Username: ${form.username || suggestStaffUsername(form.display_name)}\nPassword: ${generatedPwd}`;
+                        navigator.clipboard?.writeText(text);
+                        setCopiedNotice("Copied credentials!");
+                      }}
+                    >
+                      {copiedNotice || `Copy (${generatedPwd})`}
+                    </button>
+                  )}
+                </div>
+              </div>
               <StaffPassword
                 label="Initial staff password"
                 required
@@ -1438,6 +1584,50 @@ export function StockOperations({
                     inputMode="decimal"
                     {...field("quantity")}
                   />
+                  {form.kind === "adjust" && selected && (
+                    <div className="quick-preset-row">
+                      <span className="preset-caption">
+                        Quick count delta (1-click):
+                      </span>
+                      <div className="quick-chip-group">
+                        {[-50, -10, -5, -1, 1, 5, 10, 50].map((delta) => (
+                          <button
+                            key={delta}
+                            type="button"
+                            className="compact-btn quick-chip"
+                            onClick={() => {
+                              const cur =
+                                Number(
+                                  form.quantity !== ""
+                                    ? form.quantity
+                                    : selected.remaining_qty,
+                                ) || 0;
+                              const maxCap = Number(selected.received_qty) || 999999;
+                              const next = Math.max(
+                                0,
+                                Math.min(maxCap, Math.round((cur + delta) * 1000) / 1000),
+                              );
+                              setForm({ ...form, quantity: String(next) });
+                            }}
+                          >
+                            {delta > 0 ? `+${delta}` : delta} {batch?.unit || ""}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          className="compact-btn"
+                          onClick={() =>
+                            setForm({
+                              ...form,
+                              quantity: String(selected.remaining_qty ?? "0"),
+                            })
+                          }
+                        >
+                          Reset to {selected.remaining_qty} {batch?.unit || ""}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
               {form.kind === "waste" && (
@@ -1459,6 +1649,53 @@ export function StockOperations({
                         </button>
                       );
                     })}
+                  </div>
+                </div>
+              )}
+              {form.kind === "adjust" && (
+                <div className="waste-presets-block">
+                  <span className="preset-caption">
+                    Quick adjustment reason (1-click):
+                  </span>
+                  <div className="void-presets">
+                    {[
+                      "End-of-shift physical count",
+                      "Spillage / calibration loss",
+                      "Unrecorded bar prep",
+                      "Delivery count correction",
+                    ].map((rText) => (
+                      <button
+                        type="button"
+                        key={rText}
+                        className={form.reason === rText ? "primary" : ""}
+                        onClick={() => setForm({ ...form, reason: rText })}
+                      >
+                        {rText}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {form.kind === "batch" && (
+                <div className="waste-presets-block">
+                  <span className="preset-caption">
+                    Quick batch correction reason (1-click):
+                  </span>
+                  <div className="void-presets">
+                    {[
+                      "Corrected supplier expiry date",
+                      "Quarantine inspection",
+                      "Updated lot / supplier details",
+                    ].map((rText) => (
+                      <button
+                        type="button"
+                        key={rText}
+                        className={form.reason === rText ? "primary" : ""}
+                        onClick={() => setForm({ ...form, reason: rText })}
+                      >
+                        {rText}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}

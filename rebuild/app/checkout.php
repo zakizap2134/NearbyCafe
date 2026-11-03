@@ -8,6 +8,8 @@ function sale_receipt(PDO $db, array $sale, bool $duplicate = false): array
     $sale["id"] = (int) $sale["id"];
     $sale["user_id"] = (int) $sale["user_id"];
     $sale["status"] = $sale["status"] ?? "completed";
+    $sale["payment_method"] = $sale["payment_method"] ?? "CASH";
+    $sale["payment_reference"] = $sale["payment_reference"] ?? null;
     $sale["void_reason"] = $sale["void_reason"] ?? null;
     $sale["voided_by"] =
         isset($sale["voided_by"]) && $sale["voided_by"] !== null
@@ -40,6 +42,8 @@ function normalize_sale(array $body): array
         array_diff(array_keys($body), [
             "transaction_key",
             "cash_received",
+            "payment_method",
+            "payment_reference",
             "items",
             "expected_epoch",
         ])
@@ -48,6 +52,22 @@ function normalize_sale(array $body): array
     }
     $key = uuid_value($body["transaction_key"] ?? null);
     $cash = fixed($body["cash_received"] ?? null, 2, "Cash received", true);
+    $paymentMethod = strtoupper(trim((string) ($body["payment_method"] ?? "CASH")));
+    if ($paymentMethod === "") {
+        $paymentMethod = "CASH";
+    }
+    if (!in_array($paymentMethod, ["CASH", "GCASH", "MAYA", "CARD_QR"], true)) {
+        problem(422, "VALIDATION", "Choose Cash, GCash, Maya, or QR Ph / Card.");
+    }
+    $rawRef = isset($body["payment_reference"]) && is_string($body["payment_reference"])
+        ? trim($body["payment_reference"])
+        : "";
+    $paymentReference = $rawRef !== ""
+        ? label_text($rawRef, "Payment reference", 80)
+        : null;
+    if ($paymentMethod === "CASH") {
+        $paymentReference = null;
+    }
     $items = $body["items"] ?? null;
     if ($cash > 999999999) {
         problem(422, "VALIDATION", "Cash received exceeds 9,999,999.99.");
@@ -90,7 +110,12 @@ function normalize_sale(array $body): array
             ),
         ];
     }
-    return ["key" => $key, "cash" => $cash, "items" => array_values($lines)];
+    $result = ["key" => $key, "cash" => $cash, "items" => array_values($lines)];
+    if ($paymentMethod !== "CASH" || $paymentReference !== null) {
+        $result["payment_method"] = $paymentMethod;
+        $result["payment_reference"] = $paymentReference;
+    }
+    return $result;
 }
 function checkout(
     PDO $db,
@@ -265,15 +290,19 @@ function checkout(
                 throw new RuntimeException("Stock cache inconsistent");
             }
         }
+        $paymentMethod = $request["payment_method"] ?? "CASH";
+        $paymentReference = $request["payment_reference"] ?? null;
         // No writes above: validate all lines and aggregated shared ingredient requirements first.
         query(
             $db,
-            "INSERT INTO sales(transaction_key,request_hash,user_id,sale_at,cash_received,change_due,total_gross,total_net,total_vat,vat_rate) VALUES(?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO sales(transaction_key,request_hash,user_id,sale_at,payment_method,payment_reference,cash_received,change_due,total_gross,total_net,total_vat,vat_rate) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
             [
                 $request["key"],
                 $hash,
                 $uid,
                 $at,
+                $paymentMethod,
+                $paymentReference,
                 decimal($request["cash"]),
                 decimal($request["cash"] - $gross),
                 decimal($gross),

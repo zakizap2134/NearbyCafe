@@ -4,6 +4,8 @@ import {
   money,
   variantLabel,
   productImageUrl,
+  PAYMENT_METHODS,
+  paymentMethodLabel,
   ErrorNotice,
   Receipt,
   OrderSuccessModal,
@@ -47,9 +49,12 @@ export default function Register({ user, token, expired }) {
     // Keys submitted from this page session; only these open the success modal,
     // so replayed/restored confirmations after a reload never pop a blocking dialog.
     liveKeys = useRef(new Set()),
-    sync = useRef(null);
+    sync = useRef(null),
+    searchInputRef = useRef(null);
   const basket = draft?.basket ?? [],
-    cash = draft?.cash ?? "";
+    cash = draft?.cash ?? "",
+    paymentMethod = (draft?.payment_method || "CASH").toUpperCase(),
+    paymentReference = draft?.payment_reference ?? "";
   const total = basket.reduce((n, l) => n + cents(l.price) * l.qty, 0),
     cashCents = cents(cash);
   async function refresh() {
@@ -118,9 +123,51 @@ export default function Register({ user, token, expired }) {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [saving]);
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (successSale || voidTarget) return;
+      const tag = (e.target?.tagName || "").toUpperCase();
+      const inInput =
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        e.target?.isContentEditable;
+      if (e.key === "/" && !inInput && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      } else if (
+        e.altKey &&
+        (e.key === "e" || e.key === "E") &&
+        draftRef.current?.basket?.length
+      ) {
+        e.preventDefault();
+        const curTotal = draftRef.current.basket.reduce(
+          (n, l) => n + cents(l.price) * l.qty,
+          0,
+        );
+        if (curTotal > 0) {
+          edit({ cash: cashString(curTotal) });
+        }
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [successSale, voidTarget, ready, busy]);
   function edit(changes) {
     if (!ready || busy || writeFailed.current) return;
     const next = { ...draftRef.current, ...changes };
+    if (
+      changes.basket &&
+      changes.cash === undefined &&
+      String(next.payment_method || "CASH").toUpperCase() !== "CASH"
+    ) {
+      const nextTotal = next.basket.reduce(
+        (n, l) => n + cents(l.price) * l.qty,
+        0,
+      );
+      next.cash = nextTotal > 0 ? cashString(nextTotal) : "";
+    }
     draftRef.current = next;
     setDraft(next);
     setReview(false);
@@ -414,11 +461,25 @@ export default function Register({ user, token, expired }) {
             )}
           </div>
           <Field
-            label="Find a drink"
+            label="Find a drink (Press / to search)"
             placeholder="Search name or category"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-          />
+          >
+            <input
+              ref={searchInputRef}
+              aria-label="Find a drink"
+              placeholder="Search name or category (Press / to focus, Esc to clear)"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setSearch("");
+                  e.currentTarget.blur();
+                }
+              }}
+            />
+          </Field>
           {menuCategories.length > 0 && (
             <div className="quick-preset-row register-category-row">
               <div className="quick-chip-group">
@@ -545,12 +606,19 @@ export default function Register({ user, token, expired }) {
                   type="button"
                   className="clear-order-btn"
                   disabled={busy || !ready}
-                  onClick={() => edit({ basket: [], cash: "" })}
+                  onClick={() =>
+                    edit({
+                      basket: [],
+                      cash: "",
+                      payment_method: "CASH",
+                      payment_reference: "",
+                    })
+                  }
                 >
                   Clear order
                 </button>
               )}
-              <span className="pill">Cash</span>
+              <span className="pill">{paymentMethodLabel(paymentMethod)}</span>
             </div>
           </div>
           {!basket.length ? (
@@ -592,8 +660,49 @@ export default function Register({ user, token, expired }) {
           <p className="subtle small">
             Includes 12% VAT. Pending orders do not reserve stock.
           </p>
+          <div className="quick-preset-row payment-method-row">
+            <span className="preset-caption">Payment method (1-click):</span>
+            <div className="quick-chip-group">
+              {PAYMENT_METHODS.map((pm) => {
+                const isActive = paymentMethod === pm.code;
+                return (
+                  <button
+                    key={pm.code}
+                    type="button"
+                    disabled={busy || !ready}
+                    className={`compact-btn quick-chip${isActive ? " active" : ""}`}
+                    onClick={() => {
+                      const nextChanges = { payment_method: pm.code };
+                      if (pm.code !== "CASH" && total > 0) {
+                        nextChanges.cash = cashString(total);
+                      } else if (pm.code === "CASH") {
+                        nextChanges.payment_reference = "";
+                      }
+                      edit(nextChanges);
+                    }}
+                  >
+                    {pm.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {paymentMethod !== "CASH" && (
+            <Field
+              label={`${paymentMethodLabel(paymentMethod)} reference # (optional · last 4–13 digits)`}
+              maxLength={80}
+              placeholder={`e.g. ${paymentMethod === "GCASH" ? "GCash" : paymentMethod === "MAYA" ? "Maya" : "QR / Terminal"} Ref #904218`}
+              value={paymentReference}
+              onChange={(e) => edit({ payment_reference: e.target.value })}
+              disabled={busy || !ready}
+            />
+          )}
           <Field
-            label="Cash received"
+            label={
+              paymentMethod === "CASH"
+                ? "Cash received"
+                : `${paymentMethodLabel(paymentMethod)} amount received`
+            }
             inputMode="decimal"
             placeholder="0.00"
             value={cash}
@@ -606,6 +715,7 @@ export default function Register({ user, token, expired }) {
                 type="button"
                 className="compact-btn"
                 disabled={busy || !ready}
+                title="Shortcut: Alt + E"
                 onClick={() => edit({ cash: cashString(total) })}
               >
                 Exact
@@ -656,10 +766,25 @@ export default function Register({ user, token, expired }) {
           </button>
           {review && (
             <section className="checkout-review" aria-label="Review payment">
-              <h3>Confirm cash payment</h3>
+              <h3>Confirm {paymentMethodLabel(paymentMethod)} payment</h3>
               <p>
-                Collect {money(cashString(total))} and return{" "}
-                {money(cashString(cashCents - total))} change.
+                {paymentMethod === "CASH" ? (
+                  <>
+                    Collect {money(cashString(total))} and return{" "}
+                    {money(cashString(cashCents - total))} change.
+                  </>
+                ) : (
+                  <>
+                    Verify {paymentMethodLabel(paymentMethod)} payment of{" "}
+                    <strong>{money(cashString(total))}</strong>
+                    {paymentReference.trim()
+                      ? ` (Ref #${paymentReference.trim()})`
+                      : ""}
+                    {cashCents > total
+                      ? ` · Change: ${money(cashString(cashCents - total))}`
+                      : "."}
+                  </>
+                )}
               </p>
               <p>
                 If the host is unavailable, this order stays pending until the

@@ -15,6 +15,7 @@ import {
   money,
   variantLabel,
   productImageUrl,
+  paymentMethodLabel,
   ErrorNotice,
   Field,
   Select,
@@ -732,6 +733,17 @@ export default function Management({ user, token, expired }) {
                 {[
                   ["Sales", data.sales.totals.count],
                   ["Gross sales", money(data.sales.totals.gross)],
+                  [
+                    "Cash in drawer",
+                    money(
+                      data.sales.totals.cash_drawer_gross ??
+                        data.sales.totals.gross,
+                    ),
+                  ],
+                  [
+                    "Online / E-Wallet",
+                    money(data.sales.totals.online_gross ?? 0),
+                  ],
                   ["VATable sales", money(data.sales.totals.net)],
                   ["VAT (12%)", money(data.sales.totals.vat)],
                 ].map(([name, value]) => (
@@ -829,6 +841,7 @@ export default function Management({ user, token, expired }) {
                     headers={[
                       "Sale",
                       "Time",
+                      "Payment",
                       "Status",
                       "Gross",
                       "Net",
@@ -840,6 +853,14 @@ export default function Management({ user, token, expired }) {
                       <tr key={s.id}>
                         <td>#{s.id}</td>
                         <td>{s.sale_at}</td>
+                        <td>
+                          <span className="pill">
+                            {paymentMethodLabel(s.payment_method)}
+                          </span>
+                          {s.payment_reference && (
+                            <small>Ref #{s.payment_reference}</small>
+                          )}
+                        </td>
                         <td>
                           {s.status === "voided" ? (
                             <span className="pill pill-voided">VOIDED</span>
@@ -1174,21 +1195,49 @@ export default function Management({ user, token, expired }) {
                           <td>{p.category}</td>
                           <td>{Number(p.is_active) ? "Active" : "Inactive"}</td>
                           <td>
-                            <button
-                              disabled={busy}
-                              onClick={() => {
-                                setProduct({
-                                  ...p,
-                                  image_data: "",
-                                  remove_image: 0,
-                                });
-                                if (productImageInputRef.current) {
-                                  productImageInputRef.current.value = "";
-                                }
-                              }}
-                            >
-                              Edit {p.name}
-                            </button>
+                            <div className="button-row" style={{ marginTop: 0 }}>
+                              <button
+                                disabled={busy}
+                                onClick={() => {
+                                  setProduct({
+                                    ...p,
+                                    image_data: "",
+                                    remove_image: 0,
+                                  });
+                                  if (productImageInputRef.current) {
+                                    productImageInputRef.current.value = "";
+                                  }
+                                }}
+                              >
+                                Edit {p.name}
+                              </button>
+                              <button
+                                type="button"
+                                className="compact-btn"
+                                disabled={busy}
+                                onClick={() => {
+                                  setSkuCustom(false);
+                                  const nextSku = generateVariantSku(
+                                    p,
+                                    emptyVariant.size,
+                                    emptyVariant.temperature,
+                                    data.variants,
+                                    null,
+                                    user?.shop_name,
+                                  );
+                                  setVariant({
+                                    ...emptyVariant,
+                                    product_id: String(p.id),
+                                    sku: nextSku,
+                                  });
+                                  setNotice(
+                                    `Selected "${p.name}" in Add variant below.`,
+                                  );
+                                }}
+                              >
+                                + Add variant
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1471,27 +1520,61 @@ export default function Management({ user, token, expired }) {
                     </p>
                   ) : (
                     <Table
-                      headers={["Variant", "SKU", "Price", "Status", "Edit"]}
+                      headers={["Variant", "SKU", "Price", "Status", "Actions"]}
                     >
-                      {data.variants.map((v) => (
-                        <tr key={v.id}>
-                          <td>{variantLabel(v, data.products)}</td>
-                          <td>{v.sku}</td>
-                          <td>{money(v.price)}</td>
-                          <td>{Number(v.is_active) ? "Active" : "Inactive"}</td>
-                          <td>
-                            <button
-                              disabled={busy}
-                              onClick={() => {
-                                setVariant(v);
-                                setSkuCustom(true);
-                              }}
-                            >
-                              Edit {v.sku}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {data.variants.map((v) => {
+                        const hasRecipe = data.recipes.some(
+                          (r) => Number(r.variant_id) === Number(v.id),
+                        );
+                        return (
+                          <tr key={v.id}>
+                            <td>
+                              {variantLabel(v, data.products)}
+                              {!hasRecipe && (
+                                <div>
+                                  <span className="stock-badge amber">
+                                    No recipe
+                                  </span>
+                                </div>
+                              )}
+                            </td>
+                            <td>{v.sku}</td>
+                            <td>{money(v.price)}</td>
+                            <td>
+                              {Number(v.is_active) ? "Active" : "Inactive"}
+                            </td>
+                            <td>
+                              <div
+                                className="button-row"
+                                style={{ marginTop: 0 }}
+                              >
+                                <button
+                                  disabled={busy}
+                                  onClick={() => {
+                                    setVariant(v);
+                                    setSkuCustom(true);
+                                  }}
+                                >
+                                  Edit {v.sku}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="compact-btn"
+                                  disabled={busy}
+                                  onClick={() => {
+                                    chooseRecipe(String(v.id));
+                                    setNotice("");
+                                    setError(null);
+                                    setTab("Recipes");
+                                  }}
+                                >
+                                  Edit recipe →
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </Table>
                   )}
                 </section>

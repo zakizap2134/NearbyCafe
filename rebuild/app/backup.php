@@ -189,6 +189,25 @@ function decrypt_backup(mixed $file, string $password): array
             "Only complete Stage 4 backups can be restored by this version.",
         );
     }
+    if (isset($payload["tables"]["sales"]) && is_array($payload["tables"]["sales"])) {
+        foreach ($payload["tables"]["sales"] as $idx => $sRow) {
+            if (is_array($sRow) && !array_key_exists("payment_method", $sRow)) {
+                $rebuilt = [];
+                foreach ($sRow as $k => $v) {
+                    $rebuilt[$k] = $v;
+                    if ($k === "sale_at") {
+                        $rebuilt["payment_method"] = "CASH";
+                        $rebuilt["payment_reference"] = null;
+                    }
+                }
+                if (!array_key_exists("payment_method", $rebuilt)) {
+                    $rebuilt["payment_method"] = "CASH";
+                    $rebuilt["payment_reference"] = null;
+                }
+                $payload["tables"]["sales"][$idx] = $rebuilt;
+            }
+        }
+    }
     return $payload;
 }
 function validate_backup(PDO $db, array $payload, array $owner): void

@@ -11,6 +11,16 @@ export const productImageUrl = (filename) =>
   filename
     ? `${import.meta.env.BASE_URL}api/index.php?route=product/image&file=${encodeURIComponent(filename)}`
     : "";
+export const PAYMENT_METHODS = [
+  { code: "CASH", label: "Cash" },
+  { code: "GCASH", label: "GCash" },
+  { code: "MAYA", label: "Maya" },
+  { code: "CARD_QR", label: "QR Ph / Card" },
+];
+export const paymentMethodLabel = (method) => {
+  const code = String(method || "CASH").toUpperCase();
+  return PAYMENT_METHODS.find((m) => m.code === code)?.label || code;
+};
 export function ErrorNotice({ error }) {
   return (
     error && (
@@ -42,6 +52,8 @@ export function Select({ label, children, ...props }) {
 export function Receipt({ sale, onVoid, onReloadItems, onPrint, onClose }) {
   if (!sale) return null;
   const isVoided = sale.status === "voided";
+  const payMethod = String(sale.payment_method || "CASH").toUpperCase();
+  const payLabel = paymentMethodLabel(payMethod);
   return (
     <section
       className={`panel receipt${isVoided ? " receipt-voided" : ""}`}
@@ -52,7 +64,7 @@ export function Receipt({ sale, onVoid, onReloadItems, onPrint, onClose }) {
         <h2>Sale #{sale.id} confirmed</h2>
         <div className="button-row">
           {isVoided && <span className="pill pill-voided">VOIDED</span>}
-          <span className="pill">Cash</span>
+          <span className="pill">{payLabel}</span>
           {onClose && (
             <button
               type="button"
@@ -67,8 +79,9 @@ export function Receipt({ sale, onVoid, onReloadItems, onPrint, onClose }) {
       <p className="subtle">
         {sale.sale_at} · Manila time
         {sale.cashier_name ? ` · Cashier: ${sale.cashier_name}` : ""}
+        {sale.payment_reference ? ` · ${payLabel} Ref #${sale.payment_reference}` : ""}
         {sale.transaction_key
-          ? ` · Ref ${sale.transaction_key.slice(0, 8)}`
+          ? ` · Key ${sale.transaction_key.slice(0, 8)}`
           : ""}
       </p>
       {isVoided && (
@@ -107,17 +120,18 @@ export function Receipt({ sale, onVoid, onReloadItems, onPrint, onClose }) {
       </div>
       <dl className="sale-totals">
         {[
-          ["VATable Sales", sale.total_net],
-          ["VAT (12%)", sale.total_vat],
-          ["VAT-Exempt", "0"],
-          ["Zero-Rated", "0"],
-          ["Total", sale.total_gross],
-          ["Cash received", sale.cash_received],
-          ["Change", sale.change_due],
-        ].map(([name, value]) => (
+          ["Payment Method", sale.payment_reference ? `${payLabel} (Ref #${sale.payment_reference})` : payLabel, true],
+          ["VATable Sales", sale.total_net, false],
+          ["VAT (12%)", sale.total_vat, false],
+          ["VAT-Exempt", "0", false],
+          ["Zero-Rated", "0", false],
+          ["Total", sale.total_gross, false],
+          [payMethod === "CASH" ? "Cash received" : `${payLabel} amount`, sale.cash_received, false],
+          ["Change", sale.change_due, false],
+        ].map(([name, value, isText]) => (
           <div key={name}>
             <dt>{name}</dt>
-            <dd>{money(value)}</dd>
+            <dd>{isText ? value : money(value)}</dd>
           </div>
         ))}
       </dl>
@@ -158,7 +172,7 @@ export function OrderSuccessModal({
   useEffect(() => {
     if (!sale) return;
     function onKey(e) {
-      if (e.key === "Enter" || e.key === "Escape") {
+      if (e.key === "Enter" || e.key === "Escape" || e.key === " ") {
         e.preventDefault();
         onClose();
       }
@@ -167,6 +181,8 @@ export function OrderSuccessModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [sale, onClose]);
   if (!sale) return null;
+  const payMethod = String(sale.payment_method || "CASH").toUpperCase();
+  const payLabel = paymentMethodLabel(payMethod);
   return (
     <div
       className="order-success-overlay no-print"
@@ -184,10 +200,11 @@ export function OrderSuccessModal({
             ✓
           </span>
           <div>
-            <p className="eyebrow">CHECKOUT COMPLETE</p>
+            <p className="eyebrow">CHECKOUT COMPLETE · {payLabel.toUpperCase()}</p>
             <h2>Order Registered Successfully</h2>
             <h3 className="order-success-subhead">
-              Sale #{sale.id} confirmed
+              Sale #{sale.id} confirmed ({payLabel}
+              {sale.payment_reference ? ` · Ref #${sale.payment_reference}` : ""})
             </h3>
             <p className="subtle">
               {sale.transaction_key
@@ -203,7 +220,7 @@ export function OrderSuccessModal({
             <strong>{money(sale.total_gross)}</strong>
           </div>
           <div className="order-cash-box">
-            <span>Cash Tendered</span>
+            <span>{payMethod === "CASH" ? "Cash Tendered" : `${payLabel} Paid`}</span>
             <strong>{money(sale.cash_received)}</strong>
           </div>
           <div className="order-cash-box highlight">

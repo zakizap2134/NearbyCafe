@@ -236,6 +236,22 @@ function build_styled_xlsx(
         ["v" => "Included in Z-Reading & VAT remittance", "s" => 7, "t" => "str"],
     ], 21.0);
     $addRow([
+        ["v" => "Physical Cash in Drawer (Cash Sales)", "s" => 7, "t" => "str"],
+        ["v" => (int) ($totals["cash_drawer_count"] ?? $totals["count"]), "s" => 8, "t" => "n"],
+        ["v" => (float) ($totals["cash_drawer_gross"] ?? $totals["gross"]), "s" => 9, "t" => "n"],
+        ["v" => (float) ($totals["cash_drawer_net"] ?? $totals["net"]), "s" => 9, "t" => "n"],
+        ["v" => (float) ($totals["cash_drawer_vat"] ?? $totals["vat"]), "s" => 9, "t" => "n"],
+        ["v" => "Expected physical paper cash from Cash orders", "s" => 7, "t" => "str"],
+    ], 20.0);
+    $addRow([
+        ["v" => "Online / Cashless (GCash · Maya · QR/Card)", "s" => 7, "t" => "str"],
+        ["v" => (int) ($totals["online_count"] ?? 0), "s" => 8, "t" => "n"],
+        ["v" => (float) ($totals["online_gross"] ?? 0), "s" => 9, "t" => "n"],
+        ["v" => (float) ($totals["online_net"] ?? 0), "s" => 9, "t" => "n"],
+        ["v" => (float) ($totals["online_vat"] ?? 0), "s" => 9, "t" => "n"],
+        ["v" => "Settled via GCash, Maya, QR Ph or Card", "s" => 7, "t" => "str"],
+    ], 20.0);
+    $addRow([
         ["v" => "Total Drink / Item Units Sold", "s" => 7, "t" => "str"],
         ["v" => $totalUnits, "s" => 8, "t" => "n"],
         ["v" => (float) $totals["gross"], "s" => 9, "t" => "n"],
@@ -620,10 +636,12 @@ function report_data(PDO $db, array $params, bool $csv = false): array
     $offset = ($page - 1) * 50;
     $totals = query(
         $db,
-        "SELECT COUNT(*) AS count,COALESCE(SUM(total_gross),0) AS gross,COALESCE(SUM(total_net),0) AS net,COALESCE(SUM(total_vat),0) AS vat FROM sales WHERE status='completed' AND sale_at>=? AND sale_at<?",
+        "SELECT COUNT(*) AS count,COALESCE(SUM(total_gross),0) AS gross,COALESCE(SUM(total_net),0) AS net,COALESCE(SUM(total_vat),0) AS vat,COALESCE(SUM(CASE WHEN COALESCE(payment_method,'CASH')='CASH' THEN 1 ELSE 0 END),0) AS cash_drawer_count,COALESCE(SUM(CASE WHEN COALESCE(payment_method,'CASH')='CASH' THEN total_gross ELSE 0 END),0) AS cash_drawer_gross,COALESCE(SUM(CASE WHEN COALESCE(payment_method,'CASH')='CASH' THEN total_net ELSE 0 END),0) AS cash_drawer_net,COALESCE(SUM(CASE WHEN COALESCE(payment_method,'CASH')='CASH' THEN total_vat ELSE 0 END),0) AS cash_drawer_vat,COALESCE(SUM(CASE WHEN COALESCE(payment_method,'CASH')<>'CASH' THEN 1 ELSE 0 END),0) AS online_count,COALESCE(SUM(CASE WHEN COALESCE(payment_method,'CASH')<>'CASH' THEN total_gross ELSE 0 END),0) AS online_gross,COALESCE(SUM(CASE WHEN COALESCE(payment_method,'CASH')<>'CASH' THEN total_net ELSE 0 END),0) AS online_net,COALESCE(SUM(CASE WHEN COALESCE(payment_method,'CASH')<>'CASH' THEN total_vat ELSE 0 END),0) AS online_vat FROM sales WHERE status='completed' AND sale_at>=? AND sale_at<?",
         [$from, $end],
     )->fetch();
     $totals["count"] = (int) $totals["count"];
+    $totals["cash_drawer_count"] = (int) $totals["cash_drawer_count"];
+    $totals["online_count"] = (int) $totals["online_count"];
     $daily = query(
         $db,
         "SELECT DATE(sale_at) AS date,COUNT(*) AS count,SUM(total_gross) AS gross,SUM(total_net) AS net,SUM(total_vat) AS vat FROM sales WHERE status='completed' AND sale_at>=? AND sale_at<? GROUP BY DATE(sale_at) ORDER BY date",
@@ -1015,6 +1033,22 @@ function report_data(PDO $db, array $params, bool $csv = false): array
             number_format((float) $totals["net"], 2, ".", ""),
             number_format((float) $totals["vat"], 2, ".", ""),
             "Included in Z-Reading & VAT remittance",
+        ]);
+        csv_put_row($stream, [
+            "Physical Cash in Drawer (Cash Sales)",
+            (int) ($totals["cash_drawer_count"] ?? $totals["count"]),
+            number_format((float) ($totals["cash_drawer_gross"] ?? $totals["gross"]), 2, ".", ""),
+            number_format((float) ($totals["cash_drawer_net"] ?? $totals["net"]), 2, ".", ""),
+            number_format((float) ($totals["cash_drawer_vat"] ?? $totals["vat"]), 2, ".", ""),
+            "Expected physical paper cash from Cash orders",
+        ]);
+        csv_put_row($stream, [
+            "Online / Cashless (GCash / Maya / QR / Card)",
+            (int) ($totals["online_count"] ?? 0),
+            number_format((float) ($totals["online_gross"] ?? 0), 2, ".", ""),
+            number_format((float) ($totals["online_net"] ?? 0), 2, ".", ""),
+            number_format((float) ($totals["online_vat"] ?? 0), 2, ".", ""),
+            "Settled via GCash, Maya, QR Ph or Card",
         ]);
         csv_put_row($stream, [
             "Total Drink / Item Units Sold",

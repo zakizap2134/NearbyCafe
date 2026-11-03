@@ -231,6 +231,12 @@ function ensure_void_and_image_schema(PDO $db): void
         if (!in_array("voided_at", $saleCols, true)) {
             $db->exec("ALTER TABLE `sales` ADD COLUMN `voided_at` DATETIME NULL DEFAULT NULL AFTER `voided_by`");
         }
+        if (!in_array("payment_method", $saleCols, true)) {
+            $db->exec("ALTER TABLE `sales` ADD COLUMN `payment_method` VARCHAR(24) NOT NULL DEFAULT 'CASH' AFTER `sale_at`");
+        }
+        if (!in_array("payment_reference", $saleCols, true)) {
+            $db->exec("ALTER TABLE `sales` ADD COLUMN `payment_reference` VARCHAR(80) NULL DEFAULT NULL AFTER `payment_method`");
+        }
         $fkExists = (int) $db
             ->query(
                 "SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='sales' AND COLUMN_NAME='voided_by' AND REFERENCED_TABLE_NAME='users'",

@@ -92,6 +92,8 @@ const freshDraft = (userId) => ({
   expected_epoch: getHostEpoch(),
   basket: [],
   cash: "",
+  payment_method: "CASH",
+  payment_reference: "",
 });
 export function readDraft(userId) {
   return run(["drafts"], "readwrite", (tx, finish) => {
@@ -150,6 +152,24 @@ export function enqueueDraft(draft) {
         abort("Check the basket and cash amount.");
         return;
       }
+      const method = (draft.payment_method || "CASH").toUpperCase();
+      const ref = (draft.payment_reference || "").trim();
+      const bodyPayload = {
+        expected_epoch: draft.expected_epoch,
+        transaction_key: draft.key,
+        cash_received: cashString(cents(draft.cash)),
+        items: draft.basket.map((l) => ({
+          variant_id: l.id,
+          qty: l.qty,
+          expected_price: l.price,
+        })),
+      };
+      if (method !== "CASH" || ref !== "") {
+        bodyPayload.payment_method = method;
+        if (ref !== "" && method !== "CASH") {
+          bodyPayload.payment_reference = ref;
+        }
+      }
       const record = {
         key: draft.key,
         user_id: draft.user_id,
@@ -166,16 +186,7 @@ export function enqueueDraft(draft) {
           qty: l.qty,
           price: l.price,
         })),
-        body: {
-          expected_epoch: draft.expected_epoch,
-          transaction_key: draft.key,
-          cash_received: cashString(cents(draft.cash)),
-          items: draft.basket.map((l) => ({
-            variant_id: l.id,
-            qty: l.qty,
-            expected_price: l.price,
-          })),
-        },
+        body: bodyPayload,
       };
       queue.add(record);
       const next = freshDraft(draft.user_id);

@@ -72,11 +72,11 @@ function today_sales(PDO $db, string $at): array
     $date = substr($at, 0, 10);
     $totals = query(
         $db,
-        "SELECT COUNT(*) AS count,COALESCE(SUM(total_gross),0) AS gross,COALESCE(SUM(total_net),0) AS net,COALESCE(SUM(total_vat),0) AS vat FROM sales WHERE status='completed' AND sale_at>=? AND sale_at<DATE_ADD(?,INTERVAL 1 DAY)",
+        "SELECT COUNT(*) AS count,COALESCE(SUM(total_gross),0) AS gross,COALESCE(SUM(total_net),0) AS net,COALESCE(SUM(total_vat),0) AS vat,COALESCE(SUM(CASE WHEN COALESCE(payment_method,'CASH')='CASH' THEN total_gross ELSE 0 END),0) AS cash_drawer_gross,COALESCE(SUM(CASE WHEN COALESCE(payment_method,'CASH')<>'CASH' THEN total_gross ELSE 0 END),0) AS online_gross FROM sales WHERE status='completed' AND sale_at>=? AND sale_at<DATE_ADD(?,INTERVAL 1 DAY)",
         [$date, $date],
     )->fetch();
     $totals["count"] = (int) $totals["count"];
-    foreach (["gross", "net", "vat"] as $key) {
+    foreach (["gross", "net", "vat", "cash_drawer_gross", "online_gross"] as $key) {
         $totals[$key] = decimal(fixed($totals[$key], 2, "total", true));
     }
     return [
@@ -84,7 +84,7 @@ function today_sales(PDO $db, string $at): array
         "totals" => $totals,
         "recent" => query(
             $db,
-            "SELECT id,transaction_key,user_id,sale_at,total_gross,total_net,total_vat,status,void_reason,voided_at FROM sales WHERE sale_at>=? AND sale_at<DATE_ADD(?,INTERVAL 1 DAY) ORDER BY id DESC LIMIT 10",
+            "SELECT id,transaction_key,user_id,sale_at,payment_method,payment_reference,total_gross,total_net,total_vat,status,void_reason,voided_at FROM sales WHERE sale_at>=? AND sale_at<DATE_ADD(?,INTERVAL 1 DAY) ORDER BY id DESC LIMIT 10",
             [$date, $date],
         )->fetchAll(),
     ];
