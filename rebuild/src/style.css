@@ -1669,6 +1669,36 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
 }
 .container-detail-actions {
   margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.recipe-copy-helper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  border: 1px dashed #e0cbbe;
+  background: #fdf9f6;
+}
+.recipe-copy-controls {
+  flex: 1 1 280px;
+}
+.recipe-copy-controls label {
+  margin-bottom: 0;
+}
+.recipe-row-block {
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #f0e4db;
+}
+.recipe-qty-presets {
+  margin-top: -6px;
+  margin-bottom: 4px;
 }
 @media (max-width: 600px) {
   .order-success-cash-grid {

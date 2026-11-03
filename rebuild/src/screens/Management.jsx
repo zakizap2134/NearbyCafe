@@ -188,6 +188,7 @@ export default function Management({ user, token, expired }) {
     [variant, setVariant] = useState(emptyVariant),
     [skuCustom, setSkuCustom] = useState(false),
     [recipeVariant, setRecipeVariant] = useState(""),
+    [copySourceVariant, setCopySourceVariant] = useState(""),
     [rows, setRows] = useState([]),
     [delivery, setDelivery] = useState(emptyDelivery);
   const sending = useRef(false),
@@ -273,6 +274,70 @@ export default function Management({ user, token, expired }) {
       data.recipes
         .filter((r) => Number(r.variant_id) === Number(id))
         .map((r) => ({ ingredient_id: String(r.ingredient_id), qty: r.qty })),
+    );
+    const targetVar = (data?.variants ?? []).find(
+      (v) => Number(v.id) === Number(id),
+    );
+    const variantsWithRecipeIds = new Set(
+      (data?.recipes ?? []).map((r) => Number(r.variant_id)),
+    );
+    const siblingWithRecipe = (data?.variants ?? []).find(
+      (v) =>
+        Number(v.id) !== Number(id) &&
+        variantsWithRecipeIds.has(Number(v.id)) &&
+        Number(v.product_id) === Number(targetVar?.product_id),
+    );
+    const anyWithRecipe = (data?.variants ?? []).find(
+      (v) =>
+        Number(v.id) !== Number(id) && variantsWithRecipeIds.has(Number(v.id)),
+    );
+    setCopySourceVariant(
+      siblingWithRecipe
+        ? String(siblingWithRecipe.id)
+        : anyWithRecipe
+          ? String(anyWithRecipe.id)
+          : "",
+    );
+  }
+  function copyRecipeFromVariant(sourceVariantId, scaleBySize = false) {
+    if (!sourceVariantId || !recipeVariant) return;
+    const sourceRows = (data?.recipes ?? []).filter(
+      (r) => Number(r.variant_id) === Number(sourceVariantId),
+    );
+    if (!sourceRows.length) return;
+    const sizeOunces = { S: 12, M: 16, L: 22 };
+    const targetVar = (data?.variants ?? []).find(
+      (v) => Number(v.id) === Number(recipeVariant),
+    );
+    const sourceVar = (data?.variants ?? []).find(
+      (v) => Number(v.id) === Number(sourceVariantId),
+    );
+    const targetOz = sizeOunces[targetVar?.size] || 16;
+    const sourceOz = sizeOunces[sourceVar?.size] || 16;
+    const ratio = scaleBySize && sourceOz > 0 ? targetOz / sourceOz : 1;
+    const ingMap = new Map(
+      (data?.ingredients ?? []).map((i) => [Number(i.id), i]),
+    );
+    const copied = sourceRows.map((r) => {
+      const ing = ingMap.get(Number(r.ingredient_id));
+      const unit = String(ing?.unit || "").toLowerCase();
+      const rawQty = Number(r.qty) || 0;
+      let nextQty = rawQty;
+      if (scaleBySize && ratio !== 1 && unit !== "units") {
+        const scaled = rawQty * ratio;
+        nextQty =
+          scaled >= 5 ? Math.round(scaled) : Math.round(scaled * 100) / 100;
+      }
+      return {
+        ingredient_id: String(r.ingredient_id),
+        qty: String(nextQty),
+      };
+    });
+    setRows(copied);
+    setNotice(
+      scaleBySize && ratio !== 1
+        ? `Copied ${copied.length} ingredient(s) from ${sourceVar?.sku || "source"} and scaled ${sourceOz}oz → ${targetOz}oz. Click Save recipe to confirm.`
+        : `Copied ${copied.length} ingredient(s) from ${sourceVar?.sku || "source"}. Click Save recipe to confirm.`,
     );
   }
   async function remove(kind, id, reset) {
@@ -367,6 +432,49 @@ export default function Management({ user, token, expired }) {
     setNotice("");
     setError(null);
     setTab("Stock operations");
+  }
+  function openQuickAdjust(c) {
+    setPresetStockOp({
+      kind: "adjust",
+      id: String(c.id),
+      quantity: String(c.remaining_qty ?? ""),
+      expected_remaining: String(c.remaining_qty ?? ""),
+      reason: "Physical shift count adjustment",
+    });
+    setNotice("");
+    setError(null);
+    setTab("Stock operations");
+  }
+  function openQuickBatchEdit(b) {
+    setPresetStockOp({
+      kind: "batch",
+      id: String(b.id),
+      expiration_date: b.expiration_date ?? "",
+      supplier: b.supplier ?? "",
+      lot_reference: b.lot_reference ?? "",
+      quarantined: b.quarantined ?? 0,
+      reason: "Batch metadata / expiry correction",
+    });
+    setNotice("");
+    setError(null);
+    setTab("Stock operations");
+  }
+  function openQuickReceiveStock(ingredientId) {
+    const ingObj = (data?.ingredients ?? []).find(
+      (x) => String(x.id) === String(ingredientId),
+    );
+    const autoCodes = ingObj
+      ? generateDeliveryCodes(ingObj, data?.batches, data?.server_time)
+      : { reference: "", lot_reference: "" };
+    setDelivery({
+      ...emptyDelivery,
+      ingredient_id: String(ingredientId),
+      reference: autoCodes.reference,
+      lot_reference: autoCodes.lot_reference,
+    });
+    setNotice("");
+    setError(null);
+    setTab("Stock");
   }
   function openIngredientExpiredWaste(ingredientId) {
     const batchesForIng = (data?.batches ?? []).filter(
@@ -673,7 +781,7 @@ export default function Management({ user, token, expired }) {
                         <li key={i.id} className="alert-action-row">
                           <div>
                             <strong>{i.name}</strong> · {i.eligible_stock}{" "}
-                            {i.unit} eligible
+                            {i.unit} eligible (min {i.minimum_stock} {i.unit})
                             {Number(i.waste_due) > 0 && (
                               <span>
                                 {" "}
@@ -686,15 +794,27 @@ export default function Management({ user, token, expired }) {
                               </span>
                             )}
                           </div>
-                          {Number(i.waste_due) > 0 && (
-                            <button
-                              type="button"
-                              className="danger compact-btn"
-                              onClick={() => openIngredientExpiredWaste(i.id)}
-                            >
-                              Record waste
-                            </button>
-                          )}
+                          <div className="button-row" style={{ marginTop: 0 }}>
+                            {Number(i.eligible_stock) <=
+                              Number(i.minimum_stock) && (
+                              <button
+                                type="button"
+                                className="compact-btn"
+                                onClick={() => openQuickReceiveStock(i.id)}
+                              >
+                                Receive stock →
+                              </button>
+                            )}
+                            {Number(i.waste_due) > 0 && (
+                              <button
+                                type="button"
+                                className="danger compact-btn"
+                                onClick={() => openIngredientExpiredWaste(i.id)}
+                              >
+                                Record waste
+                              </button>
+                            )}
+                          </div>
                         </li>
                       ))}
                   </ul>
@@ -1118,6 +1238,59 @@ export default function Management({ user, token, expired }) {
                           </option>
                         ))}
                       </Select>
+                      <div className="quick-preset-row">
+                        <span className="preset-caption">
+                          Quick size & temp combo (1-click):
+                        </span>
+                        <div className="quick-chip-group">
+                          {[
+                            ["12oz Hot", "S", "HOT"],
+                            ["12oz Iced", "S", "ICED"],
+                            ["16oz Hot", "M", "HOT"],
+                            ["16oz Iced", "M", "ICED"],
+                            ["22oz Hot", "L", "HOT"],
+                            ["22oz Iced", "L", "ICED"],
+                            ["Single / NA", "M", "NA"],
+                          ].map(([label, sz, tmp]) => {
+                            const isActive =
+                              variant.size === sz &&
+                              variant.temperature === tmp;
+                            return (
+                              <button
+                                key={label}
+                                type="button"
+                                className={`compact-btn quick-chip${isActive ? " active" : ""}`}
+                                onClick={() => {
+                                  const prodObj = data.products.find(
+                                    (p) =>
+                                      String(p.id) ===
+                                      String(variant.product_id),
+                                  );
+                                  const nextSku =
+                                    !skuCustom && prodObj
+                                      ? generateVariantSku(
+                                          prodObj,
+                                          sz,
+                                          tmp,
+                                          data.variants,
+                                          variant.id,
+                                          user?.shop_name,
+                                        )
+                                      : variant.sku;
+                                  setVariant({
+                                    ...variant,
+                                    size: sz,
+                                    temperature: tmp,
+                                    sku: nextSku,
+                                  });
+                                }}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                       <div className="form-grid">
                         <Select
                           label="Size"
@@ -1360,58 +1533,173 @@ export default function Management({ user, token, expired }) {
                       </option>
                     ))}
                   </Select>
-                  {rows.map((r, index) => (
-                    <div className="recipe-row" key={index}>
-                      <Select
-                        label={`Ingredient ${index + 1}`}
-                        required
-                        value={r.ingredient_id}
-                        onChange={(e) =>
-                          setRows(
-                            rows.map((x, j) =>
-                              j === index
-                                ? { ...x, ingredient_id: e.target.value }
-                                : x,
-                            ),
-                          )
-                        }
-                      >
-                        <option value="">Choose ingredient</option>
-                        {ingredients.map((i) => (
-                          <option
-                            key={i.id}
-                            value={i.id}
-                            disabled={!Number(i.is_active)}
+                  {recipeVariant &&
+                    (() => {
+                      const variantsWithRecipes = data.variants.filter(
+                        (v) =>
+                          Number(v.id) !== Number(recipeVariant) &&
+                          data.recipes.some(
+                            (r) => Number(r.variant_id) === Number(v.id),
+                          ),
+                      );
+                      if (!variantsWithRecipes.length) return null;
+                      const sizeOunces = { S: 12, M: 16, L: 22 };
+                      const targetVar = data.variants.find(
+                        (v) => Number(v.id) === Number(recipeVariant),
+                      );
+                      const sourceVar = data.variants.find(
+                        (v) => Number(v.id) === Number(copySourceVariant),
+                      );
+                      const targetOz = sizeOunces[targetVar?.size] || 16;
+                      const sourceOz = sizeOunces[sourceVar?.size] || 16;
+                      return (
+                        <div className="recipe-copy-helper">
+                          <div className="recipe-copy-controls">
+                            <Select
+                              label="Copy recipe from another variant (1-click)"
+                              value={copySourceVariant}
+                              onChange={(e) =>
+                                setCopySourceVariant(e.target.value)
+                              }
+                            >
+                              <option value="">Choose source variant</option>
+                              {variantsWithRecipes.map((v) => (
+                                <option key={v.id} value={v.id}>
+                                  {variantLabel(v, data.products)} · {v.sku}
+                                </option>
+                              ))}
+                            </Select>
+                          </div>
+                          <div className="button-row" style={{ marginTop: 0 }}>
+                            <button
+                              type="button"
+                              className="compact-btn"
+                              disabled={!copySourceVariant}
+                              onClick={() =>
+                                copyRecipeFromVariant(copySourceVariant, false)
+                              }
+                            >
+                              Copy exact quantities
+                            </button>
+                            {sourceVar && targetOz !== sourceOz && (
+                              <button
+                                type="button"
+                                className="compact-btn"
+                                disabled={!copySourceVariant}
+                                onClick={() =>
+                                  copyRecipeFromVariant(copySourceVariant, true)
+                                }
+                              >
+                                Copy & scale ({sourceOz}oz → {targetOz}oz)
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  {rows.map((r, index) => {
+                    const rowIng = ingredients.find(
+                      (i) => String(i.id) === String(r.ingredient_id),
+                    );
+                    const isUnitBased =
+                      String(rowIng?.unit || "").toLowerCase() === "units";
+                    const quickRecipeQtys = isUnitBased
+                      ? ["1", "2", "3"]
+                      : ["15", "20", "30", "40", "150", "200", "250"];
+                    return (
+                      <div className="recipe-row-block" key={index}>
+                        <div className="recipe-row">
+                          <Select
+                            label={`Ingredient ${index + 1}`}
+                            required
+                            value={r.ingredient_id}
+                            onChange={(e) => {
+                              const nextIngId = e.target.value;
+                              const nextIng = ingredients.find(
+                                (i) => String(i.id) === String(nextIngId),
+                              );
+                              const defaultQty =
+                                !r.qty &&
+                                String(nextIng?.unit || "").toLowerCase() ===
+                                  "units"
+                                  ? "1"
+                                  : r.qty;
+                              setRows(
+                                rows.map((x, j) =>
+                                  j === index
+                                    ? {
+                                        ...x,
+                                        ingredient_id: nextIngId,
+                                        qty: defaultQty,
+                                      }
+                                    : x,
+                                ),
+                              );
+                            }}
                           >
-                            {i.name} ({i.unit})
-                            {Number(i.is_active) ? "" : " · inactive"}
-                          </option>
-                        ))}
-                      </Select>
-                      <Field
-                        label={`Quantity ${index + 1}`}
-                        required
-                        inputMode="decimal"
-                        value={r.qty}
-                        onChange={(e) =>
-                          setRows(
-                            rows.map((x, j) =>
-                              j === index ? { ...x, qty: e.target.value } : x,
-                            ),
-                          )
-                        }
-                      />
-                      <button
-                        type="button"
-                        aria-label={`Remove ingredient ${index + 1}`}
-                        onClick={() =>
-                          setRows(rows.filter((_, j) => j !== index))
-                        }
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
+                            <option value="">Choose ingredient</option>
+                            {ingredients.map((i) => (
+                              <option
+                                key={i.id}
+                                value={i.id}
+                                disabled={!Number(i.is_active)}
+                              >
+                                {i.name} ({i.unit})
+                                {Number(i.is_active) ? "" : " · inactive"}
+                              </option>
+                            ))}
+                          </Select>
+                          <Field
+                            label={`Quantity ${index + 1}${rowIng ? ` (${rowIng.unit})` : ""}`}
+                            required
+                            inputMode="decimal"
+                            value={r.qty}
+                            onChange={(e) =>
+                              setRows(
+                                rows.map((x, j) =>
+                                  j === index
+                                    ? { ...x, qty: e.target.value }
+                                    : x,
+                                ),
+                              )
+                            }
+                          />
+                          <button
+                            type="button"
+                            aria-label={`Remove ingredient ${index + 1}`}
+                            onClick={() =>
+                              setRows(rows.filter((_, j) => j !== index))
+                            }
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <div className="quick-preset-row recipe-qty-presets">
+                          <span className="preset-caption">
+                            Quick {rowIng?.unit || "qty"}:
+                          </span>
+                          <div className="quick-chip-group">
+                            {quickRecipeQtys.map((qVal) => (
+                              <button
+                                key={qVal}
+                                type="button"
+                                className={`compact-btn quick-chip${Number(r.qty) === Number(qVal) && r.qty !== "" ? " active" : ""}`}
+                                onClick={() =>
+                                  setRows(
+                                    rows.map((x, j) =>
+                                      j === index ? { ...x, qty: qVal } : x,
+                                    ),
+                                  )
+                                }
+                              >
+                                {qVal} {rowIng?.unit || ""}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                   <div className="button-row">
                     <button
                       type="button"
@@ -1668,6 +1956,15 @@ export default function Management({ user, token, expired }) {
                             <small>
                               {b.supplier} {b.lot_reference}
                             </small>
+                            <div style={{ marginTop: "6px" }}>
+                              <button
+                                type="button"
+                                className="compact-btn"
+                                onClick={() => openQuickBatchEdit(b)}
+                              >
+                                Edit batch
+                              </button>
+                            </div>
                           </td>
                           <td>
                             {b.ingredient_name} ({b.unit})
@@ -1731,6 +2028,13 @@ export default function Management({ user, token, expired }) {
                                           {st.isWasteDue
                                             ? "Dispose expired"
                                             : "Record waste"}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="compact-btn"
+                                          onClick={() => openQuickAdjust(c)}
+                                        >
+                                          Adjust qty
                                         </button>
                                       </div>
                                     )}

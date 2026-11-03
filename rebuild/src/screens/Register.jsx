@@ -184,6 +184,34 @@ export default function Register({ user, token, expired }) {
       );
     }
   }
+  function repeatLastOrder() {
+    const last = history.find((o) => o.state === "confirmed" && !o.voided);
+    if (!last || !menu?.variants?.length) return;
+    const rawItems = last.body?.items || last.labels || [];
+    const rebuilt = [];
+    for (const item of rawItems) {
+      const v = menu.variants.find(
+        (cand) => Number(cand.id) === Number(item.variant_id),
+      );
+      if (v && Number(v.available_count) > 0) {
+        rebuilt.push({
+          ...v,
+          qty: Math.min(Number(item.qty) || 1, Number(v.available_count), 100),
+        });
+      }
+    }
+    if (rebuilt.length > 0) {
+      setError(null);
+      edit({ basket: rebuilt, cash: "" });
+      setNotice(
+        `Repeated ${rebuilt.length} item(s) from Sale #${last.sale_id || "last order"} into Current order.`,
+      );
+    } else {
+      setError(
+        new Error("Items from the last order are currently out of stock."),
+      );
+    }
+  }
   async function handleVoided(updatedSale, reloadToBasket) {
     setVoidTarget(null);
     setSale(updatedSale);
@@ -502,6 +530,16 @@ export default function Register({ user, token, expired }) {
           <div className="section-heading">
             <h2>Current order</h2>
             <div className="button-row">
+              {history.some((o) => o.state === "confirmed" && !o.voided) && (
+                <button
+                  type="button"
+                  className="compact-btn"
+                  disabled={busy || !ready}
+                  onClick={repeatLastOrder}
+                >
+                  Repeat last order
+                </button>
+              )}
               {basket.length > 0 && (
                 <button
                   type="button"
