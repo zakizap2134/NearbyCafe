@@ -35,6 +35,25 @@ fieldset {
   gap: 10px;
   flex-wrap: wrap;
 }
+.button-row {
+  align-items: center;
+}
+.pager-bar {
+  margin-top: 18px;
+  align-items: center;
+  gap: 14px;
+}
+.pager-status {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--nearby-muted);
+  padding: 0 6px;
+}
+td .pill {
+  margin-top: 0;
+}
 .tabs {
   margin-bottom: 24px;
 }
@@ -104,7 +123,7 @@ th,
 td {
   padding: 13px 12px;
   border-bottom: 1px solid #e6e9e0;
-  vertical-align: top;
+  vertical-align: middle;
 }
 td small {
   display: block;

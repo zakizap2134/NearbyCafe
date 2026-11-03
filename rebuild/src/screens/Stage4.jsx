@@ -85,11 +85,11 @@ function Table({ headers, children }) {
 }
 function Pager({ page, total, busy, onPage }) {
   return (
-    <div className="button-row">
+    <div className="button-row pager-bar">
       <button disabled={busy || page <= 1} onClick={() => onPage(page - 1)}>
         Previous page
       </button>
-      <span>
+      <span className="pager-status">
         Page {page} · {total} records
       </span>
       <button
