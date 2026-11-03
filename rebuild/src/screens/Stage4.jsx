@@ -18,8 +18,17 @@ const today = () =>
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
-function download(filename, content, type) {
-  const url = URL.createObjectURL(new Blob([content], { type }));
+function download(filename, content, type, encoding = "utf8") {
+  let blobPart = content;
+  if (encoding === "base64") {
+    const bin = atob(content);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) {
+      bytes[i] = bin.charCodeAt(i);
+    }
+    blobPart = bytes;
+  }
+  const url = URL.createObjectURL(new Blob([blobPart], { type }));
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
@@ -128,7 +137,7 @@ export function Reports({ token, expired }) {
     [data, setData] = useState(null),
     [receipt, setReceipt] = useState(null),
     [voidTarget, setVoidTarget] = useState(null),
-    [csvFormat, setCsvFormat] = useState("structured"),
+    [csvFormat, setCsvFormat] = useState("xlsx_structured"),
     [csvIncludeVoided, setCsvIncludeVoided] = useState(true);
   const load = (page = 1) =>
     action.run(async () => {
@@ -183,30 +192,33 @@ export function Reports({ token, expired }) {
           <div className="csv-export-bar">
             <div className="csv-export-controls">
               <label className="csv-format-field">
-                <span>CSV export structure</span>
+                <span>Spreadsheet / CSV export structure</span>
                 <select
                   aria-label="CSV export structure"
                   value={csvFormat}
                   disabled={action.busy}
                   onChange={(e) => setCsvFormat(e.target.value)}
                 >
+                  <option value="xlsx_structured">
+                    Styled Excel Workbook (.xlsx) — Auto-Sized Columns, Colors,
+                    Borders & Currency (₱)
+                  </option>
                   <option value="structured">
-                    Full Structured Report (Executive Summary + Daily Z-Reading
-                    + SKU Ranking + Line Items)
+                    Full Structured CSV (.csv) — Plain Text with All 6 Sections
                   </option>
                   <option value="line_items">
-                    Line-Item Transactions Only (with 5-Part SKU & Cash
-                    Tendered/Change)
+                    Line-Item Transactions Only (.csv) — with 5-Part SKU & Cash
                   </option>
                   <option value="daily_z">
-                    Daily Z-Reading Summary Table Only
+                    Daily Z-Reading Summary Table Only (.csv)
                   </option>
                   <option value="products">
-                    Product & 5-Part SKU Performance Table Only
+                    Product & 5-Part SKU Performance Table Only (.csv)
                   </option>
                 </select>
               </label>
-              {csvFormat === "structured" && (
+              {(csvFormat === "xlsx_structured" ||
+                csvFormat === "structured") && (
                 <label className="checkbox-row csv-checkbox">
                   <input
                     type="checkbox"
@@ -236,23 +248,28 @@ export function Reports({ token, expired }) {
                   download(
                     file.filename,
                     file.content,
-                    "text/csv;charset=utf-8",
+                    file.mime || "text/csv;charset=utf-8",
+                    file.encoding || "utf8",
                   );
                   notice(
                     `Downloaded ${file.filename} (${
-                      csvFormat === "structured"
-                        ? "multi-section structured report"
-                        : csvFormat === "daily_z"
-                          ? "daily Z-reading summary"
-                          : csvFormat === "products"
-                            ? "product & SKU performance"
-                            : "line-item transactions with totals"
+                      csvFormat === "xlsx_structured"
+                        ? "styled Excel workbook with auto-fitted columns & currency"
+                        : csvFormat === "structured"
+                          ? "multi-section structured CSV"
+                          : csvFormat === "daily_z"
+                            ? "daily Z-reading summary"
+                            : csvFormat === "products"
+                              ? "product & SKU performance"
+                              : "line-item transactions with totals"
                     }).`,
                   );
                 })
               }
             >
-              Download sales CSV
+              {csvFormat === "xlsx_structured"
+                ? "Download Excel (.xlsx)"
+                : "Download sales CSV"}
             </button>
           </div>
           <h3>Daily summary / Z-reading</h3>
