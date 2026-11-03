@@ -461,7 +461,14 @@ function staff_save(PDO $db, array $session, array $body, string $ref): array
 
 function owner_profile_save(PDO $db, array $session, array $body, string $ref): array
 {
-    $email = valid_email($body["email"] ?? null, true);
+    $uid = (int) $session["user"]["id"];
+    $rawEmail = isset($body["email"]) && is_string($body["email"]) ? trim($body["email"]) : "";
+    if ($rawEmail === "") {
+        $existingEmail = query($db, "SELECT email FROM users WHERE id=?", [$uid])->fetchColumn();
+        $email = valid_email(is_string($existingEmail) ? $existingEmail : null, true);
+    } else {
+        $email = valid_email($rawEmail, true);
+    }
     $rawShop = $body["shop_name"] ?? null;
     $shopName = is_string($rawShop) && trim($rawShop) !== "" ? trim($rawShop) : "Nearby Café";
     if (strlen($shopName) > 120) {
@@ -502,7 +509,7 @@ function owner_test_email(PDO $db, array $session, array $body, string $ref): ar
     $code = (string) random_int(100000, 999999);
     $sent = send_reset_code_email($email, (string)$user["display_name"], $code);
     audit($db, $uid, "TEST_EMAIL_SENT", $ref, ["email" => $email]);
-    return ["sent" => $sent, "email" => $email, "code" => $code];
+    return ["sent" => $sent, "email" => $email];
 }
 
 function smtp_status(PDO $db, array $session): array
@@ -548,12 +555,15 @@ function smtp_save(PDO $db, array $session, array $body, string $ref): array
         ];
     }
 
+    $existing = get_smtp_config();
     $username = trim((string)($body['username'] ?? ''));
+    if ($username === '') {
+        $username = trim((string)($existing['username'] ?? ''));
+    }
     if ($username === '' || !filter_var($username, FILTER_VALIDATE_EMAIL)) {
-        problem(422, 'VALIDATION', 'Enter a valid Gmail or email address (e.g. zakizaps@gmail.com).');
+        problem(422, 'VALIDATION', 'Enter a valid Gmail or email address.');
     }
 
-    $existing = get_smtp_config();
     $rawPassword = (string)($body['password'] ?? '');
     $password = str_replace(' ', '', $rawPassword);
     if ($password === '') {
@@ -612,7 +622,7 @@ function smtp_save(PDO $db, array $session, array $body, string $ref): array
         'ok' => true,
         'enabled' => true,
         'configured' => true,
-        'message' => "Connected to Gmail SMTP successfully! A live test verification code ($testCode) was sent to $targetEmail. Check your inbox!",
+        'message' => "Connected to Gmail SMTP successfully! A live test verification email was sent to $targetEmail. Check your inbox!",
         'recipient' => $targetEmail,
     ];
 }
