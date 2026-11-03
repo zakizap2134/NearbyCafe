@@ -684,7 +684,7 @@ function report_data(PDO $db, array $params, bool $csv = false): array
 
     $rows = query(
         $db,
-        "SELECT s.id AS sale_id,s.sale_at,u.display_name AS cashier,COALESCE(v.sku,'-') AS sku,COALESCE(p.name,i.variant_label) AS product_name,COALESCE(p.category,'Uncategorized') AS category,i.variant_label,i.qty,i.unit_price,i.line_gross AS gross,i.line_net AS net,i.line_vat AS vat,s.vat_rate,s.cash_received,s.change_due FROM sale_items i JOIN sales s ON s.id=i.sale_id JOIN users u ON u.id=s.user_id LEFT JOIN product_variants v ON v.id=i.variant_id LEFT JOIN products p ON p.id=v.product_id WHERE s.status='completed' AND s.sale_at>=? AND s.sale_at<? ORDER BY s.sale_at,s.id,i.id",
+        "SELECT s.id AS sale_id,s.sale_at,u.display_name AS cashier,s.payment_method,s.payment_reference,s.customer_name,COALESCE(v.sku,'-') AS sku,COALESCE(p.name,i.variant_label) AS product_name,COALESCE(p.category,'Uncategorized') AS category,i.variant_label,i.qty,i.unit_price,i.line_gross AS gross,i.line_net AS net,i.line_vat AS vat,s.vat_rate,s.cash_received,s.change_due FROM sale_items i JOIN sales s ON s.id=i.sale_id JOIN users u ON u.id=s.user_id LEFT JOIN product_variants v ON v.id=i.variant_id LEFT JOIN products p ON p.id=v.product_id WHERE s.status='completed' AND s.sale_at>=? AND s.sale_at<? ORDER BY s.sale_at,s.id,i.id",
         [$from, $end],
     )->fetchAll();
 

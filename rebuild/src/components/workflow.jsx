@@ -94,6 +94,12 @@ export function Receipt({ sale, onVoid, onReloadItems, onPrint, onClose }) {
           </p>
         </div>
       )}
+      {sale.customer_name && (
+        <div className="receipt-customer-note">
+          <span className="subtle">Customer / Cup Note: </span>
+          <strong>{sale.customer_name}</strong>
+        </div>
+      )}
       <div className="table-scroll">
         <table>
           <thead>
@@ -120,6 +126,7 @@ export function Receipt({ sale, onVoid, onReloadItems, onPrint, onClose }) {
       </div>
       <dl className="sale-totals">
         {[
+          ...(sale.customer_name ? [["Customer / Note", sale.customer_name, true]] : []),
           ["Payment Method", sale.payment_reference ? `${payLabel} (Ref #${sale.payment_reference})` : payLabel, true],
           ["VATable Sales", sale.total_net, false],
           ["VAT (12%)", sale.total_vat, false],
@@ -212,6 +219,14 @@ export function OrderSuccessModal({
                 : ""}
               {sale.sale_at} · {sale.cashier_name || cashierName || "Staff"}
             </p>
+            {sale.customer_name && (
+              <div className="order-customer-banner">
+                <span aria-hidden="true">🏷️</span>
+                <span>
+                  Customer / Note: <strong>{sale.customer_name}</strong>
+                </span>
+              </div>
+            )}
           </div>
         </div>
         <div className="order-success-cash-grid">

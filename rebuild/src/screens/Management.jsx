@@ -574,6 +574,58 @@ export default function Management({ user, token, expired }) {
     onChange: (e) => set({ ...obj, [key]: e.target.value }),
   });
   const ingredients = data?.ingredients ?? [];
+
+  function copySupplierReorderList() {
+    const lowStock = ingredients.filter(
+      (i) =>
+        Number(i.is_active) &&
+        Number(i.eligible_stock) <= Number(i.minimum_stock),
+    );
+    if (!lowStock.length) {
+      setNotice("No low-stock ingredients currently need reordering.");
+      return;
+    }
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("en-PH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const lines = [
+      `☕ Nearby Café — Supplier Reorder List`,
+      `Date: ${dateStr}`,
+      ``,
+      `Please provide quotes / delivery for the following low-stock items:`,
+    ];
+    lowStock.forEach((i) => {
+      const cur = Number(i.eligible_stock);
+      const min = Number(i.minimum_stock);
+      const diff = Math.max(0, min - cur);
+      lines.push(
+        `• ${i.name}: ${cur} ${i.unit} in stock (Min: ${min} ${i.unit}) — Order: ~${diff > 0 ? diff : min} ${i.unit}`,
+      );
+    });
+    lines.push(``);
+    lines.push(`Total items: ${lowStock.length}`);
+    lines.push(`Thank you!`);
+    const text = lines.join("\n");
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          setNotice(
+            `📋 Copied supplier reorder list (${lowStock.length} items) to clipboard! Ready to paste into Viber or Messenger.`,
+          );
+        })
+        .catch(() => {
+          setNotice("Clipboard copy failed. Please copy manually.");
+        });
+    } else {
+      setNotice("Clipboard not supported in this browser.");
+    }
+  }
   return (
     <>
       <div className="page-heading">
@@ -756,21 +808,37 @@ export default function Management({ user, token, expired }) {
               <section className="panel">
                 <div className="section-heading">
                   <h2>Stock alerts</h2>
-                  {ingredients.some(
-                    (i) => Number(i.is_active) && Number(i.waste_due) > 0,
-                  ) && (
-                    <button
-                      type="button"
-                      className="compact-btn"
-                      onClick={() => {
-                        setNotice("");
-                        setError(null);
-                        setTab("Stock operations");
-                      }}
-                    >
-                      Manage expired stock →
-                    </button>
-                  )}
+                  <div className="button-row" style={{ marginTop: 0 }}>
+                    {ingredients.some(
+                      (i) =>
+                        Number(i.is_active) &&
+                        Number(i.eligible_stock) <= Number(i.minimum_stock),
+                    ) && (
+                      <button
+                        type="button"
+                        className="compact-btn"
+                        onClick={copySupplierReorderList}
+                        title="Copy formatted low-stock reorder list to clipboard"
+                      >
+                        📋 Copy supplier reorder list
+                      </button>
+                    )}
+                    {ingredients.some(
+                      (i) => Number(i.is_active) && Number(i.waste_due) > 0,
+                    ) && (
+                      <button
+                        type="button"
+                        className="compact-btn"
+                        onClick={() => {
+                          setNotice("");
+                          setError(null);
+                          setTab("Stock operations");
+                        }}
+                      >
+                        Manage expired stock →
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {ingredients.filter(
                   (i) =>
@@ -841,6 +909,7 @@ export default function Management({ user, token, expired }) {
                     headers={[
                       "Sale",
                       "Time",
+                      "Customer / Note",
                       "Payment",
                       "Status",
                       "Gross",
@@ -853,6 +922,15 @@ export default function Management({ user, token, expired }) {
                       <tr key={s.id}>
                         <td>#{s.id}</td>
                         <td>{s.sale_at}</td>
+                        <td>
+                          {s.customer_name ? (
+                            <span className="customer-tag">
+                              🏷️ <strong>{s.customer_name}</strong>
+                            </span>
+                          ) : (
+                            <span className="subtle">—</span>
+                          )}
+                        </td>
                         <td>
                           <span className="pill">
                             {paymentMethodLabel(s.payment_method)}

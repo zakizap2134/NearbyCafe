@@ -84,7 +84,7 @@ function today_sales(PDO $db, string $at): array
         "totals" => $totals,
         "recent" => query(
             $db,
-            "SELECT id,transaction_key,user_id,sale_at,payment_method,payment_reference,total_gross,total_net,total_vat,status,void_reason,voided_at FROM sales WHERE sale_at>=? AND sale_at<DATE_ADD(?,INTERVAL 1 DAY) ORDER BY id DESC LIMIT 10",
+            "SELECT id,transaction_key,user_id,sale_at,payment_method,payment_reference,customer_name,total_gross,total_net,total_vat,status,void_reason,voided_at FROM sales WHERE sale_at>=? AND sale_at<DATE_ADD(?,INTERVAL 1 DAY) ORDER BY id DESC LIMIT 10",
             [$date, $date],
         )->fetchAll(),
     ];

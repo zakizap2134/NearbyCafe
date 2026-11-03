@@ -92,6 +92,7 @@ const freshDraft = (userId) => ({
   expected_epoch: getHostEpoch(),
   basket: [],
   cash: "",
+  customer_name: "",
   payment_method: "CASH",
   payment_reference: "",
 });
@@ -170,9 +171,14 @@ export function enqueueDraft(draft) {
           bodyPayload.payment_reference = ref;
         }
       }
+      const cust = (draft.customer_name || "").trim();
+      if (cust !== "") {
+        bodyPayload.customer_name = cust;
+      }
       const record = {
         key: draft.key,
         user_id: draft.user_id,
+        customer_name: cust || null,
         state: "submitted",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

@@ -24,6 +24,35 @@ import {
 } from "../checkout-store";
 import { startOrderSync } from "../order-sync";
 
+function playRegisterChime() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    if (ctx.state === "suspended") {
+      ctx.resume();
+    }
+    const now = ctx.currentTime;
+    const playTone = (freq, start, duration, gainVal = 0.22) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, start);
+      gain.gain.setValueAtTime(gainVal, start);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + duration);
+    };
+    // Dual-tone café register chime: 880 Hz (A5) followed by 1318.5 Hz (E6)
+    playTone(880, now, 0.2, 0.18);
+    playTone(1318.5, now + 0.08, 0.35, 0.22);
+  } catch {
+    // AudioContext blocked or not supported - fail silently
+  }
+}
+
 export default function Register({ user, token, expired }) {
   const [menu, setMenu] = useState(null),
     [error, setError] = useState(null),
@@ -40,19 +69,44 @@ export default function Register({ user, token, expired }) {
     [successSale, setSuccessSale] = useState(null),
     [voidTarget, setVoidTarget] = useState(null),
     [saving, setSaving] = useState(0),
-    [historyLimit, setHistoryLimit] = useState(10);
+    [historyLimit, setHistoryLimit] = useState(10),
+    [chimeEnabled, setChimeEnabled] = useState(() => {
+      try {
+        return localStorage.getItem("venuevue_chime_enabled") !== "0";
+      } catch {
+        return true;
+      }
+    });
   const draftRef = useRef(null),
     savedDraft = useRef(null),
     writes = useRef(Promise.resolve()),
     writeFailed = useRef(false),
     sending = useRef(false),
-    // Keys submitted from this page session; only these open the success modal,
-    // so replayed/restored confirmations after a reload never pop a blocking dialog.
     liveKeys = useRef(new Set()),
     sync = useRef(null),
-    searchInputRef = useRef(null);
+    searchInputRef = useRef(null),
+    chimeRef = useRef(chimeEnabled);
+
+  useEffect(() => {
+    chimeRef.current = chimeEnabled;
+  }, [chimeEnabled]);
+
+  function toggleChime() {
+    setChimeEnabled((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("venuevue_chime_enabled", next ? "1" : "0");
+      } catch {}
+      if (next) {
+        playRegisterChime();
+      }
+      return next;
+    });
+  }
+
   const basket = draft?.basket ?? [],
     cash = draft?.cash ?? "",
+    customerName = draft?.customer_name ?? "",
     paymentMethod = (draft?.payment_method || "CASH").toUpperCase(),
     paymentReference = draft?.payment_reference ?? "";
   const total = basket.reduce((n, l) => n + cents(l.price) * l.qty, 0),
@@ -100,6 +154,9 @@ export default function Register({ user, token, expired }) {
         if (s?.transaction_key && liveKeys.current.delete(s.transaction_key)) {
           setSuccessSale(s);
           setSale(null);
+          if (chimeRef.current) {
+            playRegisterChime();
+          }
         } else {
           setSale(s);
         }
@@ -460,11 +517,22 @@ export default function Register({ user, token, expired }) {
         <section>
           <div className="menu-heading">
             <h2>Menu</h2>
-            {menu && (
-              <span className="subtle">
-                Updated {menu.server_time} · Manila
-              </span>
-            )}
+            <div className="button-row" style={{ alignItems: "center" }}>
+              <button
+                type="button"
+                className={`compact-btn sound-toggle-btn${chimeEnabled ? " sound-active" : ""}`}
+                onClick={toggleChime}
+                title={chimeEnabled ? "Register chime is ON (Click to mute)" : "Register chime is MUTED (Click to unmute)"}
+                aria-label={chimeEnabled ? "Chime enabled" : "Chime muted"}
+              >
+                {chimeEnabled ? "🔔 Chime On" : "🔕 Chime Off"}
+              </button>
+              {menu && (
+                <span className="subtle">
+                  Updated {menu.server_time} · Manila
+                </span>
+              )}
+            </div>
           </div>
           <Field
             label="Find a drink (Press / to search)"
@@ -616,6 +684,7 @@ export default function Register({ user, token, expired }) {
                     edit({
                       basket: [],
                       cash: "",
+                      customer_name: "",
                       payment_method: "CASH",
                       payment_reference: "",
                     })
@@ -666,6 +735,14 @@ export default function Register({ user, token, expired }) {
           <p className="subtle small">
             Includes 12% VAT. Pending orders do not reserve stock.
           </p>
+          <Field
+            label="Customer name / Cup note (optional)"
+            maxLength={100}
+            placeholder="e.g. Sarah / Table 4 / Less sweet"
+            value={customerName}
+            onChange={(e) => edit({ customer_name: e.target.value })}
+            disabled={busy || !ready}
+          />
           <div className="quick-preset-row payment-method-row">
             <span className="preset-caption">Payment method (1-click):</span>
             <div className="quick-chip-group">

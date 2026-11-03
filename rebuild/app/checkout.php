@@ -10,6 +10,7 @@ function sale_receipt(PDO $db, array $sale, bool $duplicate = false): array
     $sale["status"] = $sale["status"] ?? "completed";
     $sale["payment_method"] = $sale["payment_method"] ?? "CASH";
     $sale["payment_reference"] = $sale["payment_reference"] ?? null;
+    $sale["customer_name"] = $sale["customer_name"] ?? null;
     $sale["void_reason"] = $sale["void_reason"] ?? null;
     $sale["voided_by"] =
         isset($sale["voided_by"]) && $sale["voided_by"] !== null
@@ -44,6 +45,7 @@ function normalize_sale(array $body): array
             "cash_received",
             "payment_method",
             "payment_reference",
+            "customer_name",
             "items",
             "expected_epoch",
         ])
@@ -68,6 +70,12 @@ function normalize_sale(array $body): array
     if ($paymentMethod === "CASH") {
         $paymentReference = null;
     }
+    $rawCustomer = isset($body["customer_name"]) && is_string($body["customer_name"])
+        ? trim($body["customer_name"])
+        : "";
+    $customerName = $rawCustomer !== ""
+        ? optional_text($rawCustomer, "Customer name")
+        : null;
     $items = $body["items"] ?? null;
     if ($cash > 999999999) {
         problem(422, "VALIDATION", "Cash received exceeds 9,999,999.99.");
@@ -114,6 +122,9 @@ function normalize_sale(array $body): array
     if ($paymentMethod !== "CASH" || $paymentReference !== null) {
         $result["payment_method"] = $paymentMethod;
         $result["payment_reference"] = $paymentReference;
+    }
+    if ($customerName !== null) {
+        $result["customer_name"] = $customerName;
     }
     return $result;
 }
@@ -292,10 +303,11 @@ function checkout(
         }
         $paymentMethod = $request["payment_method"] ?? "CASH";
         $paymentReference = $request["payment_reference"] ?? null;
+        $customerName = $request["customer_name"] ?? null;
         // No writes above: validate all lines and aggregated shared ingredient requirements first.
         query(
             $db,
-            "INSERT INTO sales(transaction_key,request_hash,user_id,sale_at,payment_method,payment_reference,cash_received,change_due,total_gross,total_net,total_vat,vat_rate) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO sales(transaction_key,request_hash,user_id,sale_at,payment_method,payment_reference,customer_name,cash_received,change_due,total_gross,total_net,total_vat,vat_rate) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
             [
                 $request["key"],
                 $hash,
@@ -303,6 +315,7 @@ function checkout(
                 $at,
                 $paymentMethod,
                 $paymentReference,
+                $customerName,
                 decimal($request["cash"]),
                 decimal($request["cash"] - $gross),
                 decimal($gross),
