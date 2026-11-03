@@ -298,7 +298,6 @@ export function Reports({ token, expired }) {
           <Receipt
             sale={receipt}
             onClose={() => setReceipt(null)}
-            onPrint={() => window.print()}
             onVoid={(s) => setVoidTarget(s)}
           />
         </>

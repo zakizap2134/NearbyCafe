@@ -72,6 +72,67 @@ const emptyVariant = {
   price: "",
   is_active: 1,
 };
+
+function cleanCodeChars(str) {
+  return String(str || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s-]/g, " ")
+    .trim();
+}
+
+function twoCharCode(text, fallback = "XX") {
+  const cleaned = cleanCodeChars(text);
+  if (!cleaned) return fallback;
+  const words = cleaned.split(/[\s-]+/).filter(Boolean);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).slice(0, 2);
+  }
+  const word = words[0];
+  if (word.length <= 2) return word.padEnd(2, "X");
+  const consonants = word.slice(1).replace(/[AEIOU]/g, "");
+  return word[0] + (consonants[0] || word[1]);
+}
+
+function threeCharBrand(shopName) {
+  const cleaned = cleanCodeChars(shopName || "Nearby Cafe");
+  const words = cleaned.split(/[\s-]+/).filter(Boolean);
+  if (words.length >= 3) {
+    return (words[0][0] + words[1][0] + words[2][0]).slice(0, 3);
+  }
+  if (words.length === 2) {
+    const w1 = words[0].replace(/[AEIOU]/g, "");
+    const secondChar = w1.length >= 2 ? w1[1] : words[0][1] || "X";
+    return (words[0][0] + secondChar + words[1][0]).slice(0, 3);
+  }
+  if (words.length === 1 && words[0].length >= 3) {
+    return words[0].slice(0, 3);
+  }
+  return "NBC";
+}
+
+function generateVariantSku(productObj, size, temperature, existingVariants = [], currentId = null, shopName = "Nearby Café") {
+  if (!productObj) return "";
+  const brandCode = threeCharBrand(shopName);
+  const catCode = twoCharCode(productObj.category, "CF");
+  const prodCode = twoCharCode(productObj.name, "DR");
+  const sizeOz = { S: "12", M: "16", L: "22" }[size] || "16";
+  const tempCode = { HOT: "HT", ICED: "IC", NA: "NA" }[temperature] || "HT";
+  const baseSku = `${brandCode}-${catCode}-${prodCode}-${sizeOz}-${tempCode}`;
+
+  const taken = new Set(
+    (existingVariants || [])
+      .filter((v) => String(v.id) !== String(currentId || ""))
+      .map((v) => String(v.sku || "").toUpperCase()),
+  );
+  if (!taken.has(baseSku)) return baseSku;
+  let seq = 2;
+  while (taken.has(`${baseSku}-${String(seq).padStart(2, "0")}`) && seq < 99) {
+    seq++;
+  }
+  return `${baseSku}-${String(seq).padStart(2, "0")}`;
+}
 const emptyDelivery = {
   ingredient_id: "",
   container_count: "1",
@@ -99,6 +160,7 @@ export default function Management({ user, token, expired }) {
   const [ingredient, setIngredient] = useState(emptyIngredient),
     [product, setProduct] = useState(emptyProduct),
     [variant, setVariant] = useState(emptyVariant),
+    [skuCustom, setSkuCustom] = useState(false),
     [recipeVariant, setRecipeVariant] = useState(""),
     [rows, setRows] = useState([]),
     [delivery, setDelivery] = useState(emptyDelivery);
@@ -612,7 +674,6 @@ export default function Management({ user, token, expired }) {
                 <Receipt
                   sale={receipt}
                   onClose={() => setReceipt(null)}
-                  onPrint={() => window.print()}
                   onVoid={(s) => setVoidTarget(s)}
                 />
               )}
@@ -910,7 +971,10 @@ export default function Management({ user, token, expired }) {
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      save("variant", variant, () => setVariant(emptyVariant));
+                      save("variant", variant, () => {
+                        setVariant(emptyVariant);
+                        setSkuCustom(false);
+                      });
                     }}
                   >
                     <fieldset disabled={busy}>
@@ -918,7 +982,23 @@ export default function Management({ user, token, expired }) {
                         label="Variant product"
                         required
                         disabled={!!variant.id}
-                        {...input(variant, setVariant, "product_id")}
+                        value={variant.product_id}
+                        onChange={(e) => {
+                          const pid = e.target.value;
+                          const prodObj = data.products.find((p) => String(p.id) === String(pid));
+                          const nextSku =
+                            !skuCustom && prodObj
+                              ? generateVariantSku(
+                                  prodObj,
+                                  variant.size,
+                                  variant.temperature,
+                                  data.variants,
+                                  variant.id,
+                                  user?.shop_name,
+                                )
+                              : variant.sku;
+                          setVariant({ ...variant, product_id: pid, sku: nextSku });
+                        }}
                       >
                         <option value="">Choose product</option>
                         {data.products.map((p) => (
@@ -930,7 +1010,25 @@ export default function Management({ user, token, expired }) {
                       <div className="form-grid">
                         <Select
                           label="Size"
-                          {...input(variant, setVariant, "size")}
+                          value={variant.size}
+                          onChange={(e) => {
+                            const nextSize = e.target.value;
+                            const prodObj = data.products.find(
+                              (p) => String(p.id) === String(variant.product_id),
+                            );
+                            const nextSku =
+                              !skuCustom && prodObj
+                                ? generateVariantSku(
+                                    prodObj,
+                                    nextSize,
+                                    variant.temperature,
+                                    data.variants,
+                                    variant.id,
+                                    user?.shop_name,
+                                  )
+                                : variant.sku;
+                            setVariant({ ...variant, size: nextSize, sku: nextSku });
+                          }}
                         >
                           <option value="S">S · 12 oz</option>
                           <option value="M">M · 16 oz</option>
@@ -938,20 +1036,80 @@ export default function Management({ user, token, expired }) {
                         </Select>
                         <Select
                           label="Temperature"
-                          {...input(variant, setVariant, "temperature")}
+                          value={variant.temperature}
+                          onChange={(e) => {
+                            const nextTemp = e.target.value;
+                            const prodObj = data.products.find(
+                              (p) => String(p.id) === String(variant.product_id),
+                            );
+                            const nextSku =
+                              !skuCustom && prodObj
+                                ? generateVariantSku(
+                                    prodObj,
+                                    variant.size,
+                                    nextTemp,
+                                    data.variants,
+                                    variant.id,
+                                    user?.shop_name,
+                                  )
+                                : variant.sku;
+                            setVariant({
+                              ...variant,
+                              temperature: nextTemp,
+                              sku: nextSku,
+                            });
+                          }}
                         >
                           <option value="HOT">Hot</option>
                           <option value="ICED">Iced</option>
                           <option value="NA">Not applicable</option>
                         </Select>
                       </div>
-                      <Field
-                        label="SKU"
-                        required
-                        maxLength={64}
-                        pattern="[A-Za-z0-9._\\-]+"
-                        {...input(variant, setVariant, "sku")}
-                      />
+                      <div className="sku-field-group">
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                          <span style={{ fontWeight: 600 }}>SKU (Auto-generated · Editable)</span>
+                          <button
+                            type="button"
+                            className="compact-btn"
+                            disabled={!variant.product_id || busy}
+                            onClick={() => {
+                              const prodObj = data.products.find(
+                                (p) => String(p.id) === String(variant.product_id),
+                              );
+                              if (!prodObj) return;
+                              setSkuCustom(false);
+                              setVariant({
+                                ...variant,
+                                sku: generateVariantSku(
+                                  prodObj,
+                                  variant.size,
+                                  variant.temperature,
+                                  data.variants,
+                                  variant.id,
+                                  user?.shop_name,
+                                ),
+                              });
+                            }}
+                          >
+                            Auto-generate SKU
+                          </button>
+                        </div>
+                        <input
+                          aria-label="SKU"
+                          required
+                          maxLength={64}
+                          pattern="[A-Za-z0-9._\-]+"
+                          placeholder="e.g. NRC-ES-SL-16-IC"
+                          value={variant.sku}
+                          onChange={(e) => {
+                            setSkuCustom(true);
+                            setVariant({ ...variant, sku: e.target.value.toUpperCase() });
+                          }}
+                        />
+                        <p className="subtle small" style={{ marginTop: "4px" }}>
+                          Format: Store-Category-Product-Oz-Temp (e.g. <code>NRC-ES-SL-16-IC</code>). You can customize this code before saving.
+                        </p>
+                      </div>
                       <Field
                         label="VAT-inclusive price"
                         required
@@ -970,9 +1128,10 @@ export default function Management({ user, token, expired }) {
                           <button
                             type="button"
                             onClick={() =>
-                              remove("variant", variant.id, () =>
-                                setVariant(emptyVariant),
-                              )
+                              remove("variant", variant.id, () => {
+                                setVariant(emptyVariant);
+                                setSkuCustom(false);
+                              })
                             }
                           >
                             Delete unused variant
@@ -980,7 +1139,10 @@ export default function Management({ user, token, expired }) {
                         )}
                         <button
                           type="button"
-                          onClick={() => setVariant(emptyVariant)}
+                          onClick={() => {
+                            setVariant(emptyVariant);
+                            setSkuCustom(false);
+                          }}
                         >
                           New variant
                         </button>
@@ -1008,7 +1170,10 @@ export default function Management({ user, token, expired }) {
                           <td>
                             <button
                               disabled={busy}
-                              onClick={() => setVariant(v)}
+                              onClick={() => {
+                                setVariant(v);
+                                setSkuCustom(true);
+                              }}
                             >
                               Edit {v.sku}
                             </button>
