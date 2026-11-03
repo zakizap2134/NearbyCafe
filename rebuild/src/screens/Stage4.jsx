@@ -674,8 +674,9 @@ export function Staff({ token, expired, onResetPassword }) {
       .split(/\s+/)
       .filter(Boolean);
     if (!clean.length) return "";
-    const first = clean[0].slice(0, 20);
-    return `barista_${first}`;
+    const words = clean[0] === "barista" ? clean.slice(1) : clean;
+    if (!words.length) return "barista";
+    return `barista_${words.join("").slice(0, 20)}`;
   }
   function generateTempStaffPassword() {
     const randDigits = String(1000 + Math.floor(Math.random() * 9000));

@@ -382,6 +382,12 @@ export default function Register({ user, token, expired }) {
         sale={successSale}
         cashierName={user.display_name || user.username}
         onClose={() => setSuccessSale(null)}
+        onPrint={() => {
+          const target = successSale;
+          setSuccessSale(null);
+          setSale(target);
+          setTimeout(() => window.print(), 250);
+        }}
         onVoid={(s) => {
           setSuccessSale(null);
           setVoidTarget(s);
@@ -807,6 +813,7 @@ export default function Register({ user, token, expired }) {
         <Receipt
           sale={sale}
           onClose={() => setSale(null)}
+          onPrint={() => window.print()}
           onVoid={(s) => setVoidTarget(s)}
           onReloadItems={reloadSaleToBasket}
         />
