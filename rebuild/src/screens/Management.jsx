@@ -7,6 +7,7 @@ import {
   BackupRestore,
   StockOperations,
   containerStatus,
+  download,
 } from "./Stage4";
 import AccountSecurity from "./AccountSecurity";
 import { transactionKey } from "../checkout-store";
@@ -142,6 +143,31 @@ const emptyDelivery = {
   supplier: "",
   lot_reference: "",
 };
+
+function generateDeliveryCodes(ingredientObj, existingBatches = [], serverTime = "") {
+  const rawDate = (serverTime || new Date().toISOString()).slice(0, 10).replace(/-/g, "");
+  const ingCode = ingredientObj ? twoCharCode(ingredientObj.name, "IN") : "IN";
+  const prefix = `DEL-${rawDate}-${ingCode}`;
+  const taken = new Set(
+    (existingBatches || []).map((b) => String(b.reference || "").toUpperCase()),
+  );
+  let seq = 1;
+  while (taken.has(`${prefix}-${String(seq).padStart(2, "0")}`) && seq < 99) {
+    seq++;
+  }
+  const suffix = `${rawDate}-${ingCode}-${String(seq).padStart(2, "0")}`;
+  return {
+    reference: `DEL-${suffix}`,
+    lot_reference: `LOT-${suffix}`,
+  };
+}
+
+function addDaysToIsoDate(baseDateStr, days) {
+  const clean = (baseDateStr || new Date().toISOString()).slice(0, 10);
+  const [y, m, d] = clean.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
+}
 
 export default function Management({ user, token, expired }) {
   const [recoveryPrepared, setRecoveryPrepared] = useState(Boolean(user?.email));
@@ -539,7 +565,61 @@ export default function Management({ user, token, expired }) {
           )}
           {tab === "Overview" && (
             <>
-              <p className="subtle">{data.sales.date} · Manila time</p>
+              <div className="section-heading">
+                <p className="subtle">{data.sales.date} · Manila time</p>
+                <div className="button-row">
+                  <button
+                    type="button"
+                    className="primary compact-btn"
+                    disabled={busy}
+                    onClick={async () => {
+                      setBusy(true);
+                      setError(null);
+                      setNotice("");
+                      try {
+                        const file = await api("management/csv", {
+                          token,
+                          query: {
+                            from: data.sales.date,
+                            to: data.sales.date,
+                            format: "xlsx_structured",
+                            include_voided: "1",
+                          },
+                          timeout: 60000,
+                        });
+                        download(
+                          file.filename,
+                          file.content,
+                          file.mime ||
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                          file.encoding || "base64",
+                        );
+                        setNotice(
+                          `Downloaded today's Z-Reading Excel workbook (${file.filename}).`,
+                        );
+                      } catch (e) {
+                        setError(e);
+                        if (e.status === 401) expired();
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                  >
+                    Download Today’s Z-Reading (.xlsx)
+                  </button>
+                  <button
+                    type="button"
+                    className="compact-btn"
+                    onClick={() => {
+                      setNotice("");
+                      setError(null);
+                      setTab("Reports");
+                    }}
+                  >
+                    Open Reports →
+                  </button>
+                </div>
+              </div>
               <div className="stats">
                 {[
                   ["Sales", data.sales.totals.count],
@@ -838,6 +918,37 @@ export default function Management({ user, token, expired }) {
                         maxLength={60}
                         {...input(product, setProduct, "category")}
                       />
+                      <div className="quick-preset-row">
+                        <span className="preset-caption">
+                          Quick categories (1-click):
+                        </span>
+                        <div className="quick-chip-group">
+                          {Array.from(
+                            new Set([
+                              "Coffee",
+                              "Espresso",
+                              "Matcha",
+                              "Specialty",
+                              "Non-Coffee",
+                              "Pastry",
+                              ...(data.products || [])
+                                .map((p) => p.category)
+                                .filter(Boolean),
+                            ]),
+                          ).map((cat) => (
+                            <button
+                              key={cat}
+                              type="button"
+                              className={`compact-btn quick-chip${product.category === cat ? " active" : ""}`}
+                              onClick={() =>
+                                setProduct({ ...product, category: cat })
+                              }
+                            >
+                              {cat}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                       <Field label="Choose Image (Optional · JPG, PNG, WebP)">
                         <input
                           ref={productImageInputRef}
@@ -1116,6 +1227,34 @@ export default function Management({ user, token, expired }) {
                         inputMode="decimal"
                         {...input(variant, setVariant, "price")}
                       />
+                      <div className="quick-preset-row">
+                        <span className="preset-caption">
+                          Quick prices (1-click):
+                        </span>
+                        <div className="quick-chip-group">
+                          {[
+                            "100.00",
+                            "110.00",
+                            "120.00",
+                            "140.00",
+                            "150.00",
+                            "160.00",
+                            "180.00",
+                            "200.00",
+                          ].map((pVal) => (
+                            <button
+                              key={pVal}
+                              type="button"
+                              className={`compact-btn quick-chip${Number(variant.price) === Number(pVal) && variant.price !== "" ? " active" : ""}`}
+                              onClick={() =>
+                                setVariant({ ...variant, price: pVal })
+                              }
+                            >
+                              ₱{parseInt(pVal, 10)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                       <Active
                         value={variant.is_active}
                         onChange={(is_active) =>
@@ -1306,7 +1445,26 @@ export default function Management({ user, token, expired }) {
                       <Select
                         label="Delivery ingredient"
                         required
-                        {...input(delivery, setDelivery, "ingredient_id")}
+                        value={delivery.ingredient_id}
+                        onChange={(e) => {
+                          const ingId = e.target.value;
+                          const ingObj = ingredients.find(
+                            (i) => String(i.id) === String(ingId),
+                          );
+                          const codes = ingObj
+                            ? generateDeliveryCodes(
+                                ingObj,
+                                data.batches,
+                                data.server_time,
+                              )
+                            : { reference: "", lot_reference: "" };
+                          setDelivery({
+                            ...delivery,
+                            ingredient_id: ingId,
+                            reference: codes.reference,
+                            lot_reference: codes.lot_reference,
+                          });
+                        }}
                       >
                         <option value="">Choose ingredient</option>
                         {ingredients
@@ -1317,12 +1475,58 @@ export default function Management({ user, token, expired }) {
                             </option>
                           ))}
                       </Select>
-                      <Field
-                        label="Delivery reference"
-                        required
-                        maxLength={120}
-                        {...input(delivery, setDelivery, "reference")}
-                      />
+                      <div>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            gap: "8px",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          <span style={{ fontWeight: 600, fontSize: "13px" }}>
+                            Delivery reference (Auto · Editable)
+                          </span>
+                          <button
+                            type="button"
+                            className="compact-btn"
+                            disabled={!delivery.ingredient_id || busy}
+                            onClick={() => {
+                              const ingObj = ingredients.find(
+                                (i) =>
+                                  String(i.id) ===
+                                  String(delivery.ingredient_id),
+                              );
+                              const codes = generateDeliveryCodes(
+                                ingObj,
+                                data.batches,
+                                data.server_time,
+                              );
+                              setDelivery({
+                                ...delivery,
+                                reference: codes.reference,
+                                lot_reference: codes.lot_reference,
+                              });
+                            }}
+                          >
+                            Auto-generate codes
+                          </button>
+                        </div>
+                        <input
+                          aria-label="Delivery reference"
+                          required
+                          maxLength={120}
+                          placeholder="e.g. DEL-20261103-AE-01"
+                          value={delivery.reference}
+                          onChange={(e) =>
+                            setDelivery({
+                              ...delivery,
+                              reference: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
                       <Field
                         label="Container count"
                         type="number"
@@ -1331,27 +1535,81 @@ export default function Management({ user, token, expired }) {
                         required
                         {...input(delivery, setDelivery, "container_count")}
                       />
-                      <Field
-                        label="Quantity per container (base units)"
-                        required
-                        inputMode="decimal"
-                        {...input(
-                          delivery,
-                          setDelivery,
-                          "quantity_per_container",
-                        )}
-                      />
-                      <Field
-                        label="Expiration date"
-                        type="date"
-                        required={
-                          ingredients.find(
-                            (i) =>
-                              String(i.id) === String(delivery.ingredient_id),
-                          )?.opened_shelf_life_hours != null
-                        }
-                        {...input(delivery, setDelivery, "expiration_date")}
-                      />
+                      <div>
+                        <Field
+                          label="Quantity per container (base units)"
+                          required
+                          inputMode="decimal"
+                          {...input(
+                            delivery,
+                            setDelivery,
+                            "quantity_per_container",
+                          )}
+                        />
+                        <div className="quick-preset-row compact-preset">
+                          <div className="quick-chip-group">
+                            {["250", "500", "1000", "2000", "5000"].map((q) => (
+                              <button
+                                key={q}
+                                type="button"
+                                className={`compact-btn quick-chip${String(delivery.quantity_per_container) === q ? " active" : ""}`}
+                                onClick={() =>
+                                  setDelivery({
+                                    ...delivery,
+                                    quantity_per_container: q,
+                                  })
+                                }
+                              >
+                                {q}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <Field
+                          label="Expiration date"
+                          type="date"
+                          required={
+                            ingredients.find(
+                              (i) =>
+                                String(i.id) === String(delivery.ingredient_id),
+                            )?.opened_shelf_life_hours != null
+                          }
+                          {...input(delivery, setDelivery, "expiration_date")}
+                        />
+                        <div className="quick-preset-row compact-preset">
+                          <div className="quick-chip-group">
+                            {[
+                              ["+7 Days", 7],
+                              ["+14 Days", 14],
+                              ["+1 Month", 30],
+                              ["+6 Months", 180],
+                              ["+1 Year", 365],
+                            ].map(([lbl, days]) => {
+                              const targetDate = addDaysToIsoDate(
+                                data.server_time,
+                                days,
+                              );
+                              return (
+                                <button
+                                  key={lbl}
+                                  type="button"
+                                  className={`compact-btn quick-chip${delivery.expiration_date === targetDate ? " active" : ""}`}
+                                  onClick={() =>
+                                    setDelivery({
+                                      ...delivery,
+                                      expiration_date: targetDate,
+                                    })
+                                  }
+                                >
+                                  {lbl}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
                       <Field
                         label="Supplier (optional)"
                         maxLength={120}
@@ -1360,6 +1618,7 @@ export default function Management({ user, token, expired }) {
                       <Field
                         label="Lot reference (optional)"
                         maxLength={120}
+                        placeholder="e.g. LOT-20261103-AE-01"
                         {...input(delivery, setDelivery, "lot_reference")}
                       />
                     </div>

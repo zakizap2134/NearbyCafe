@@ -18,7 +18,19 @@ const today = () =>
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
-function download(filename, content, type, encoding = "utf8") {
+
+function manilaDateOffset(daysOffset) {
+  const base = today();
+  const [y, m, d] = base.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + daysOffset));
+  return dt.toISOString().slice(0, 10);
+}
+
+function manilaStartOfMonth() {
+  return `${today().slice(0, 8)}01`;
+}
+
+export function download(filename, content, type, encoding = "utf8") {
   let blobPart = content;
   if (encoding === "base64") {
     const bin = atob(content);
@@ -110,24 +122,60 @@ function Pager({ page, total, busy, onPage }) {
     </div>
   );
 }
-function Dates({ range, setRange }) {
+function Dates({ range, setRange, onQuickRange }) {
+  const t = today();
+  const yest = manilaDateOffset(-1);
+  const last7 = manilaDateOffset(-6);
+  const monthStart = manilaStartOfMonth();
+  const last30 = manilaDateOffset(-29);
+  const presets = [
+    ["Today (Z-Reading)", t, t],
+    ["Yesterday", yest, yest],
+    ["Last 7 Days", last7, t],
+    ["This Month", monthStart, t],
+    ["Last 30 Days", last30, t],
+  ];
   return (
-    <div className="form-grid">
-      <Field
-        label="From date"
-        type="date"
-        required
-        value={range.from}
-        onChange={(e) => setRange({ ...range, from: e.target.value })}
-      />
-      <Field
-        label="Through date"
-        type="date"
-        required
-        value={range.to}
-        onChange={(e) => setRange({ ...range, to: e.target.value })}
-      />
-    </div>
+    <>
+      <div className="quick-preset-row">
+        <span className="preset-caption">Quick period (1-click load):</span>
+        <div className="quick-chip-group">
+          {presets.map(([label, from, to]) => {
+            const active = range.from === from && range.to === to;
+            return (
+              <button
+                key={label}
+                type="button"
+                className={`compact-btn quick-chip${active ? " active" : ""}`}
+                onClick={() => {
+                  const next = { from, to };
+                  setRange(next);
+                  if (onQuickRange) onQuickRange(next);
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="form-grid">
+        <Field
+          label="From date"
+          type="date"
+          required
+          value={range.from}
+          onChange={(e) => setRange({ ...range, from: e.target.value })}
+        />
+        <Field
+          label="Through date"
+          type="date"
+          required
+          value={range.to}
+          onChange={(e) => setRange({ ...range, to: e.target.value })}
+        />
+      </div>
+    </>
   );
 }
 
@@ -139,10 +187,11 @@ export function Reports({ token, expired }) {
     [voidTarget, setVoidTarget] = useState(null),
     [csvFormat, setCsvFormat] = useState("xlsx_structured"),
     [csvIncludeVoided, setCsvIncludeVoided] = useState(true);
-  const load = (page = 1) =>
+  const load = (page = 1, customRange = null) =>
     action.run(async () => {
+      const r = customRange ?? range;
       setData(
-        await api("management/reports", { token, query: { ...range, page } }),
+        await api("management/reports", { token, query: { ...r, page } }),
       );
       setReceipt(null);
     });
@@ -166,7 +215,11 @@ export function Reports({ token, expired }) {
         }}
       >
         <fieldset disabled={action.busy}>
-          <Dates range={range} setRange={setRange} />
+          <Dates
+            range={range}
+            setRange={setRange}
+            onQuickRange={(next) => load(1, next)}
+          />
           <button className="primary">Load report</button>
         </fieldset>
       </form>
@@ -416,7 +469,13 @@ export function History({ token, expired, stock = false }) {
         }}
       >
         <fieldset disabled={action.busy}>
-          <Dates range={range} setRange={setRange} />
+          <Dates
+            range={range}
+            setRange={setRange}
+            onQuickRange={(next) =>
+              load(1, { ...next, [stock ? "type" : "action"]: filter })
+            }
+          />
           {stock ? (
             <Select
               label="Movement type"

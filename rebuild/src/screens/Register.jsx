@@ -29,6 +29,7 @@ export default function Register({ user, token, expired }) {
     [loading, setLoading] = useState(true),
     [draft, setDraft] = useState(null),
     [search, setSearch] = useState(""),
+    [categoryFilter, setCategoryFilter] = useState("ALL"),
     [review, setReview] = useState(false),
     [busy, setBusy] = useState(false),
     [ready, setReady] = useState(false),
@@ -245,12 +246,19 @@ export default function Register({ user, token, expired }) {
     history = (orders ?? []).filter(
       (o) => o && (o.state === "confirmed" || o.state === "resolved"),
     );
-  const products = (Array.isArray(menu?.variants) ? menu.variants : [])
-    .filter((v) =>
-      `${v?.product_name ?? ""} ${v?.category ?? ""}`
+  const allVariants = Array.isArray(menu?.variants) ? menu.variants : [];
+  const menuCategories = Array.from(
+    new Set(allVariants.map((v) => v?.category).filter(Boolean)),
+  );
+  const products = allVariants
+    .filter((v) => {
+      if (categoryFilter !== "ALL" && v?.category !== categoryFilter) {
+        return false;
+      }
+      return `${v?.product_name ?? ""} ${v?.category ?? ""}`
         .toLowerCase()
-        .includes(search.toLowerCase()),
-    )
+        .includes(search.toLowerCase());
+    })
     .reduce((all, v) => {
       const pid = v.product_id ?? v.id;
       const entry = (all[pid] ??= {
@@ -383,6 +391,41 @@ export default function Register({ user, token, expired }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          {menuCategories.length > 0 && (
+            <div className="quick-preset-row register-category-row">
+              <div className="quick-chip-group">
+                <button
+                  type="button"
+                  className={`compact-btn quick-chip${categoryFilter === "ALL" ? " active" : ""}`}
+                  onClick={() => setCategoryFilter("ALL")}
+                >
+                  All drinks
+                </button>
+                {menuCategories.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    className={`compact-btn quick-chip${categoryFilter === cat ? " active" : ""}`}
+                    onClick={() => setCategoryFilter(cat)}
+                  >
+                    {cat}
+                  </button>
+                ))}
+                {(search || categoryFilter !== "ALL") && (
+                  <button
+                    type="button"
+                    className="compact-btn"
+                    onClick={() => {
+                      setSearch("");
+                      setCategoryFilter("ALL");
+                    }}
+                  >
+                    Reset filter
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           {loading && !menu ? (
             <p role="status">Loading menu…</p>
           ) : Object.keys(products).length === 0 ? (
