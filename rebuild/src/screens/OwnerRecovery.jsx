@@ -16,6 +16,9 @@ export default function OwnerRecovery() {
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState("");
 
+  const hasMinLength = password.length >= 12;
+  const passwordsMatch = password.length > 0 && password === confirmation;
+
   async function handleSendCode(e) {
     if (e && e.preventDefault) e.preventDefault();
     setError(null);
@@ -71,19 +74,40 @@ export default function OwnerRecovery() {
   return (
     <main className="owner-recovery-page">
       <header className="recovery-brand-bar">
-        <Brand compact header />
-        <div>
-          <span className="recovery-eyebrow">NEARBY CAFÉ</span>
-          <p>Your account, safely back in reach.</p>
+        <div className="recovery-brand-wrap">
+          <Brand compact header />
+          <div className="recovery-brand-text">
+            <strong>Nearby Café</strong>
+            <span>VenueVue · Account Recovery</span>
+          </div>
         </div>
+        <Link className="recovery-header-back-link" to="/login">
+          ← Back to sign in
+        </Link>
       </header>
 
       <div className="recovery-content">
         <section className="panel owner-recovery-card">
-          <p className="recovery-eyebrow">PASSWORD RECOVERY</p>
+          <div className="recovery-progress-bar" aria-label="Recovery progress">
+            <div className={`recovery-step-pill ${step === "request" ? "active" : "done"}`}>
+              <span className="step-num">{step === "request" ? "1" : "✓"}</span>
+              <span className="step-label">1. Request Code</span>
+            </div>
+            <div className="step-connector"></div>
+            <div className={`recovery-step-pill ${step === "verify" ? "active" : step === "success" ? "done" : "idle"}`}>
+              <span className="step-num">{step === "success" ? "✓" : "2"}</span>
+              <span className="step-label">2. Verify & Reset</span>
+            </div>
+            <div className="step-connector"></div>
+            <div className={`recovery-step-pill ${step === "success" ? "active" : "idle"}`}>
+              <span className="step-num">{step === "success" ? "✓" : "3"}</span>
+              <span className="step-label">3. Completed</span>
+            </div>
+          </div>
 
           {step === "request" && (
             <>
+              <p className="recovery-eyebrow">STEP 1 OF 2 · ACCOUNT IDENTIFICATION</p>
               <h1>Forgot password?</h1>
               <p className="subtle">
                 Enter your registered email address. We'll send a secure 6-digit verification code to your inbox to reset your password.
@@ -106,10 +130,12 @@ export default function OwnerRecovery() {
                   id="recovery-email"
                   type="email"
                   autoComplete="email"
+                  spellCheck={false}
                   required
                   placeholder="owner@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value.replace(/\s+/g, ""))}
+                  onBlur={() => setEmail((prev) => prev.trim())}
                   disabled={busy}
                   autoFocus
                 />
@@ -118,15 +144,15 @@ export default function OwnerRecovery() {
                   type="submit"
                   className="primary full"
                   disabled={busy}
-                  style={{ marginTop: "16px" }}
+                  style={{ marginTop: "18px" }}
                 >
-                  {busy ? "Sending code…" : "Send verification code"}
+                  {busy ? "Sending code…" : "Send verification code →"}
                 </button>
               </form>
 
-              <div style={{ marginTop: "24px" }}>
+              <div style={{ marginTop: "24px", textAlign: "center" }}>
                 <Link className="recovery-back" to="/login">
-                  Back to sign in
+                  Return to sign in
                 </Link>
               </div>
             </>
@@ -134,10 +160,7 @@ export default function OwnerRecovery() {
 
           {step === "verify" && (
             <>
-              <div className="recovery-step-indicator">
-                <span className="recovery-step-badge">2</span> Step 2: Enter code & set new password
-              </div>
-
+              <p className="recovery-eyebrow">STEP 2 OF 2 · CODE VERIFICATION & NEW PASSWORD</p>
               <h1>Enter 6-digit code</h1>
 
               {notice && <div className="success recovery-notice">{notice}</div>}
@@ -157,14 +180,15 @@ export default function OwnerRecovery() {
                   pattern="[0-9]*"
                   maxLength={6}
                   autoComplete="one-time-code"
+                  spellCheck={false}
                   placeholder="123456"
                   value={code}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   disabled={busy}
                   autoFocus
                 />
-                <p className="setup-hint" style={{ textAlign: "center", marginBottom: "16px" }}>
-                  Enter the 6-digit code sent to <strong>{email}</strong> (valid for 15 minutes)
+                <p className="setup-hint" style={{ textAlign: "center", marginBottom: "18px" }}>
+                  Code sent to <strong>{email}</strong> (valid for 15 minutes)
                 </p>
 
                 <StaffPassword
@@ -185,14 +209,19 @@ export default function OwnerRecovery() {
                   autoComplete="new-password"
                 />
 
-                <p id="recovery-password-rules" style={{ fontSize: "0.85rem", color: "#7f6055", marginBottom: "16px" }}>
-                  Choose a secure password with at least 12 characters.
-                </p>
+                <div className="recovery-pw-requirements">
+                  <div className={`req-item ${hasMinLength ? "met" : ""}`}>
+                    <span className="req-icon">{hasMinLength ? "✓" : "○"}</span> At least 12 characters
+                  </div>
+                  <div className={`req-item ${passwordsMatch ? "met" : ""}`}>
+                    <span className="req-icon">{passwordsMatch ? "✓" : "○"}</span> Passwords match
+                  </div>
+                </div>
 
                 <button
                   type="submit"
                   className="primary full"
-                  disabled={busy}
+                  disabled={busy || !hasMinLength || !passwordsMatch || code.length < 6}
                 >
                   {busy ? "Resetting password…" : "Reset password & sign in"}
                 </button>
@@ -207,7 +236,7 @@ export default function OwnerRecovery() {
                     }}
                     disabled={busy}
                   >
-                    Change email
+                    ← Change email
                   </button>
                   <button
                     type="button"
@@ -220,26 +249,32 @@ export default function OwnerRecovery() {
                 </div>
               </form>
 
-              <div style={{ marginTop: "24px" }}>
+              <div style={{ marginTop: "24px", textAlign: "center" }}>
                 <Link className="recovery-back" to="/login">
-                  Back to sign in
+                  Return to sign in
                 </Link>
               </div>
             </>
           )}
 
           {step === "success" && (
-            <div style={{ textAlign: "center", padding: "16px 0" }}>
-              <h1 style={{ color: "#2e7d32", marginBottom: "12px" }}>Password Reset!</h1>
-              <p style={{ fontSize: "1.05rem", lineHeight: "1.5", marginBottom: "24px" }}>
-                Your password has been successfully updated. All active sessions have ended.
+            <div className="recovery-success-card">
+              <div className="recovery-success-icon-wrap" aria-hidden="true">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+              </div>
+              <h1>Password Reset Complete!</h1>
+              <p className="subtle" style={{ fontSize: "1.05rem", lineHeight: "1.6", marginBottom: "24px" }}>
+                Your account password has been safely updated. All previous active sessions have ended for security.
               </p>
               <button
                 type="button"
                 className="primary full"
                 onClick={() => navigate("/login", { replace: true })}
               >
-                Sign in with new password
+                Sign in with new password →
               </button>
             </div>
           )}
@@ -247,18 +282,18 @@ export default function OwnerRecovery() {
 
         <aside className="recovery-support panel">
           <section className="recovery-staff">
-            <h2>Need help?</h2>
+            <h2>Need assistance?</h2>
             <p>
-              • <strong>Check your Spam or Junk folder</strong> if the 6-digit code does not arrive in your inbox within 1–2 minutes.
+              • <strong>Check your Spam / Junk folder:</strong> Verification codes typically arrive in your inbox within 1–2 minutes.
             </p>
             <p>
-              • <strong>Security protected:</strong> For account safety, verification codes are sent exclusively to your private email inbox and are never shown publicly on the web page.
+              • <strong>Private & secure:</strong> Verification codes are sent strictly to your private email address and are never displayed on-screen.
             </p>
             <p>
-              • <strong>Different email?</strong> Click <em>Change email</em> if your store account is registered under a different address.
+              • <strong>Different email?</strong> Click <em>Change email</em> if your account was set up using a different email address.
             </p>
             <p>
-              • <strong>Staff / Baristas:</strong> You can also ask your Store Owner to reset your password directly in <strong>Management → Staff</strong>.
+              • <strong>Baristas / Staff:</strong> You can also request the Store Owner to reset your password directly under <strong>Management → Staff</strong>.
             </p>
           </section>
         </aside>

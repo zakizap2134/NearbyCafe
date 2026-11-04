@@ -1,76 +1,367 @@
-.owner-recovery-page{max-width:1184px;margin:0 auto;padding:24px}
-.recovery-brand-bar{display:flex;align-items:center;gap:clamp(16px,3vw,32px);background:var(--recovery-paper);border-bottom:1px solid #dfcfc5;margin-bottom:32px}
-.recovery-brand-bar .nearby-brand.compact{flex:0 0 max(144px,12.5%);width:max(144px,12.5%);border-radius:0;margin:0}
-.recovery-brand-bar>div:last-child{padding:12px 0;min-width:0}.recovery-brand-bar p{margin:4px 0;color:var(--recovery-muted)}
-.recovery-content{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:24px;align-items:start}
-.owner-recovery-card,.recovery-support{background:var(--recovery-surface);padding:clamp(20px,3vw,32px);border-radius:16px;border:1px solid #dfcfc5;min-width:0}
-.owner-recovery-card h1{font-size:clamp(1.7rem,3vw,2.25rem);line-height:1.15;margin:8px 0 12px;letter-spacing:-.035em}
-.owner-recovery-card h2,.recovery-support h2{font-size:1.15rem;line-height:1.4;margin:16px 0 12px}
-.owner-recovery-card fieldset{min-width:0;padding:0}.owner-recovery-card label{display:block;font-weight:700;margin-bottom:8px}
-.owner-recovery-card #recovery-username{margin-bottom:20px;width:100%}.owner-recovery-card .staff-password{margin-bottom:20px}
-.recovery-back,.forgot-password-link{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:12px 8px;text-decoration:underline;text-underline-offset:4px;font-weight:700;color:#963e35;border-radius:6px}
-.forgot-password-link:focus-visible{outline:3px solid #28534e;outline-offset:4px}.recovery-back:hover,.forgot-password-link:hover{color:#773028;background:#f7e9df}
-.recovery-staff{margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid #dfcfc5}.recovery-staff h2{margin-top:0}
-@media(max-width:900px){.recovery-content{grid-template-columns:minmax(0,1fr)}.owner-recovery-page{max-width:760px}}
-@media(max-width:480px){.owner-recovery-page{padding:16px}.recovery-brand-bar{margin-bottom:24px;gap:16px}.recovery-brand-bar>div:last-child{font-size:.875rem}.recovery-content{gap:16px}}
+.owner-recovery-page {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
 
-.recovery-code-input {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
-  font-size: 2rem !important;
-  letter-spacing: 0.35em !important;
-  text-align: center !important;
-  font-weight: 800 !important;
-  color: #a93226 !important;
-  background: #fdf6f0 !important;
-  border: 2px solid #dfcfc5 !important;
-  border-radius: 8px !important;
-  padding: 12px !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
+.recovery-brand-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--nearby-paper, #fdfbf7);
+  border: 1px solid var(--nearby-border, #e8dfd8);
+  border-radius: 18px;
+  padding: 12px 24px;
+  margin-bottom: 28px;
+  box-shadow: 0 2px 8px rgba(57, 33, 27, 0.04);
 }
-.recovery-code-input:focus {
-  border-color: #a93226 !important;
-  outline: 3px solid rgba(169, 50, 38, 0.2) !important;
+
+.recovery-brand-wrap {
+  display: flex;
+  align-items: center;
+  gap: 18px;
 }
-.recovery-step-indicator {
+
+.recovery-brand-bar .nearby-brand.header-logo,
+.recovery-brand-bar .nearby-brand.compact {
+  flex: 0 0 auto;
+  width: 140px;
+  height: 62px;
+  border-radius: 12px;
+  background: var(--nearby-logo-red, #e01e14);
+  box-shadow: 0 4px 12px rgba(224, 30, 20, 0.2);
+  margin: 0;
+  padding: 6px 12px;
+}
+
+.recovery-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recovery-brand-text strong {
+  font-size: 1.15rem;
+  font-weight: 750;
+  color: var(--nearby-ink, #2e1c18);
+  letter-spacing: -0.01em;
+}
+
+.recovery-brand-text span {
+  font-size: 0.82rem;
+  color: var(--nearby-muted, #7f6055);
+}
+
+.recovery-header-back-link {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-  font-size: 0.9rem;
-  color: #7f6055;
-  font-weight: 700;
-  background: #fdf2ed;
-  padding: 6px 12px;
-  border-radius: 20px;
+  gap: 6px;
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: var(--nearby-action, #a93226);
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  transition: background 0.18s cubic-bezier(0.22, 1, 0.36, 1), color 0.18s ease;
 }
-.recovery-step-badge {
-  background: #a93226;
-  color: #fff;
+
+.recovery-header-back-link:hover {
+  background: var(--nearby-soft, #fdf2ed);
+  color: var(--nearby-hover, #773028);
+}
+
+/* Multi-step progress bar */
+.recovery-progress-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 26px;
+  padding: 8px 14px;
+  background: #fbf4ee;
+  border: 1px solid #efe3da;
+  border-radius: 12px;
+}
+
+.recovery-step-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #8c6b60;
+  transition: all 0.2s ease;
+}
+
+.recovery-step-pill.active {
+  color: var(--nearby-action, #a93226);
+  font-weight: 750;
+}
+
+.recovery-step-pill.done {
+  color: #2e7d32;
+  font-weight: 650;
+}
+
+.step-num {
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.75rem;
+  background: #e2d2c8;
+  color: #5d4037;
+  font-weight: 750;
 }
+
+.recovery-step-pill.active .step-num {
+  background: var(--nearby-action, #a93226);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(169, 50, 38, 0.35);
+}
+
+.recovery-step-pill.done .step-num {
+  background: #2e7d32;
+  color: #ffffff;
+}
+
+.step-connector {
+  flex: 1;
+  height: 2px;
+  background: #e5d7ce;
+  margin: 0 4px;
+}
+
+/* Two-column layout */
+.recovery-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.owner-recovery-card {
+  background: var(--nearby-surface, #ffffff);
+  padding: clamp(22px, 3.5vw, 36px);
+  border-radius: 20px;
+  border: 1px solid var(--nearby-border, #dfcfc5);
+  box-shadow: 0 8px 24px rgba(57, 33, 27, 0.05);
+}
+
+.recovery-support {
+  background: #fffdfa;
+  padding: clamp(20px, 3vw, 28px);
+  border-radius: 20px;
+  border: 1px solid #ebdcd1;
+  box-shadow: 0 4px 16px rgba(57, 33, 27, 0.03);
+}
+
+.recovery-eyebrow {
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--nearby-action, #a93226);
+  margin-bottom: 6px;
+}
+
+.owner-recovery-card h1 {
+  font-size: clamp(1.7rem, 2.8vw, 2.1rem);
+  line-height: 1.18;
+  margin: 6px 0 10px;
+  letter-spacing: -0.025em;
+  color: var(--nearby-ink, #2e1c18);
+}
+
+.owner-recovery-card .subtle {
+  color: var(--nearby-muted, #7f6055);
+  line-height: 1.6;
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+}
+
+/* Code input */
+.recovery-code-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+  font-size: 2.1rem !important;
+  letter-spacing: 0.35em !important;
+  text-align: center !important;
+  font-weight: 800 !important;
+  color: var(--nearby-action, #a93226) !important;
+  background: #fdf6f0 !important;
+  border: 2px solid #dfcfc5 !important;
+  border-radius: 12px !important;
+  padding: 14px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.recovery-code-input:focus {
+  border-color: var(--nearby-action, #a93226) !important;
+  outline: 3px solid rgba(169, 50, 38, 0.2) !important;
+  background: #ffffff !important;
+}
+
+/* Password requirements live tracker */
+.recovery-pw-requirements {
+  background: #faf4ee;
+  border: 1px solid #eddcd1;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 12px 0 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.req-item {
+  font-size: 0.82rem;
+  color: #8c6b60;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.req-item.met {
+  color: #2e7d32;
+  font-weight: 700;
+}
+
+.req-icon {
+  font-weight: 800;
+  display: inline-block;
+  width: 14px;
+  text-align: center;
+}
+
+/* Resend / Action row */
 .recovery-resend-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: 16px;
 }
+
 .link-button {
   background: none;
   border: none;
-  color: #a93226;
+  color: var(--nearby-action, #a93226);
   text-decoration: underline;
+  text-underline-offset: 3px;
   cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 600;
-  padding: 4px;
+  font-size: 0.88rem;
+  font-weight: 650;
+  padding: 6px 4px;
+  border-radius: 4px;
 }
+
 .link-button:hover {
-  color: #773028;
+  color: var(--nearby-hover, #773028);
+}
+
+.recovery-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 16px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  font-weight: 650;
+  font-size: 0.9rem;
+  color: var(--nearby-action, #a93226);
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.recovery-back:hover {
+  background: var(--nearby-soft, #fdf2ed);
+  color: var(--nearby-hover, #773028);
+}
+
+/* Success Card */
+.recovery-success-card {
+  text-align: center;
+  padding: 16px 8px;
+}
+
+.recovery-success-icon-wrap {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: #e8f5e9;
+  color: #2e7d32;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 18px;
+  box-shadow: 0 4px 14px rgba(46, 125, 50, 0.22);
+}
+
+.recovery-success-card h1 {
+  color: #2e7d32;
+  margin-bottom: 8px;
+}
+
+/* Support panel */
+.recovery-staff h2 {
+  font-size: 1.15rem;
+  line-height: 1.4;
+  margin: 0 0 14px;
+  color: var(--nearby-ink, #2e1c18);
+}
+
+.recovery-staff p {
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--nearby-muted, #7f6055);
+  margin: 0 0 12px;
+}
+
+.recovery-staff p strong {
+  color: var(--nearby-ink, #2e1c18);
+}
+
+@media (max-width: 900px) {
+  .recovery-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .owner-recovery-page {
+    max-width: 680px;
+  }
+}
+
+@media (max-width: 480px) {
+  .owner-recovery-page {
+    padding: 14px 12px;
+  }
+  .recovery-brand-bar {
+    padding: 10px 14px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .recovery-brand-bar .nearby-brand.header-logo {
+    width: 110px;
+    height: 50px;
+  }
+  .recovery-brand-text strong {
+    font-size: 1rem;
+  }
+  .recovery-step-pill .step-label {
+    display: none;
+  }
+  .owner-recovery-card {
+    padding: 20px 16px;
+  }
+  .recovery-code-input {
+    font-size: 1.6rem !important;
+    letter-spacing: 0.25em !important;
+    padding: 10px !important;
+  }
 }

@@ -303,11 +303,23 @@ function Login({ onSuccess, sessionNotice }) {
                   Username or Email
                   <input
                     autoComplete="username"
+                    spellCheck={false}
                     required
                     minLength={3}
                     maxLength={191}
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => {
+                      const cleanVal = e.target.value.replace(/\s+/g, "");
+                      setName(cleanVal);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === " ") {
+                        e.preventDefault();
+                      }
+                    }}
+                    onBlur={() => {
+                      setName((prev) => prev.trim());
+                    }}
                     disabled={busy}
                     autoFocus
                   />
