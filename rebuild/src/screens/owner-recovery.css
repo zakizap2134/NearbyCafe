@@ -27,8 +27,8 @@
 .recovery-brand-bar .nearby-brand.header-logo,
 .recovery-brand-bar .nearby-brand.compact {
   flex: 0 0 auto;
-  width: 174px;
-  height: 74px;
+  width: 160px;
+  height: 64px;
   border-radius: 14px;
   background: var(--nearby-logo-red, #e01e14);
   box-shadow: 0 4px 12px rgba(224, 30, 20, 0.2);
@@ -349,8 +349,9 @@
     gap: 10px;
   }
   .recovery-brand-bar .nearby-brand.header-logo {
-    width: 110px;
-    height: 50px;
+    width: 120px;
+    height: 48px;
+    border-radius: 10px;
   }
   .recovery-brand-text strong {
     font-size: 1rem;
