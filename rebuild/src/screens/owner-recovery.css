@@ -27,13 +27,14 @@
 .recovery-brand-bar .nearby-brand.header-logo,
 .recovery-brand-bar .nearby-brand.compact {
   flex: 0 0 auto;
-  width: 140px;
-  height: 62px;
-  border-radius: 12px;
+  width: 174px;
+  height: 74px;
+  border-radius: 14px;
   background: var(--nearby-logo-red, #e01e14);
   box-shadow: 0 4px 12px rgba(224, 30, 20, 0.2);
   margin: 0;
-  padding: 6px 12px;
+  padding: 0;
+  overflow: hidden;
 }
 
 .recovery-brand-text {
@@ -43,15 +44,16 @@
 }
 
 .recovery-brand-text strong {
-  font-size: 1.15rem;
-  font-weight: 750;
+  font-size: 1.3rem;
+  font-weight: 800;
   color: var(--nearby-ink, #2e1c18);
   letter-spacing: -0.01em;
 }
 
 .recovery-brand-text span {
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   color: var(--nearby-muted, #7f6055);
+  font-weight: 550;
 }
 
 .recovery-header-back-link {
