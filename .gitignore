@@ -28,6 +28,7 @@ aria_log*
 # SQL schema source is allowed only in the application schema folder
 *.sql
 !/rebuild/database/*.sql
+!/sync-engine/database/*.sql
 # Credentials / recovery material and private keys
 *.pem
 *.key
