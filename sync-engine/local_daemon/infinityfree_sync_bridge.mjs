@@ -9,15 +9,22 @@
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import pkg from "file:///C:/Projects/NearbyCafe/rebuild/node_modules/@playwright/test/index.js";
 const { chromium } = pkg;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const CONFIG = {
   shop_id: "nearbycafe_intramuros_01",
   shop_name: "Nearby Café (Legaspi St., Intramuros)",
   cloud_url: "https://nearbycafe.infinityfreeapp.com",
+  cloud_user: "zakizap",
+  cloud_pass: "callmepapaton2x",
   batch_size: 25,
   poll_interval_seconds: 15,
+  php_bin: "C:\\xampp\\php\\php.exe",
   mysql_bin: "C:\\xampp\\mysql\\bin\\mysql.exe",
   db_user: "root",
   db_pass: "",
@@ -110,6 +117,58 @@ async function main() {
     }
   }
 
+  async function ensureAuthenticated() {
+    const isAuth = await page.evaluate(() => {
+      const tok = sessionStorage.getItem("venuevue.rebuild.session");
+      return !!tok;
+    });
+
+    if (!isAuth) {
+      console.log("Authenticating bridge session on InfinityFree as " + CONFIG.cloud_user + "...");
+      await page.goto(CONFIG.cloud_url + "/#/login", { waitUntil: "domcontentloaded", timeout: 25000 });
+      await page.waitForTimeout(2000);
+      const userInput = page.locator('input[autocomplete="username"]');
+      if (await userInput.isVisible()) {
+        await userInput.fill(CONFIG.cloud_user);
+        await page.locator('#login-password').fill(CONFIG.cloud_pass);
+        await page.click('button.primary.full, button[type="submit"]');
+        await page.waitForSelector(".workspace-header", { timeout: 20000 });
+        console.log("Authenticated bridge session successfully!");
+      }
+    }
+  }
+
+  async function pullDownstreamCatalogue() {
+    try {
+      const token = await page.evaluate(() => sessionStorage.getItem("venuevue.rebuild.session"));
+      if (!token) return;
+
+      const cloudPayload = await page.evaluate(async (tok) => {
+        try {
+          const res = await fetch("api/index.php?route=management", {
+            headers: {
+              "Authorization": `Bearer ${tok}`,
+              "X-Session-Token": tok
+            }
+          });
+          return await res.json();
+        } catch (e) {
+          return null;
+        }
+      }, token);
+
+      if (cloudPayload && cloudPayload.ok && cloudPayload.data) {
+        const tmpJson = path.join(__dirname, "last_cloud_catalogue.json");
+        fs.writeFileSync(tmpJson, JSON.stringify(cloudPayload, null, 2), "utf8");
+        const phpScript = path.join(__dirname, "sync_cloud_to_local.php");
+        execSync(`"${CONFIG.php_bin}" "${phpScript}" "${tmpJson}"`, { stdio: "pipe" });
+        console.log(`[SYNC DOWN] Pulled & Synchronized ${cloudPayload.data.products?.length || 0} products & ${cloudPayload.data.recipes?.length || 0} recipes from Cloud to Local.`);
+      }
+    } catch (e) {
+      console.log("[SYNC DOWN] Note: " + e.message);
+    }
+  }
+
   async function syncCycle() {
     const timeStr = new Date().toLocaleTimeString();
     const pendingCount = parseInt(runLocalSql("SELECT COUNT(*) FROM sync_outbox WHERE status = 'PENDING';") || "0", 10);
@@ -125,8 +184,12 @@ async function main() {
 
     updateLocalStatus("ONLINE");
 
+    // Authenticate and pull latest cloud recipes/catalogue down to local
+    await ensureAuthenticated();
+    await pullDownstreamCatalogue();
+
     if (pendingCount === 0) {
-      console.log(`[${timeStr}] [ONLINE - IDLE] InfinityFree Live & Healthy (Epoch: ${conn.data?.data?.epoch?.slice(0, 8)}...).`);
+      console.log(`[${timeStr}] [ONLINE - IDLE] InfinityFree Live & In Sync (Epoch: ${conn.data?.data?.epoch?.slice(0, 8)}...).`);
       console.log(`           Outbox is clean (0 pending events).\n`);
       return;
     }
