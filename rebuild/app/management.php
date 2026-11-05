@@ -687,6 +687,24 @@ function delete_catalogue(
             "kind" => $kind,
             "record" => $old,
         ]);
+
+        // Enqueue catalogue deletion into sync outbox for cloud synchronization
+        try {
+            $hasOutbox = query($db, "SHOW TABLES LIKE 'sync_outbox'")->fetch();
+            if ($hasOutbox) {
+                $delPayload = json_encode(["kind" => $kind, "id" => $id], JSON_UNESCAPED_SLASHES);
+                $key = sprintf('del-%s-%d-%s', $kind, $id, substr(md5(microtime()), 0, 8));
+                query(
+                    $db,
+                    "INSERT INTO sync_outbox (entity_type, transaction_key, payload, status, created_at)
+                     VALUES ('CATALOGUE_DELETE', ?, ?, 'PENDING', NOW())",
+                    [$key, $delPayload]
+                );
+            }
+        } catch (Throwable) {
+            // Non-blocking
+        }
+
         $db->commit();
         return ["deleted" => true];
     } catch (Throwable $e) {

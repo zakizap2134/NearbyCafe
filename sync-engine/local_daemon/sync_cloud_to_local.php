@@ -84,15 +84,9 @@ try {
     echo "[✓] Synchronized " . count($products) . " products.\n";
 
     // 2. Synchronize Product Variants
+    $pdo->exec("DELETE FROM product_variants;");
     $stmtVar = $pdo->prepare("INSERT INTO product_variants (id, product_id, size, temperature, sku, price, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-            product_id = VALUES(product_id),
-            size = VALUES(size),
-            temperature = VALUES(temperature),
-            sku = VALUES(sku),
-            price = VALUES(price),
-            is_active = VALUES(is_active)");
+        VALUES (?, ?, ?, ?, ?, ?, ?)");
 
     foreach ($variants as $v) {
         $stmtVar->execute([

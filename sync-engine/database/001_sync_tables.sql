@@ -12,7 +12,7 @@
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS sync_outbox (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    entity_type ENUM('SALE', 'STOCK_MOVEMENT', 'BATCH_RECEIVE', 'WASTE', 'Z_READING') NOT NULL,
+    entity_type VARCHAR(32) NOT NULL,
     transaction_key CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     payload LONGTEXT NOT NULL, -- JSON formatted complete entity envelope
     status ENUM('PENDING', 'IN_FLIGHT', 'SYNCED', 'FAILED') NOT NULL DEFAULT 'PENDING',

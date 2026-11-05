@@ -402,12 +402,19 @@ function checkout(
                         "expected_price" => decimal($it["expected_price"]),
                     ];
                 }
+                $syncCustomer = $customerName ?? "";
+                if ($syncCustomer !== "") {
+                    $syncCustomer .= " · (Counter #" . $saleId . ")";
+                } else {
+                    $syncCustomer = "Counter #" . $saleId;
+                }
+
                 $outboxPayload = json_encode([
                     "transaction_key" => $request["key"],
                     "cash_received" => decimal($request["cash"]),
                     "payment_method" => $paymentMethod,
                     "payment_reference" => $paymentReference,
-                    "customer_name" => $customerName,
+                    "customer_name" => $syncCustomer,
                     "items" => $outboxItems,
                     "expected_epoch" => null,
                 ], JSON_UNESCAPED_SLASHES);

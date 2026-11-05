@@ -560,6 +560,24 @@ function save_catalogue(
                 ]),
             ),
         ]);
+
+        // Enqueue catalogue mutation into sync outbox for cloud synchronization
+        try {
+            $hasOutbox = query($db, "SHOW TABLES LIKE 'sync_outbox'")->fetch();
+            if ($hasOutbox) {
+                $syncPayload = json_encode($body, JSON_UNESCAPED_SLASHES);
+                $key = sprintf('cat-%s-%s-%s', $action, (string) ($id ?? 'new'), substr(md5(microtime()), 0, 8));
+                query(
+                    $db,
+                    "INSERT INTO sync_outbox (entity_type, transaction_key, payload, status, created_at)
+                     VALUES ('CATALOGUE_SAVE', ?, ?, 'PENDING', NOW())",
+                    [$key, $syncPayload]
+                );
+            }
+        } catch (Throwable) {
+            // Outbox queuing is non-blocking
+        }
+
         $db->commit();
         return ["id" => $id];
     } catch (Throwable $e) {

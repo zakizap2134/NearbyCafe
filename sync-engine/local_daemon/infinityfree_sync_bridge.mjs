@@ -138,6 +138,61 @@ async function main() {
     }
   }
 
+  async function pushUpstreamCatalogue() {
+    const q = `SELECT id, entity_type, transaction_key, payload, created_at FROM sync_outbox WHERE status = 'PENDING' AND entity_type IN ('CATALOGUE_SAVE', 'CATALOGUE_DELETE') ORDER BY id ASC LIMIT 25;`;
+    const raw = runLocalSql(q);
+    if (!raw) return;
+
+    const rows = [];
+    for (const line of raw.split("\n")) {
+      if (!line.trim()) continue;
+      const parts = line.split("\t");
+      if (parts.length >= 4) {
+        let payload = {};
+        try { payload = JSON.parse(parts[3]); } catch (e) { payload = { raw: parts[3] }; }
+        rows.push({ id: parseInt(parts[0], 10), entity_type: parts[1], transaction_key: parts[2], payload });
+      }
+    }
+    if (rows.length === 0) return;
+
+    console.log(`[SYNC UP] Found ${rows.length} local menu/variant updates to push to InfinityFree Cloud...`);
+
+    const result = await page.evaluate(async (records) => {
+      const token = sessionStorage.getItem("venuevue.rebuild.session");
+      const syncedIds = [];
+      const failed = [];
+
+      for (const rec of records) {
+        try {
+          const route = rec.entity_type === "CATALOGUE_DELETE" ? "api/index.php?route=management/delete" : "api/index.php?route=management/save";
+          const r = await fetch(route, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`,
+              "X-Session-Token": token
+            },
+            body: JSON.stringify(rec.payload)
+          });
+          const j = await r.json().catch(() => null);
+          if (r.ok || (j && j.ok)) syncedIds.push(rec.id);
+          else failed.push({ id: rec.id, error: j?.error?.message || `HTTP ${r.status}` });
+        } catch (e) {
+          failed.push({ id: rec.id, error: e.message });
+        }
+      }
+      return { syncedIds, failed };
+    }, rows);
+
+    if (result.syncedIds.length > 0) {
+      markOutboxSynced(result.syncedIds);
+      console.log(`[SYNC UP] Successfully uploaded ${result.syncedIds.length} catalogue/variant updates to InfinityFree Cloud!`);
+    }
+    if (result.failed.length > 0) {
+      console.log(`[SYNC UP] Notice: ${result.failed.length} catalogue updates deferred:`, result.failed);
+    }
+  }
+
   async function pullDownstreamCatalogue() {
     try {
       const token = await page.evaluate(() => sessionStorage.getItem("venuevue.rebuild.session"));
@@ -184,8 +239,9 @@ async function main() {
 
     updateLocalStatus("ONLINE");
 
-    // Authenticate and pull latest cloud recipes/catalogue down to local
+    // Authenticate, push local catalogue updates to cloud, then pull latest cloud catalogue
     await ensureAuthenticated();
+    await pushUpstreamCatalogue();
     await pullDownstreamCatalogue();
 
     if (pendingCount === 0) {
