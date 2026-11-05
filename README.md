@@ -2,15 +2,26 @@
 
 A locally hosted and cloud-deployable point-of-sale and recipe-driven inventory workspace built for **CTRL + STAY · COSC 75 / Software Engineering II**. React 18, Vite, and React Router provide the responsive interface; PHP 8.2+ (PDO) and MariaDB/MySQL manage accounts, atomic recipe inventory, sales, and audit security.
 
-**The active codebase is in `rebuild/`.** VenueVue supports two deployment environments:
-1. **Cloud Web Deployment**: Deployed to online shared Apache web hosting (such as InfinityFree or cPanel) with HTTPS, Apache FastCGI session header support (`X-Session-Token`), interactive Gmail SMTP delivery, and online web onboarding.
-2. **Offline Local Network POS**: Run directly on a café host laptop with XAMPP 8.2+ and dedicated background services, serving tablets over the local shop Wi-Fi without needing external internet for sales.
+> [!TIP]
+> **Using another laptop, phone, or tablet?**  
+> Read the complete **[Multi-Device Setup & Access Guide](MULTI_DEVICE_GUIDE.md)** for instructions on accessing live cloud production or setting up on a new device.
+
+---
+
+## Quick Access Summary
+
+| Environment | Access Link | Credentials | Status |
+| :--- | :--- | :--- | :--- |
+| **Live Cloud Production** | **[nearbycafe.infinityfreeapp.com](https://nearbycafe.infinityfreeapp.com)** | User: `zakizap`<br>Pass: `callmepapaton2x` | **ONLINE (Active)** |
+| **Local Café Counter** | `http://127.0.0.1:5174` | User: `zakizap`<br>Pass: `callmepapaton2x` | **100% Offline-Ready** |
+| **Hybrid Sync Engine** | `sync-engine/` | Autonomous Playwright/Edge | **Active (Outbox Bridge)** |
 
 ---
 
 ## Documentation Map
 
-- **Setup & Deployment (`docs/setup/`)**: [Installation & Upgrades (Cloud & Local)](docs/setup/INSTALLATION.md) · [Owner Guide & Wi-Fi Hardening](docs/setup/OWNER_GUIDE.md) · [Windows Launcher Setup](docs/setup/WINDOWS_LAUNCHER_SETUP.md) · [Troubleshooting](docs/setup/TROUBLESHOOTING.md) · [Start Here](docs/setup/START_HERE.md)
+- **Multi-Device & Setup**: **[Multi-Device Access Guide](MULTI_DEVICE_GUIDE.md)** · [Installation & Upgrades (Cloud & Local)](docs/setup/INSTALLATION.md) · [Owner Guide & Wi-Fi Hardening](docs/setup/OWNER_GUIDE.md) · [Windows Launcher Setup](docs/setup/WINDOWS_LAUNCHER_SETUP.md) · [Start Here](docs/setup/START_HERE.md)
+- **Offline Sync Engine**: [Sync Architecture](sync-engine/docs/ARCHITECTURE_DESIGN.md) · [Defense Presentation Points](sync-engine/docs/DEFENSE_TALKING_POINTS.md) · [Sync Engine Overview](sync-engine/README.md)
 - **Operations & Recovery (`docs/operations/`)**: [Account Recovery & Email SMTP](docs/operations/RECOVERY.md) · [Backup, Restore & Outage Recovery](docs/operations/BACKUP_RESTORE.md) · [Handover Guide](docs/operations/HANDOVER.md) · [Demo Script](docs/operations/DEMO_SCRIPT.md) · [UAT Acceptance](docs/operations/ACCEPTANCE.md)
 - **Academic & Verification (`docs/academic/`)**: [Verification Report](docs/academic/VERIFICATION.md) · [Integration Review](docs/academic/INTEGRATION.md) · [Publishing Guide](docs/academic/PUBLISHING.md)
 - **Historical Archive (`docs/archive/rebuild-stages/`)**: [Full Index](docs/README.md#4-historical-rebuild-archive-docsarchiverebuild-stages)
