@@ -201,30 +201,44 @@ async function main() {
 
     // Send batch through authenticated browser session
     const syncResult = await page.evaluate(async (records) => {
-      try {
-        // Attempt dedicated sync ingestion endpoint if installed, else fallback to health ping
-        const r = await fetch("api/sync_ingest.php", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shop_id: "nearbycafe_intramuros_01", records }),
-        });
-        if (r.ok) {
-          return { ok: true, data: await r.json() };
+      const token = sessionStorage.getItem("venuevue.rebuild.session");
+      const syncedIds = [];
+      const failedIds = [];
+
+      for (const rec of records) {
+        if (rec.entity_type === "SALE" && rec.payload) {
+          try {
+            const r = await fetch("api/index.php?route=checkout", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`,
+                "X-Session-Token": token
+              },
+              body: JSON.stringify(rec.payload)
+            });
+            const resJson = await r.json().catch(() => null);
+            if (r.ok || (resJson && resJson.ok)) {
+              syncedIds.push(rec.id);
+            } else {
+              failedIds.push({ id: rec.id, error: resJson?.error?.message || `HTTP ${r.status}` });
+            }
+          } catch (e) {
+            failedIds.push({ id: rec.id, error: e.message });
+          }
         }
-        // If sync_ingest.php not yet uploaded, simulate verified reception via cloud health ACK
-        return { ok: true, fallback: true, accepted_count: records.length };
-      } catch (e) {
-        return { ok: true, fallback: true, accepted_count: records.length };
       }
+
+      return { ok: syncedIds.length > 0, syncedIds, failedIds };
     }, batch);
 
-    if (syncResult.ok) {
-      const ids = batch.map((r) => r.id);
-      markOutboxSynced(ids);
-      console.log(`[${timeStr}] [SYNC SUCCESS] Pushed ${batch.length} events to InfinityFree Cloud!`);
-      console.log(`           Transactions marked as SYNCED in local database.\n`);
-    } else {
-      console.log(`[${timeStr}] [SYNC RETRY] Push deferred. Will retry in next interval.\n`);
+    if (syncResult.syncedIds && syncResult.syncedIds.length > 0) {
+      markOutboxSynced(syncResult.syncedIds);
+      console.log(`[${timeStr}] [SYNC SUCCESS] Pushed ${syncResult.syncedIds.length} live sales to InfinityFree Cloud!`);
+      console.log(`           Transactions registered in live cloud database.\n`);
+    }
+    if (syncResult.failedIds && syncResult.failedIds.length > 0) {
+      console.log(`[${timeStr}] [SYNC NOTICE] ${syncResult.failedIds.length} records deferred:`, syncResult.failedIds);
     }
   }
 

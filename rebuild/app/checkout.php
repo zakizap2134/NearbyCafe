@@ -389,6 +389,39 @@ function checkout(
             update_batch_totals($db, $id);
         }
         audit($db, $uid, "SALE_CONFIRMED", $requestId);
+
+        // Enqueue transaction into sync outbox for automatic cloud synchronization
+        try {
+            $hasOutbox = query($db, "SHOW TABLES LIKE 'sync_outbox'")->fetch();
+            if ($hasOutbox) {
+                $outboxItems = [];
+                foreach ($request["items"] as $it) {
+                    $outboxItems[] = [
+                        "variant_id" => (int) $it["variant_id"],
+                        "qty" => (int) $it["qty"],
+                        "expected_price" => decimal($it["expected_price"]),
+                    ];
+                }
+                $outboxPayload = json_encode([
+                    "transaction_key" => $request["key"],
+                    "cash_received" => decimal($request["cash"]),
+                    "payment_method" => $paymentMethod,
+                    "payment_reference" => $paymentReference,
+                    "customer_name" => $customerName,
+                    "items" => $outboxItems,
+                    "expected_epoch" => null,
+                ], JSON_UNESCAPED_SLASHES);
+
+                query(
+                    $db,
+                    "INSERT INTO sync_outbox (entity_type, transaction_key, payload, status, created_at) VALUES ('SALE', ?, ?, 'PENDING', NOW()) ON DUPLICATE KEY UPDATE payload = VALUES(payload)",
+                    [$request["key"], $outboxPayload]
+                );
+            }
+        } catch (Throwable) {
+            // Outbox queuing is non-blocking to ensure offline sales never fail
+        }
+
         $receipt = sale_receipt(
             $db,
             query($db, "SELECT * FROM sales WHERE id=?", [$saleId])->fetch(),

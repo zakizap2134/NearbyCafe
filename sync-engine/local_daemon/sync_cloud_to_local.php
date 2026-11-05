@@ -108,12 +108,13 @@ try {
     echo "[✓] Synchronized " . count($variants) . " product variants.\n";
 
     // 3. Synchronize Ingredients
-    $stmtIng = $pdo->prepare("INSERT INTO ingredients (id, name, unit, minimum_stock, opened_shelf_life_hours, is_active)
-        VALUES (?, ?, ?, ?, ?, ?)
+    $stmtIng = $pdo->prepare("INSERT INTO ingredients (id, name, unit, minimum_stock, current_stock, opened_shelf_life_hours, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
             name = VALUES(name),
             unit = VALUES(unit),
             minimum_stock = VALUES(minimum_stock),
+            current_stock = VALUES(current_stock),
             opened_shelf_life_hours = VALUES(opened_shelf_life_hours),
             is_active = VALUES(is_active)");
 
@@ -123,6 +124,7 @@ try {
             $i['name'],
             $i['unit'],
             $i['minimum_stock'] ?? 0,
+            $i['current_stock'] ?? 0,
             $i['opened_shelf_life_hours'] ?? null,
             $i['is_active'] ?? 1
         ]);
