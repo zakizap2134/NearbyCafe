@@ -644,7 +644,17 @@ function report_data(PDO $db, array $params, bool $csv = false): array
     $totals["online_count"] = (int) $totals["online_count"];
     $daily = query(
         $db,
-        "SELECT DATE(sale_at) AS date,COUNT(*) AS count,SUM(total_gross) AS gross,SUM(total_net) AS net,SUM(total_vat) AS vat FROM sales WHERE status='completed' AND sale_at>=? AND sale_at<? GROUP BY DATE(sale_at) ORDER BY date",
+        "SELECT DATE(sale_at) AS date,
+                COALESCE(SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END),0) AS count,
+                COALESCE(SUM(CASE WHEN status='completed' THEN total_gross ELSE 0 END),0) AS gross,
+                COALESCE(SUM(CASE WHEN status='completed' THEN total_net ELSE 0 END),0) AS net,
+                COALESCE(SUM(CASE WHEN status='completed' THEN total_vat ELSE 0 END),0) AS vat,
+                COALESCE(SUM(CASE WHEN status='voided' THEN 1 ELSE 0 END),0) AS void_count,
+                COALESCE(SUM(CASE WHEN status='voided' THEN total_gross ELSE 0 END),0) AS void_gross
+         FROM sales
+         WHERE sale_at>=? AND sale_at<?
+         GROUP BY DATE(sale_at)
+         ORDER BY date",
         [$from, $end],
     )->fetchAll();
     if (!$csv) {

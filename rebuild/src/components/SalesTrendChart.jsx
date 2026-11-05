@@ -170,6 +170,8 @@ export default function SalesTrendChart({ sales, token, onOpenReports }) {
             gross: Number(row.gross || 0),
             net: Number(row.net || 0),
             vat: Number(row.vat || 0),
+            voidCount: Number(row.void_count || 0),
+            voidGross: Number(row.void_gross || 0),
           });
         }
       });
@@ -183,18 +185,23 @@ export default function SalesTrendChart({ sales, token, onOpenReports }) {
             gross: Number(row.gross || 0),
             net: Number(row.net || 0),
             vat: Number(row.vat || 0),
+            voidCount: Number(row.void_count || 0),
+            voidGross: Number(row.void_gross || 0),
           });
         }
       });
     }
 
     if (sales?.totals) {
+      const prevToday = map.get(anchorDate);
       map.set(anchorDate, {
         date: anchorDate,
         count: Number(sales.totals.count || 0),
         gross: Number(sales.totals.gross || 0),
         net: Number(sales.totals.net || 0),
         vat: Number(sales.totals.vat || 0),
+        voidCount: prevToday ? prevToday.voidCount : 0,
+        voidGross: prevToday ? prevToday.voidGross : 0,
       });
     }
 
@@ -210,6 +217,8 @@ export default function SalesTrendChart({ sales, token, onOpenReports }) {
         gross: existing ? existing.gross : 0,
         net: existing ? existing.net : 0,
         vat: existing ? existing.vat : 0,
+        voidCount: existing ? existing.voidCount : 0,
+        voidGross: existing ? existing.voidGross : 0,
       };
     });
   }, [anchorDate, rangeConfig.dateList, remoteDaily, sales]);
@@ -222,6 +231,8 @@ export default function SalesTrendChart({ sales, token, onOpenReports }) {
     const numDays = Math.max(1, days.length);
     const totalGross = days.reduce((acc, d) => acc + d.gross, 0);
     const totalOrders = days.reduce((acc, d) => acc + d.count, 0);
+    const totalVoidOrders = days.reduce((acc, d) => acc + (d.voidCount || 0), 0);
+    const totalVoidGross = days.reduce((acc, d) => acc + (d.voidGross || 0), 0);
     const dailyAvg = totalGross / numDays;
     const latestEntry = days[days.length - 1] || { gross: 0, count: 0, isToday: true };
     const prevEntry = days.length >= 2 ? days[days.length - 2] : { gross: 0, count: 0 };
@@ -260,6 +271,8 @@ export default function SalesTrendChart({ sales, token, onOpenReports }) {
       numDays,
       totalGross,
       totalOrders,
+      totalVoidOrders,
+      totalVoidGross,
       dailyAvg,
       latestEntry,
       prevEntry,
@@ -386,7 +399,12 @@ export default function SalesTrendChart({ sales, token, onOpenReports }) {
         <div className="trend-kpi-card">
           <span className="trend-kpi-label">{shortPeriodPrefix} Gross Total</span>
           <strong className="trend-kpi-value">{money(metrics.totalGross)}</strong>
-          <span className="trend-kpi-sub">{metrics.totalOrders} completed orders</span>
+          <span className="trend-kpi-sub">
+            {metrics.totalOrders} completed
+            {metrics.totalVoidOrders > 0
+              ? ` · ${metrics.totalVoidOrders} voided (${money(metrics.totalVoidGross)})`
+              : " · 0 voided"}
+          </span>
         </div>
 
         <div className="trend-kpi-card">
@@ -629,6 +647,12 @@ export default function SalesTrendChart({ sales, token, onOpenReports }) {
             </span>
             <span>
               VAT (12%): <strong>{money(selectedDay.vat)}</strong>
+            </span>
+            <span>
+              Voided:{" "}
+              <strong className={selectedDay.voidCount > 0 ? "tone-negative" : ""}>
+                {selectedDay.voidCount || 0} ({money(selectedDay.voidGross || 0)})
+              </strong>
             </span>
             <span>
               vs {badgePeriodSuffix} Avg:{" "}

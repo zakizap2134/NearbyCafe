@@ -117,12 +117,13 @@ td .pill {
   color: white;
 }
 button.danger:not(:disabled) {
-  background: #8c302b;
+  background: var(--nearby-logo-red, #fe2200);
   color: white;
-  border-color: #8c302b;
+  border-color: var(--nearby-logo-red, #fe2200);
 }
 button.danger:hover:not(:disabled) {
-  background: #70241f;
+  background: var(--nearby-hover, #d91d00);
+  border-color: var(--nearby-hover, #d91d00);
 }
 .success {
   padding: 16px;
@@ -1135,20 +1136,23 @@ button.primary:active:not(:disabled), .tabs button[aria-current]:active:not(:dis
   box-shadow: 0 2px 4px rgba(254, 34, 0, 0.3);
 }
 button.danger:not(:disabled) {
-  box-shadow: 0 2px 5px rgba(140, 48, 43, 0.22);
+  background: var(--nearby-logo-red, #fe2200);
+  border-color: var(--nearby-logo-red, #fe2200);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(254, 34, 0, 0.26);
 }
 button.danger:hover:not(:disabled) {
-  background: #70241f;
-  border-color: #70241f;
+  background: var(--nearby-hover, #d91d00);
+  border-color: var(--nearby-hover, #d91d00);
   color: #ffffff;
   transform: translateY(-1.5px);
   box-shadow:
-    0 8px 18px -4px rgba(140, 48, 43, 0.42),
+    0 8px 18px -4px rgba(254, 34, 0, 0.42),
     0 3px 6px -2px rgba(57, 33, 27, 0.18);
 }
 button.danger:active:not(:disabled) {
   transform: translateY(0.5px) scale(0.99);
-  box-shadow: 0 2px 4px rgba(140, 48, 43, 0.28);
+  box-shadow: 0 2px 4px rgba(254, 34, 0, 0.3);
 }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {
   outline: 3px solid var(--nearby-focus); outline-offset: 3px;
@@ -1371,7 +1375,7 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
   animation: modalPopIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .order-success-dialog.void-dialog {
-  border-color: #8c302b !important;
+  border-color: var(--nearby-logo-red, #fe2200) !important;
 }
 .order-success-header {
   display: flex;
@@ -1462,15 +1466,15 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
   justify-content: flex-end;
 }
 .pill-voided {
-  background: #fbeae8 !important;
-  color: #8c302b !important;
-  border: 1px solid #e2b4b0 !important;
-  font-weight: 700;
+  background: #fff0ed !important;
+  color: var(--nearby-logo-red, #fe2200) !important;
+  border: 1px solid #ff9c8a !important;
+  font-weight: 800;
 }
 .void-banner {
-  background: #fbeae8;
-  border: 1px solid #e2b4b0;
-  color: #6e1f1b;
+  background: #fff0ed;
+  border: 1px solid #ff9c8a;
+  color: #b81800;
   border-radius: 10px;
   padding: 12px 16px;
   margin: 12px 0;

@@ -82,15 +82,16 @@ function today_sales(PDO $db, string $at): array
     $weeklyRows = query(
         $db,
         "SELECT DATE(sale_at) AS date,
-                COUNT(*) AS count,
-                COALESCE(SUM(total_gross),0) AS gross,
-                COALESCE(SUM(total_net),0) AS net,
-                COALESCE(SUM(total_vat),0) AS vat,
-                COALESCE(SUM(CASE WHEN COALESCE(payment_method,'CASH')='CASH' THEN total_gross ELSE 0 END),0) AS cash_drawer_gross,
-                COALESCE(SUM(CASE WHEN COALESCE(payment_method,'CASH')<>'CASH' THEN total_gross ELSE 0 END),0) AS online_gross
+                COALESCE(SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END),0) AS count,
+                COALESCE(SUM(CASE WHEN status='completed' THEN total_gross ELSE 0 END),0) AS gross,
+                COALESCE(SUM(CASE WHEN status='completed' THEN total_net ELSE 0 END),0) AS net,
+                COALESCE(SUM(CASE WHEN status='completed' THEN total_vat ELSE 0 END),0) AS vat,
+                COALESCE(SUM(CASE WHEN status='completed' AND COALESCE(payment_method,'CASH')='CASH' THEN total_gross ELSE 0 END),0) AS cash_drawer_gross,
+                COALESCE(SUM(CASE WHEN status='completed' AND COALESCE(payment_method,'CASH')<>'CASH' THEN total_gross ELSE 0 END),0) AS online_gross,
+                COALESCE(SUM(CASE WHEN status='voided' THEN 1 ELSE 0 END),0) AS void_count,
+                COALESCE(SUM(CASE WHEN status='voided' THEN total_gross ELSE 0 END),0) AS void_gross
          FROM sales
-         WHERE status='completed'
-           AND sale_at>=DATE_SUB(?,INTERVAL 6 DAY)
+         WHERE sale_at>=DATE_SUB(?,INTERVAL 6 DAY)
            AND sale_at<DATE_ADD(?,INTERVAL 1 DAY)
          GROUP BY DATE(sale_at)
          ORDER BY date ASC",
@@ -107,6 +108,8 @@ function today_sales(PDO $db, string $at): array
             "vat" => decimal(fixed($wRow["vat"], 2, "vat", true)),
             "cash_drawer_gross" => decimal(fixed($wRow["cash_drawer_gross"], 2, "cash", true)),
             "online_gross" => decimal(fixed($wRow["online_gross"], 2, "online", true)),
+            "void_count" => (int) $wRow["void_count"],
+            "void_gross" => decimal(fixed($wRow["void_gross"], 2, "void_gross", true)),
         ];
     }
     $weekly = [];
@@ -121,6 +124,8 @@ function today_sales(PDO $db, string $at): array
             "vat" => "0.00",
             "cash_drawer_gross" => "0.00",
             "online_gross" => "0.00",
+            "void_count" => 0,
+            "void_gross" => "0.00",
         ];
     }
     return [
