@@ -95,25 +95,25 @@ td .pill {
   align-items: center;
 }
 .quick-chip.active {
-  background: var(--nearby-action, #a93226) !important;
-  border-color: var(--nearby-action, #a93226) !important;
+  background: var(--nearby-logo-red, #fe2200) !important;
+  border-color: var(--nearby-logo-red, #fe2200) !important;
   color: var(--nearby-on-action, #ffffff) !important;
-  box-shadow: 0 2px 6px rgba(169, 50, 38, 0.25);
+  box-shadow: 0 2px 6px rgba(254, 34, 0, 0.28);
 }
 .quick-chip.active:hover:not(:disabled) {
-  background: var(--nearby-hover, #86281f) !important;
-  border-color: var(--nearby-hover, #86281f) !important;
+  background: var(--nearby-hover, #d91d00) !important;
+  border-color: var(--nearby-hover, #d91d00) !important;
   color: var(--nearby-on-action, #ffffff) !important;
 }
 .tabs {
   margin-bottom: 24px;
 }
 .tabs button[aria-current] {
-  background: #28483d;
+  background: var(--nearby-logo-red, #fe2200);
   color: white;
 }
 .tabs button[aria-current]:hover:not(:disabled) {
-  background: #1e392f;
+  background: var(--nearby-hover, #d91d00);
   color: white;
 }
 button.danger:not(:disabled) {
@@ -1066,19 +1066,19 @@ input {
 }
 .audit-json { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 36rem; font-size: .8rem; }
 
-/* Nearby Café palette. Artwork retains its original red; interface uses muted red. */
+/* Nearby Café palette. Buttons and accents match the vibrant logo red (#fe2200). */
 :root {
   --nearby-logo-red: #fe2200;
-  --nearby-action: #a93226;
-  --nearby-hover: #86281f;
-  --nearby-soft: #f8eae5;
+  --nearby-action: #fe2200;
+  --nearby-hover: #d91d00;
+  --nearby-soft: #fff1ee;
   --nearby-ink: #39211b;
   --nearby-paper: #fff9f0;
   --nearby-surface: #fffdf8;
   --nearby-border: #dfcfc5;
   --nearby-muted: #726158;
-  --nearby-focus: #86281f;
-  --nearby-grid: #a9322608;
+  --nearby-focus: #d91d00;
+  --nearby-grid: #fe22000a;
   --nearby-logo-ink: #2a0c08;
   --nearby-on-action: #ffffff;
   color: var(--nearby-ink);
@@ -1102,12 +1102,12 @@ button:hover:not(:disabled) {
   color: var(--nearby-hover);
   transform: translateY(-1.5px);
   box-shadow:
-    0 6px 14px -3px rgba(169, 50, 38, 0.2),
+    0 6px 14px -3px rgba(254, 34, 0, 0.2),
     0 2px 5px -1px rgba(57, 33, 27, 0.08);
 }
 button:active:not(:disabled) {
   transform: translateY(0.5px) scale(0.99);
-  box-shadow: 0 1px 3px rgba(169, 50, 38, 0.16);
+  box-shadow: 0 1px 3px rgba(254, 34, 0, 0.18);
   transition-duration: 0.06s;
 }
 button:disabled {
@@ -1116,10 +1116,10 @@ button:disabled {
   transform: none;
 }
 button.primary, .tabs button[aria-current] {
-  background: var(--nearby-action);
-  border-color: var(--nearby-action);
+  background: var(--nearby-logo-red);
+  border-color: var(--nearby-logo-red);
   color: var(--nearby-on-action);
-  box-shadow: 0 2px 5px rgba(169, 50, 38, 0.22);
+  box-shadow: 0 2px 6px rgba(254, 34, 0, 0.26);
 }
 button.primary:hover:not(:disabled), .tabs button[aria-current]:hover:not(:disabled) {
   background: var(--nearby-hover);
@@ -1127,12 +1127,12 @@ button.primary:hover:not(:disabled), .tabs button[aria-current]:hover:not(:disab
   color: var(--nearby-on-action);
   transform: translateY(-1.5px);
   box-shadow:
-    0 8px 18px -4px rgba(169, 50, 38, 0.4),
+    0 8px 18px -4px rgba(254, 34, 0, 0.42),
     0 3px 6px -2px rgba(57, 33, 27, 0.18);
 }
 button.primary:active:not(:disabled), .tabs button[aria-current]:active:not(:disabled) {
   transform: translateY(0.5px) scale(0.99);
-  box-shadow: 0 2px 4px rgba(169, 50, 38, 0.28);
+  box-shadow: 0 2px 4px rgba(254, 34, 0, 0.3);
 }
 button.danger:not(:disabled) {
   box-shadow: 0 2px 5px rgba(140, 48, 43, 0.22);
@@ -1926,18 +1926,18 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
 }
 
 .management-sidebar-nav .sidebar-nav-btn:hover:not(:disabled):not([aria-current]) {
-  background: #f6ede4;
-  border-color: #ead8c7;
-  color: var(--nearby-ink, #2a1812);
+  background: var(--nearby-soft, #fff1ee);
+  border-color: #f6c8bf;
+  color: var(--nearby-hover, #d91d00);
   transform: translateX(2px);
   box-shadow: none;
 }
 
 .management-sidebar-nav .sidebar-nav-btn[aria-current] {
-  background: var(--nearby-action, #a93226);
-  border-color: var(--nearby-action, #a93226);
+  background: var(--nearby-logo-red, #fe2200);
+  border-color: var(--nearby-logo-red, #fe2200);
   color: #ffffff;
-  box-shadow: 0 4px 12px -2px rgba(169, 50, 38, 0.32);
+  box-shadow: 0 4px 12px -2px rgba(254, 34, 0, 0.34);
 }
 
 .sidebar-nav-left {
@@ -2023,7 +2023,7 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
   flex-direction: column;
 }
 
-/* 7-Day Visual Sales Trend Graph */
+/* Multi-Period Visual Sales Trend Graph */
 .sales-trend-panel {
   margin-bottom: 20px;
 }
@@ -2039,6 +2039,102 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
 
 .sales-trend-header h2 {
   margin: 2px 0 4px;
+}
+
+.sales-trend-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sales-period-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: #f7efe7;
+  border: 1px solid var(--nearby-border, #e7d9cb);
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+
+.sales-period-btn {
+  min-height: 32px;
+  padding: 5px 11px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--nearby-ink, #2a1812);
+  font-size: 12.5px;
+  font-weight: 700;
+  box-shadow: none;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.sales-period-btn:hover:not(:disabled):not(.active) {
+  background: var(--nearby-soft, #fff1ee);
+  border-color: #f6c8bf;
+  color: var(--nearby-hover, #d91d00);
+  transform: none;
+  box-shadow: none;
+}
+
+.sales-period-btn.active {
+  background: var(--nearby-logo-red, #fe2200);
+  border-color: var(--nearby-logo-red, #fe2200);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(254, 34, 0, 0.3);
+}
+
+.sales-period-btn.active:hover:not(:disabled) {
+  background: var(--nearby-hover, #d91d00);
+  border-color: var(--nearby-hover, #d91d00);
+  color: #ffffff;
+  transform: none;
+}
+
+.sales-custom-range-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  background: #fff6f4;
+  border: 1px solid #f7cbc2;
+  border-radius: 10px;
+}
+
+.sales-custom-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--nearby-ink, #2a1812);
+}
+
+.sales-custom-field input[type="date"] {
+  min-height: 34px;
+  padding: 5px 10px;
+  font-size: 12.5px;
+  border-radius: 7px;
+  border: 1px solid #e5beb6;
+  background: #ffffff;
+  width: auto;
+}
+
+.sales-custom-hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--nearby-hover, #d91d00);
+  margin-left: auto;
 }
 
 .sales-trend-kpis {
@@ -2151,14 +2247,14 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
 }
 
 .chart-avg-line {
-  stroke: #28483d;
+  stroke: #b81800;
   stroke-dasharray: 5 4;
-  stroke-width: 1.25;
-  opacity: 0.65;
+  stroke-width: 1.35;
+  opacity: 0.72;
 }
 
 .chart-avg-label {
-  fill: #28483d;
+  fill: #b81800;
   font-size: 10.5px;
   font-weight: 700;
 }
@@ -2170,30 +2266,30 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
 
 .chart-col-group:hover .chart-col-hit,
 .chart-col-group.selected .chart-col-hit {
-  fill: rgba(169, 50, 38, 0.05);
+  fill: rgba(254, 34, 0, 0.06);
 }
 
 .chart-bar-track {
-  fill: #f4ece3;
+  fill: #f6ede6;
 }
 
 .chart-bar {
-  fill: #7c584c;
+  fill: #ff7a66;
   transition:
     fill 150ms ease,
     opacity 150ms ease;
 }
 
 .chart-bar.is-peak {
-  fill: #28483d;
+  fill: #c81b00;
 }
 
 .chart-bar.is-today {
-  fill: var(--nearby-action, #a93226);
+  fill: var(--nearby-logo-red, #fe2200);
 }
 
 .chart-bar.is-zero {
-  fill: #dfd1c3;
+  fill: #e5d5c8;
 }
 
 .chart-bar.is-selected {
@@ -2208,7 +2304,7 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
 }
 
 .chart-value-label.strong {
-  fill: #2a1812;
+  fill: var(--nearby-logo-red, #fe2200);
   font-weight: 800;
 }
 
@@ -2219,7 +2315,7 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
 }
 
 .chart-day-name.is-today {
-  fill: var(--nearby-action, #a93226);
+  fill: var(--nearby-logo-red, #fe2200);
   font-weight: 800;
 }
 
@@ -2230,30 +2326,30 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
 }
 
 .chart-trend-line {
-  stroke: var(--nearby-action, #a93226);
+  stroke: var(--nearby-logo-red, #fe2200);
   stroke-width: 2;
-  stroke-opacity: 0.55;
+  stroke-opacity: 0.65;
   pointer-events: none;
 }
 
 .chart-trend-dot {
   fill: #ffffff;
-  stroke: #7c584c;
+  stroke: #e01e00;
   stroke-width: 2;
   cursor: pointer;
 }
 
 .chart-trend-dot.is-today,
 .chart-trend-dot.is-selected {
-  stroke: var(--nearby-action, #a93226);
-  fill: var(--nearby-action, #a93226);
+  stroke: var(--nearby-logo-red, #fe2200);
+  fill: var(--nearby-logo-red, #fe2200);
 }
 
 .sales-day-inspector {
   margin-top: 12px;
   padding: 10px 14px;
-  background: #f8f1e9;
-  border: 1px solid #e6d5c3;
+  background: #fff6f4;
+  border: 1px solid #f5cdc4;
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -2270,7 +2366,7 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
 }
 
 .inspector-badge {
-  background: #2a1812;
+  background: var(--nearby-logo-red, #fe2200);
   color: #ffffff;
   font-size: 10.5px;
   font-weight: 800;
@@ -2317,9 +2413,10 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
 }
 
 .warning-filter-chip.active {
-  background: #28483d;
-  border-color: #28483d;
+  background: var(--nearby-logo-red, #fe2200);
+  border-color: var(--nearby-logo-red, #fe2200);
   color: #ffffff;
+  box-shadow: 0 2px 8px rgba(254, 34, 0, 0.28);
 }
 
 .warning-chip-count {
