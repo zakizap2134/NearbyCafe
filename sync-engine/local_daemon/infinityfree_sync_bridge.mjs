@@ -42,7 +42,7 @@ function runLocalSql(query) {
 }
 
 function getPendingOutbox(limit = 25) {
-  const q = `SELECT id, entity_type, transaction_key, payload, created_at FROM sync_outbox WHERE status = 'PENDING' ORDER BY id ASC LIMIT ${limit};`;
+  const q = `SELECT id, entity_type, transaction_key, payload, created_at FROM sync_outbox WHERE status = 'PENDING' AND entity_type NOT IN ('CATALOGUE_SAVE', 'CATALOGUE_DELETE') ORDER BY id ASC LIMIT ${limit};`;
   const raw = runLocalSql(q);
   if (!raw) return [];
 
@@ -138,7 +138,7 @@ async function main() {
     }
   }
 
-  async function pushUpstreamCatalogue() {
+  async function pushUpstreamCatalogue(cloudEpoch) {
     const q = `SELECT id, entity_type, transaction_key, payload, created_at FROM sync_outbox WHERE status = 'PENDING' AND entity_type IN ('CATALOGUE_SAVE', 'CATALOGUE_DELETE') ORDER BY id ASC LIMIT 25;`;
     const raw = runLocalSql(q);
     if (!raw) return;
@@ -157,13 +157,17 @@ async function main() {
 
     console.log(`[SYNC UP] Found ${rows.length} local menu/variant updates to push to InfinityFree Cloud...`);
 
-    const result = await page.evaluate(async (records) => {
+    const result = await page.evaluate(async ({ records, cloudEpoch }) => {
       const token = sessionStorage.getItem("venuevue.rebuild.session");
       const syncedIds = [];
       const failed = [];
 
       for (const rec of records) {
         try {
+          const payload = { ...rec.payload };
+          if (payload.expected_epoch && cloudEpoch) {
+            payload.expected_epoch = cloudEpoch;
+          }
           const route = rec.entity_type === "CATALOGUE_DELETE" ? "api/index.php?route=management/delete" : "api/index.php?route=management/save";
           const r = await fetch(route, {
             method: "POST",
@@ -172,7 +176,7 @@ async function main() {
               "Authorization": `Bearer ${token}`,
               "X-Session-Token": token
             },
-            body: JSON.stringify(rec.payload)
+            body: JSON.stringify(payload)
           });
           const j = await r.json().catch(() => null);
           if (r.ok || (j && j.ok)) syncedIds.push(rec.id);
@@ -182,7 +186,7 @@ async function main() {
         }
       }
       return { syncedIds, failed };
-    }, rows);
+    }, { records: rows, cloudEpoch: cloudEpoch || null });
 
     if (result.syncedIds.length > 0) {
       markOutboxSynced(result.syncedIds);
@@ -241,7 +245,7 @@ async function main() {
 
     // Authenticate, push local catalogue updates to cloud, then pull latest cloud catalogue
     await ensureAuthenticated();
-    await pushUpstreamCatalogue();
+    await pushUpstreamCatalogue(conn.data?.data?.epoch);
     await pullDownstreamCatalogue();
 
     if (pendingCount === 0) {
@@ -256,22 +260,35 @@ async function main() {
     if (batch.length === 0) return;
 
     // Send batch through authenticated browser session
-    const syncResult = await page.evaluate(async (records) => {
+    const syncResult = await page.evaluate(async ({ records, cloudEpoch }) => {
       const token = sessionStorage.getItem("venuevue.rebuild.session");
       const syncedIds = [];
       const failedIds = [];
 
+      const ROUTE_MAP = {
+        SALE: "api/index.php?route=checkout",
+        SALE_VOID: "api/index.php?route=sales/void",
+        INVENTORY_OP: "api/index.php?route=management/inventory",
+        STAFF_SAVE: "api/index.php?route=management/staff-save",
+        OWNER_PROFILE: "api/index.php?route=management/owner-profile",
+      };
+
       for (const rec of records) {
-        if (rec.entity_type === "SALE" && rec.payload) {
+        const route = ROUTE_MAP[rec.entity_type];
+        if (route && rec.payload) {
           try {
-            const r = await fetch("api/index.php?route=checkout", {
+            const payload = { ...rec.payload };
+            if (payload.expected_epoch && cloudEpoch) {
+              payload.expected_epoch = cloudEpoch;
+            }
+            const r = await fetch(route, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${token}`,
                 "X-Session-Token": token
               },
-              body: JSON.stringify(rec.payload)
+              body: JSON.stringify(payload)
             });
             const resJson = await r.json().catch(() => null);
             if (r.ok || (resJson && resJson.ok)) {
@@ -286,12 +303,12 @@ async function main() {
       }
 
       return { ok: syncedIds.length > 0, syncedIds, failedIds };
-    }, batch);
+    }, { records: batch, cloudEpoch: conn.data?.data?.epoch || null });
 
     if (syncResult.syncedIds && syncResult.syncedIds.length > 0) {
       markOutboxSynced(syncResult.syncedIds);
-      console.log(`[${timeStr}] [SYNC SUCCESS] Pushed ${syncResult.syncedIds.length} live sales to InfinityFree Cloud!`);
-      console.log(`           Transactions registered in live cloud database.\n`);
+      console.log(`[${timeStr}] [SYNC SUCCESS] Pushed ${syncResult.syncedIds.length} live transaction/operational events to InfinityFree Cloud!`);
+      console.log(`           Records registered in live cloud database.\n`);
     }
     if (syncResult.failedIds && syncResult.failedIds.length > 0) {
       console.log(`[${timeStr}] [SYNC NOTICE] ${syncResult.failedIds.length} records deferred:`, syncResult.failedIds);

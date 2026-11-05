@@ -13,7 +13,7 @@
 CREATE TABLE IF NOT EXISTS sync_outbox (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     entity_type VARCHAR(32) NOT NULL,
-    transaction_key CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    transaction_key VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     payload LONGTEXT NOT NULL, -- JSON formatted complete entity envelope
     status ENUM('PENDING', 'IN_FLIGHT', 'SYNCED', 'FAILED') NOT NULL DEFAULT 'PENDING',
     attempts INT UNSIGNED NOT NULL DEFAULT 0,
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS sync_outbox (
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS sync_inbox (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    transaction_key CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE,
+    transaction_key VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE,
     entity_type VARCHAR(32) NOT NULL,
     source_shop_id VARCHAR(64) NOT NULL,
     payload LONGTEXT NOT NULL,

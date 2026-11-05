@@ -702,6 +702,29 @@ function void_sale(
             "restore_stock" => $restoreStock,
             "initiated_by" => (int) $session["user"]["id"],
         ]);
+
+        // Enqueue void event into sync outbox for cloud synchronization
+        try {
+            $hasOutbox = query($db, "SHOW TABLES LIKE 'sync_outbox'")->fetch();
+            if ($hasOutbox) {
+                $voidPayload = json_encode([
+                    "transaction_key" => $sale["transaction_key"],
+                    "reason" => $reason,
+                    "restore_stock" => $restoreStock,
+                ], JSON_UNESCAPED_SLASHES);
+                $vKey = sprintf('void-%s', $sale["transaction_key"]);
+                query(
+                    $db,
+                    "INSERT INTO sync_outbox (entity_type, transaction_key, payload, status, created_at)
+                     VALUES ('SALE_VOID', ?, ?, 'PENDING', NOW())
+                     ON DUPLICATE KEY UPDATE payload = VALUES(payload), status = 'PENDING'",
+                    [$vKey, $voidPayload]
+                );
+            }
+        } catch (Throwable) {
+            // Non-blocking
+        }
+
         $receipt = sale_receipt(
             $db,
             query($db, "SELECT * FROM sales WHERE id=?", [$saleId])->fetch(),

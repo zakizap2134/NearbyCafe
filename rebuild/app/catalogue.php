@@ -534,6 +534,22 @@ function save_catalogue(
         } elseif ($action === "receive") {
             assert_epoch($db, $body);
             $result = receive_stock($db, $body, $uid, $requestId);
+            try {
+                $hasOutbox = query($db, "SHOW TABLES LIKE 'sync_outbox'")->fetch();
+                if ($hasOutbox) {
+                    $syncPayload = json_encode($body, JSON_UNESCAPED_SLASHES);
+                    $key = sprintf('receive-%s', (string) ($body["delivery_key"] ?? substr(md5(microtime()), 0, 8)));
+                    query(
+                        $db,
+                        "INSERT INTO sync_outbox (entity_type, transaction_key, payload, status, created_at)
+                         VALUES ('CATALOGUE_SAVE', ?, ?, 'PENDING', NOW())
+                         ON DUPLICATE KEY UPDATE payload = VALUES(payload)",
+                        [$key, $syncPayload]
+                    );
+                }
+            } catch (Throwable) {
+                // Outbox queuing is non-blocking
+            }
             $db->commit();
             return $result;
         } else {

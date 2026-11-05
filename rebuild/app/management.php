@@ -372,6 +372,24 @@ function inventory_operation(
             "INSERT INTO stock_operations(operation_key,request_hash,user_id,result_json,created_at) VALUES(?,?,?,?,?)",
             [$key, $hash, $uid, json_encode($result, JSON_THROW_ON_ERROR), $at],
         );
+
+        // Enqueue inventory operation into sync outbox for cloud synchronization
+        try {
+            $hasOutbox = query($db, "SHOW TABLES LIKE 'sync_outbox'")->fetch();
+            if ($hasOutbox) {
+                $invPayload = json_encode($body, JSON_UNESCAPED_SLASHES);
+                query(
+                    $db,
+                    "INSERT INTO sync_outbox (entity_type, transaction_key, payload, status, created_at)
+                     VALUES ('INVENTORY_OP', ?, ?, 'PENDING', NOW())
+                     ON DUPLICATE KEY UPDATE payload = VALUES(payload)",
+                    [$key, $invPayload]
+                );
+            }
+        } catch (Throwable) {
+            // Non-blocking
+        }
+
         $db->commit();
         return $result + ["duplicate" => false];
     } catch (Throwable $e) {
@@ -449,6 +467,24 @@ function staff_save(PDO $db, array $session, array $body, string $ref): array
             "email" => $email,
             "is_active" => $active,
         ]);
+
+        // Enqueue staff update into sync outbox for cloud synchronization
+        try {
+            $hasOutbox = query($db, "SHOW TABLES LIKE 'sync_outbox'")->fetch();
+            if ($hasOutbox) {
+                $staffPayload = json_encode($body, JSON_UNESCAPED_SLASHES);
+                $sKey = sprintf('staff-%s-%s', $name, substr(md5(microtime()), 0, 8));
+                query(
+                    $db,
+                    "INSERT INTO sync_outbox (entity_type, transaction_key, payload, status, created_at)
+                     VALUES ('STAFF_SAVE', ?, ?, 'PENDING', NOW())",
+                    [$sKey, $staffPayload]
+                );
+            }
+        } catch (Throwable) {
+            // Non-blocking
+        }
+
         $db->commit();
         return ["id" => $id];
     } catch (Throwable $e) {
@@ -488,6 +524,24 @@ function owner_profile_save(PDO $db, array $session, array $body, string $ref): 
             "email" => $email,
             "shop_name" => $shopName,
         ]);
+
+        // Enqueue owner profile update into sync outbox
+        try {
+            $hasOutbox = query($db, "SHOW TABLES LIKE 'sync_outbox'")->fetch();
+            if ($hasOutbox) {
+                $profilePayload = json_encode($body, JSON_UNESCAPED_SLASHES);
+                $pKey = sprintf('profile-%s', substr(md5(microtime()), 0, 8));
+                query(
+                    $db,
+                    "INSERT INTO sync_outbox (entity_type, transaction_key, payload, status, created_at)
+                     VALUES ('OWNER_PROFILE', ?, ?, 'PENDING', NOW())",
+                    [$pKey, $profilePayload]
+                );
+            }
+        } catch (Throwable) {
+            // Non-blocking
+        }
+
         $updated = query($db, "SELECT * FROM users WHERE id=?", [$uid])->fetch();
         $db->commit();
         return ["user" => public_user($updated)];
