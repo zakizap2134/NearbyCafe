@@ -22,6 +22,438 @@ import {
   Receipt,
   VoidSaleModal,
 } from "../components/workflow";
+import SalesTrendChart from "../components/SalesTrendChart";
+
+const MANAGEMENT_NAV_GROUPS = [
+  {
+    group: "Insights & Sales",
+    items: ["Overview", "Reports", "Audit"],
+  },
+  {
+    group: "Menu & Formulation",
+    items: ["Catalogue", "Ingredients", "Recipes"],
+  },
+  {
+    group: "Inventory Control",
+    items: ["Stock", "Stock operations"],
+  },
+  {
+    group: "Administration",
+    items: ["Staff", "Backup & restore", "Account security"],
+  },
+];
+
+function SidebarIcon({ name }) {
+  const props = {
+    width: 15,
+    height: 15,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.85,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    className: "sidebar-nav-icon",
+    "aria-hidden": "true",
+  };
+  switch (name) {
+    case "Overview":
+      return (
+        <svg {...props}>
+          <rect x="3" y="3" width="7" height="9" rx="1.5" />
+          <rect x="14" y="3" width="7" height="5" rx="1.5" />
+          <rect x="14" y="12" width="7" height="9" rx="1.5" />
+          <rect x="3" y="16" width="7" height="5" rx="1.5" />
+        </svg>
+      );
+    case "Reports":
+      return (
+        <svg {...props}>
+          <line x1="18" y1="20" x2="18" y2="10" />
+          <line x1="12" y1="20" x2="12" y2="4" />
+          <line x1="6" y1="20" x2="6" y2="14" />
+        </svg>
+      );
+    case "Audit":
+      return (
+        <svg {...props}>
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="8" y1="13" x2="16" y2="13" />
+          <line x1="8" y1="17" x2="13" y2="17" />
+        </svg>
+      );
+    case "Catalogue":
+      return (
+        <svg {...props}>
+          <path d="M17 8h1a4 4 0 1 1 0 8h-1" />
+          <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z" />
+          <line x1="6" y1="2" x2="6" y2="4" />
+          <line x1="10" y1="2" x2="10" y2="4" />
+          <line x1="14" y1="2" x2="14" y2="4" />
+        </svg>
+      );
+    case "Ingredients":
+      return (
+        <svg {...props}>
+          <path d="M12 2L2 7l10 5 10-5-10-5Z" />
+          <path d="M2 17l10 5 10-5" />
+          <path d="M2 12l10 5 10-5" />
+        </svg>
+      );
+    case "Recipes":
+      return (
+        <svg {...props}>
+          <path d="M9 3h6" />
+          <path d="M10 3v5.2a2 2 0 0 1-.5 1.3L4.7 15.8A2 2 0 0 0 6.2 19h11.6a2 2 0 0 0 1.5-3.2l-4.8-6.3a2 2 0 0 1-.5-1.3V3" />
+        </svg>
+      );
+    case "Stock":
+      return (
+        <svg {...props}>
+          <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+          <polyline points="3.29 7 12 12 20.71 7" />
+          <line x1="12" y1="22" x2="12" y2="12" />
+        </svg>
+      );
+    case "Stock operations":
+      return (
+        <svg {...props}>
+          <polyline points="23 4 23 10 17 10" />
+          <polyline points="1 20 1 14 7 14" />
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+        </svg>
+      );
+    case "Staff":
+      return (
+        <svg {...props}>
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      );
+    case "Backup & restore":
+      return (
+        <svg {...props}>
+          <ellipse cx="12" cy="5" rx="9" ry="3" />
+          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+        </svg>
+      );
+    default:
+      return (
+        <svg {...props}>
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
+      );
+  }
+}
+
+function computeOperationalWarnings(data) {
+  if (!data) {
+    return {
+      all: [],
+      productWarnings: [],
+      variantWarnings: [],
+      ingredientWarnings: [],
+      productHealthMap: new Map(),
+      variantHealthMap: new Map(),
+      ingredientHealthMap: new Map(),
+      countsByTab: {},
+    };
+  }
+  const products = data.products || [];
+  const variants = data.variants || [];
+  const ingredients = data.ingredients || [];
+  const recipes = data.recipes || [];
+  const batches = data.batches || [];
+  const todayDate = String(data.server_time || "").slice(0, 10);
+  const soonDate = todayDate ? addDaysToIsoDate(todayDate, 3) : "";
+
+  const ingMap = new Map(ingredients.map((i) => [Number(i.id), i]));
+  const productHealthMap = new Map();
+  const variantHealthMap = new Map();
+  const ingredientHealthMap = new Map();
+
+  const productWarnings = [];
+  const variantWarnings = [];
+  const ingredientWarnings = [];
+
+  // 1. Evaluate Ingredient & Batch Warnings
+  ingredients.forEach((i) => {
+    const isActive = Number(i.is_active) === 1;
+    const elig = Number(i.eligible_stock || 0);
+    const min = Number(i.minimum_stock || 0);
+    const waste = Number(i.waste_due || 0);
+
+    if (!isActive) {
+      ingredientHealthMap.set(Number(i.id), {
+        badge: "Inactive",
+        tone: "subtle",
+      });
+      return;
+    }
+
+    if (elig <= 0) {
+      ingredientHealthMap.set(Number(i.id), {
+        badge: "DEPLETED",
+        tone: "danger",
+      });
+    } else if (elig <= min) {
+      ingredientHealthMap.set(Number(i.id), {
+        badge: "LOW STOCK",
+        tone: "amber",
+      });
+    } else if (waste > 0) {
+      ingredientHealthMap.set(Number(i.id), {
+        badge: "EXPIRED DUE",
+        tone: "danger",
+      });
+    } else {
+      ingredientHealthMap.set(Number(i.id), {
+        badge: "Healthy",
+        tone: "good",
+      });
+    }
+
+    if (elig <= min || waste > 0) {
+      ingredientWarnings.push({
+        id: `ing-${i.id}`,
+        domain: "Ingredients & Stock",
+        severity: elig <= 0 || waste > 0 ? "danger" : "amber",
+        tag: elig <= 0 ? "DEPLETED" : elig <= min ? "LOW STOCK" : "EXPIRED / USE-BY",
+        name: i.name,
+        ingredient: i,
+        isLow: elig <= min,
+        hasWaste: waste > 0,
+      });
+    }
+  });
+
+  batches.forEach((b) => {
+    const rem = Number(b.remaining_qty || 0);
+    if (rem <= 0 || Number(b.quarantined)) return;
+    if (
+      b.expiration_date &&
+      todayDate &&
+      soonDate &&
+      b.expiration_date >= todayDate &&
+      b.expiration_date <= soonDate
+    ) {
+      ingredientWarnings.push({
+        id: `batch-exp-${b.id}`,
+        domain: "Ingredients & Stock",
+        severity: b.expiration_date === todayDate ? "danger" : "amber",
+        tag: b.expiration_date === todayDate ? "EXPIRES TODAY" : "EXPIRING SOON",
+        name: `${b.ingredient_name} · Batch #${b.id}`,
+        batch: b,
+        detail: `${b.remaining_qty} ${b.unit} expires on ${b.expiration_date} (${b.reference}).`,
+      });
+    }
+  });
+
+  // 2. Evaluate Variant Warnings
+  variants.forEach((v) => {
+    const vRows = recipes.filter((r) => Number(r.variant_id) === Number(v.id));
+    const isActive = Number(v.is_active) === 1;
+    const label = variantLabel(v, products);
+
+    if (!vRows.length) {
+      variantHealthMap.set(Number(v.id), {
+        status: "no_recipe",
+        badge: "No recipe",
+        tone: "amber",
+        detail: "Assign recipe ingredients to enable checkout",
+        canPrepare: false,
+      });
+      if (isActive) {
+        variantWarnings.push({
+          id: `var-norec-${v.id}`,
+          domain: "Variants & Recipes",
+          severity: "amber",
+          tag: "NO RECIPE",
+          title: `${label} · ${v.sku}`,
+          detail: "Active variant has no recipe rows configured and cannot be sold at the register.",
+          actionType: "edit_recipe",
+          actionLabel: "Edit recipe →",
+          variant: v,
+        });
+      }
+      return;
+    }
+
+    let blockedReason = null;
+    let blockedIng = null;
+    let minServings = Infinity;
+    let limitingIng = null;
+
+    for (const r of vRows) {
+      const ing = ingMap.get(Number(r.ingredient_id));
+      const reqQty = Number(r.qty || 0);
+      if (!ing || !Number(ing.is_active)) {
+        blockedReason = `Uses inactive ingredient (${ing ? ing.name : "Unknown"})`;
+        blockedIng = ing || null;
+        minServings = 0;
+        break;
+      }
+      const avail = Number(ing.eligible_stock || 0);
+      if (avail < reqQty) {
+        blockedReason = `Requires ${r.qty} ${ing.unit} ${ing.name}, only ${ing.eligible_stock} ${ing.unit} eligible`;
+        blockedIng = ing;
+        minServings = 0;
+        break;
+      }
+      if (reqQty > 0) {
+        const possible = Math.floor(avail / reqQty);
+        if (possible < minServings) {
+          minServings = possible;
+          limitingIng = ing;
+        }
+      }
+    }
+
+    if (blockedReason) {
+      variantHealthMap.set(Number(v.id), {
+        status: "blocked",
+        badge: blockedIng ? `Blocked: ${blockedIng.name} low` : "Ingredient inactive",
+        tone: "danger",
+        detail: blockedReason,
+        canPrepare: false,
+      });
+      if (isActive) {
+        variantWarnings.push({
+          id: `var-blk-${v.id}`,
+          domain: "Variants & Recipes",
+          severity: "danger",
+          tag: "CANNOT PREPARE",
+          title: `${label} · ${v.sku}`,
+          detail: `${blockedReason}. Register checkout will block this drink.`,
+          actionType: blockedIng ? "receive_stock" : "edit_recipe",
+          actionLabel: blockedIng ? `Restock ${blockedIng.name} →` : "Edit recipe →",
+          ingredientId: blockedIng?.id,
+          variant: v,
+        });
+      }
+    } else if (minServings <= 10) {
+      variantHealthMap.set(Number(v.id), {
+        status: "low_servings",
+        badge: `${minServings} servings left`,
+        tone: "amber",
+        detail: limitingIng ? `Limited by ${limitingIng.name}` : "",
+        canPrepare: true,
+        servings: minServings,
+      });
+      if (isActive && limitingIng) {
+        variantWarnings.push({
+          id: `var-low-${v.id}`,
+          domain: "Variants & Recipes",
+          severity: "amber",
+          tag: `LOW CAPACITY (${minServings} LEFT)`,
+          title: `${label} · ${v.sku}`,
+          detail: `Only ${minServings} serving(s) can be prepared before ${limitingIng.name} (${limitingIng.eligible_stock} ${limitingIng.unit}) is exhausted.`,
+          actionType: "receive_stock",
+          actionLabel: `Restock ${limitingIng.name} →`,
+          ingredientId: limitingIng.id,
+          variant: v,
+        });
+      }
+    } else {
+      variantHealthMap.set(Number(v.id), {
+        status: "ready",
+        badge: Number.isFinite(minServings) ? `Ready (${minServings} max)` : "Ready",
+        tone: "good",
+        detail: `${vRows.length} ingredient(s)`,
+        canPrepare: true,
+        servings: minServings,
+      });
+    }
+  });
+
+  // 3. Evaluate Product Warnings
+  products.forEach((p) => {
+    const isActive = Number(p.is_active) === 1;
+    const prodVars = variants.filter((v) => Number(v.product_id) === Number(p.id));
+    const activeVars = prodVars.filter((v) => Number(v.is_active) === 1);
+
+    if (!isActive) {
+      productHealthMap.set(Number(p.id), {
+        badge: "Inactive",
+        tone: "subtle",
+      });
+      return;
+    }
+
+    if (activeVars.length === 0) {
+      productHealthMap.set(Number(p.id), {
+        badge: "No variants",
+        tone: "amber",
+      });
+      productWarnings.push({
+        id: `prod-novar-${p.id}`,
+        domain: "Products",
+        severity: "amber",
+        tag: "NO VARIANTS",
+        title: `${p.name} (${p.category})`,
+        detail: "Product is active on the menu but has no active size or temperature variants.",
+        actionType: "add_variant",
+        actionLabel: "+ Add variant",
+        product: p,
+      });
+      return;
+    }
+
+    const readyVars = activeVars.filter(
+      (v) => variantHealthMap.get(Number(v.id))?.canPrepare,
+    );
+    if (readyVars.length === 0) {
+      productHealthMap.set(Number(p.id), {
+        badge: "All variants blocked",
+        tone: "danger",
+      });
+      productWarnings.push({
+        id: `prod-unavail-${p.id}`,
+        domain: "Products",
+        severity: "danger",
+        tag: "UNAVAILABLE",
+        title: `${p.name} (${p.category})`,
+        detail: `All ${activeVars.length} variant(s) are currently unfulfillable due to missing recipes or depleted stock.`,
+        actionType: "open_catalogue",
+        actionLabel: "Inspect variants →",
+        product: p,
+      });
+    } else {
+      productHealthMap.set(Number(p.id), {
+        badge: `${readyVars.length}/${activeVars.length} ready`,
+        tone: readyVars.length < activeVars.length ? "amber" : "good",
+      });
+    }
+  });
+
+  const missingRecipeCount = variantWarnings.filter(
+    (w) => w.tag === "NO RECIPE",
+  ).length;
+  const totalCount =
+    productWarnings.length + variantWarnings.length + ingredientWarnings.length;
+
+  return {
+    all: [...ingredientWarnings, ...variantWarnings, ...productWarnings],
+    productWarnings,
+    variantWarnings,
+    ingredientWarnings,
+    productHealthMap,
+    variantHealthMap,
+    ingredientHealthMap,
+    countsByTab: {
+      Overview: totalCount,
+      Catalogue: productWarnings.length + variantWarnings.length,
+      Ingredients: ingredientWarnings.filter((w) => w.ingredient).length,
+      Recipes: missingRecipeCount,
+      Stock: ingredientWarnings.length,
+    },
+  };
+}
 
 function Active({ value, onChange }) {
   return (
@@ -574,6 +1006,38 @@ export default function Management({ user, token, expired }) {
     onChange: (e) => set({ ...obj, [key]: e.target.value }),
   });
   const ingredients = data?.ingredients ?? [];
+  const [warningFilter, setWarningFilter] = useState("all");
+  const warnings = computeOperationalWarnings(data);
+
+  function handleWarningAction(w) {
+    setNotice("");
+    setError(null);
+    if (w.actionType === "edit_recipe" && w.variant) {
+      chooseRecipe(String(w.variant.id));
+      setTab("Recipes");
+    } else if (w.actionType === "receive_stock" && w.ingredientId) {
+      openQuickReceiveStock(w.ingredientId);
+    } else if (w.actionType === "add_variant" && w.product) {
+      setSkuCustom(false);
+      const nextSku = generateVariantSku(
+        w.product,
+        emptyVariant.size,
+        emptyVariant.temperature,
+        data?.variants || [],
+        null,
+        user?.shop_name,
+      );
+      setVariant({
+        ...emptyVariant,
+        product_id: String(w.product.id),
+        sku: nextSku,
+      });
+      setTab("Catalogue");
+      setNotice(`Selected "${w.product.name}" in Add variant.`);
+    } else if (w.actionType === "open_catalogue") {
+      setTab("Catalogue");
+    }
+  }
 
   function copySupplierReorderList() {
     const lowStock = ingredients.filter(
@@ -594,7 +1058,7 @@ export default function Management({ user, token, expired }) {
       minute: "2-digit",
     });
     const lines = [
-      `☕ Nearby Café — Supplier Reorder List`,
+      `Nearby Café — Supplier Reorder List`,
       `Date: ${dateStr}`,
       ``,
       `Please provide quotes / delivery for the following low-stock items:`,
@@ -604,7 +1068,7 @@ export default function Management({ user, token, expired }) {
       const min = Number(i.minimum_stock);
       const diff = Math.max(0, min - cur);
       lines.push(
-        `• ${i.name}: ${cur} ${i.unit} in stock (Min: ${min} ${i.unit}) — Order: ~${diff > 0 ? diff : min} ${i.unit}`,
+        `- ${i.name}: ${cur} ${i.unit} in stock (Min: ${min} ${i.unit}) — Order: ~${diff > 0 ? diff : min} ${i.unit}`,
       );
     });
     lines.push(``);
@@ -616,7 +1080,7 @@ export default function Management({ user, token, expired }) {
         .writeText(text)
         .then(() => {
           setNotice(
-            `📋 Copied supplier reorder list (${lowStock.length} items) to clipboard! Ready to paste into Viber or Messenger.`,
+            `Copied supplier reorder list (${lowStock.length} items) to clipboard. Ready to paste into Viber or Messenger.`,
           );
         })
         .catch(() => {
@@ -646,338 +1110,555 @@ export default function Management({ user, token, expired }) {
           Refresh records
         </button>
       </div>
-      {recoveryPrepared === false && tab !== "Account security" && <section className="panel section-space" aria-label="Prepare Owner recovery"><h2>Protect your Owner account</h2><p>Set up your recovery email and Gmail SMTP in Account security so you can reset your password anytime.</p><button className="primary" onClick={() => setTab("Account security")}>Set up email recovery</button></section>}
-      <nav className="tabs" aria-label="Management sections">
-        {[
-          "Overview",
-          "Ingredients",
-          "Catalogue",
-          "Recipes",
-          "Stock",
-          "Stock operations",
-          "Reports",
-          "Audit",
-          "Staff",
-          "Backup & restore",
-          "Account security",
-        ].map((t) => (
-          <button
-            key={t}
-            aria-current={tab === t ? "page" : undefined}
-            onClick={() => {
-              setTab(t);
-              setNotice("");
-              setError(null);
-            }}
-          >
-            {t}
+      {recoveryPrepared === false && tab !== "Account security" && (
+        <section className="panel section-space" aria-label="Prepare Owner recovery">
+          <h2>Protect your Owner account</h2>
+          <p>
+            Set up your recovery email and Gmail SMTP in Account security so you can reset your password anytime.
+          </p>
+          <button className="primary" onClick={() => setTab("Account security")}>
+            Set up email recovery
           </button>
-        ))}
-      </nav>
-      <ErrorNotice error={error} />
-      {notice && (
-        <p className="success" role="status">
-          {notice}
-        </p>
+        </section>
       )}
-      <VoidSaleModal
-        sale={voidTarget}
-        user={user}
-        token={token}
-        onClose={() => setVoidTarget(null)}
-        onVoided={async (updated) => {
-          setVoidTarget(null);
-          setReceipt(updated);
-          setNotice(`Sale #${updated.id} has been voided.`);
-          await refresh();
-        }}
-      />
-      {loading && !data ? (
-        <p role="status">Loading shop records…</p>
-      ) : !data ? (
-        <p className="subtle">Use Refresh records to try again.</p>
-      ) : (
-        <>
-          {tab === "Stock operations" && (
-            <StockOperations
-              user={user}
-              data={data}
-              token={token}
-              expired={expired}
-              refresh={refresh}
-              presetOp={presetStockOp}
-              onPresetConsumed={() => setPresetStockOp(null)}
-            />
-          )}
-          {tab === "Reports" && <Reports token={token} expired={expired} />}
-          {tab === "Audit" && <History token={token} expired={expired} />}
-          {tab === "Staff" && (
-            <Staff
-              token={token}
-              expired={expired}
-              onResetPassword={() => setTab("Account security")}
-            />
-          )}
-          {tab === "Backup & restore" && (
-            <BackupRestore token={token} expired={expired} />
-          )}
-          {tab === "Account security" && (
-            <AccountSecurity user={user} token={token} expired={expired} onPrepared={setRecoveryPrepared} />
-          )}
-          {tab === "Overview" && (
-            <>
-              <div className="section-heading">
-                <p className="subtle">{data.sales.date} · Manila time</p>
-                <div className="button-row">
-                  <button
-                    type="button"
-                    className="primary compact-btn"
-                    disabled={busy}
-                    onClick={async () => {
-                      setBusy(true);
-                      setError(null);
-                      setNotice("");
-                      try {
-                        const file = await api("management/csv", {
-                          token,
-                          query: {
-                            from: data.sales.date,
-                            to: data.sales.date,
-                            format: "xlsx_structured",
-                            include_voided: "1",
-                          },
-                          timeout: 60000,
-                        });
-                        download(
-                          file.filename,
-                          file.content,
-                          file.mime ||
-                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                          file.encoding || "base64",
-                        );
-                        setNotice(
-                          `Downloaded today's Z-Reading Excel workbook (${file.filename}).`,
-                        );
-                      } catch (e) {
-                        setError(e);
-                        if (e.status === 401) expired();
-                      } finally {
-                        setBusy(false);
-                      }
-                    }}
-                  >
-                    Download Today’s Z-Reading (.xlsx)
-                  </button>
-                  <button
-                    type="button"
-                    className="compact-btn"
-                    onClick={() => {
-                      setNotice("");
-                      setError(null);
-                      setTab("Reports");
-                    }}
-                  >
-                    Open Reports →
-                  </button>
+      <div className="management-workspace">
+        <aside className="management-sidebar">
+          <div className="sidebar-panel-header">
+            <span className="sidebar-brand-kicker">WORKSPACE SECTIONS</span>
+            {data && (
+              <span
+                className={`sidebar-health-indicator ${
+                  warnings.all.length > 0 ? "has-alerts" : "is-clean"
+                }`}
+              >
+                {warnings.all.length > 0
+                  ? `${warnings.all.length} warning${warnings.all.length === 1 ? "" : "s"}`
+                  : "All clear"}
+              </span>
+            )}
+          </div>
+          <nav className="tabs management-sidebar-nav" aria-label="Management sections">
+            {MANAGEMENT_NAV_GROUPS.map((grp) => (
+              <div className="sidebar-nav-group" key={grp.group}>
+                <p className="sidebar-group-title">{grp.group}</p>
+                <div className="sidebar-group-items">
+                  {grp.items.map((t) => {
+                    const count = warnings.countsByTab?.[t] || 0;
+                    const hasDanger =
+                      t === "Overview"
+                        ? warnings.all.some((w) => w.severity === "danger")
+                        : t === "Catalogue"
+                          ? warnings.productWarnings.some((w) => w.severity === "danger") ||
+                            warnings.variantWarnings.some((w) => w.severity === "danger")
+                          : t === "Ingredients" || t === "Stock"
+                            ? warnings.ingredientWarnings.some((w) => w.severity === "danger")
+                            : false;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        aria-label={t}
+                        aria-current={tab === t ? "page" : undefined}
+                        className={`sidebar-nav-btn${tab === t ? " active" : ""}`}
+                        onClick={() => {
+                          setTab(t);
+                          setNotice("");
+                          setError(null);
+                        }}
+                      >
+                        <span className="sidebar-nav-left" aria-hidden="true">
+                          <SidebarIcon name={t} />
+                          <span className="sidebar-nav-label">{t}</span>
+                        </span>
+                        {count > 0 && (
+                          <span
+                            className={`sidebar-nav-badge ${hasDanger ? "danger" : "amber"}`}
+                            aria-hidden="true"
+                          >
+                            {count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              <div className="stats">
-                {[
-                  ["Sales", data.sales.totals.count],
-                  ["Gross sales", money(data.sales.totals.gross)],
-                  [
-                    "Cash in drawer",
-                    money(
-                      data.sales.totals.cash_drawer_gross ??
-                        data.sales.totals.gross,
-                    ),
-                  ],
-                  [
-                    "Online / E-Wallet",
-                    money(data.sales.totals.online_gross ?? 0),
-                  ],
-                  ["VATable sales", money(data.sales.totals.net)],
-                  ["VAT (12%)", money(data.sales.totals.vat)],
-                ].map(([name, value]) => (
-                  <section className="panel stat" key={name}>
-                    <p>{name}</p>
-                    <strong>{value}</strong>
-                  </section>
-                ))}
+            ))}
+          </nav>
+          {data && (
+            <div className="sidebar-summary-footer" aria-hidden="true">
+              <div className="sidebar-summary-row">
+                <span>Active products</span>
+                <strong>
+                  {(data.products || []).filter((p) => Number(p.is_active)).length}
+                </strong>
               </div>
-              <section className="panel">
-                <div className="section-heading">
-                  <h2>Stock alerts</h2>
-                  <div className="button-row" style={{ marginTop: 0 }}>
-                    {ingredients.some(
-                      (i) =>
-                        Number(i.is_active) &&
-                        Number(i.eligible_stock) <= Number(i.minimum_stock),
-                    ) && (
+              <div className="sidebar-summary-row">
+                <span>Active variants</span>
+                <strong>
+                  {(data.variants || []).filter((v) => Number(v.is_active)).length}
+                </strong>
+              </div>
+              <div className="sidebar-summary-row">
+                <span>Tracked ingredients</span>
+                <strong>
+                  {(data.ingredients || []).filter((i) => Number(i.is_active)).length}
+                </strong>
+              </div>
+            </div>
+          )}
+        </aside>
+
+        <div className="management-main">
+          <ErrorNotice error={error} />
+          {notice && (
+            <p className="success" role="status">
+              {notice}
+            </p>
+          )}
+          <VoidSaleModal
+            sale={voidTarget}
+            user={user}
+            token={token}
+            onClose={() => setVoidTarget(null)}
+            onVoided={async (updated) => {
+              setVoidTarget(null);
+              setReceipt(updated);
+              setNotice(`Sale #${updated.id} has been voided.`);
+              await refresh();
+            }}
+          />
+          {loading && !data ? (
+            <p role="status">Loading shop records…</p>
+          ) : !data ? (
+            <p className="subtle">Use Refresh records to try again.</p>
+          ) : (
+            <>
+              {tab === "Stock operations" && (
+                <StockOperations
+                  user={user}
+                  data={data}
+                  token={token}
+                  expired={expired}
+                  refresh={refresh}
+                  presetOp={presetStockOp}
+                  onPresetConsumed={() => setPresetStockOp(null)}
+                />
+              )}
+              {tab === "Reports" && <Reports token={token} expired={expired} />}
+              {tab === "Audit" && <History token={token} expired={expired} />}
+              {tab === "Staff" && (
+                <Staff
+                  token={token}
+                  expired={expired}
+                  onResetPassword={() => setTab("Account security")}
+                />
+              )}
+              {tab === "Backup & restore" && (
+                <BackupRestore token={token} expired={expired} />
+              )}
+              {tab === "Account security" && (
+                <AccountSecurity
+                  user={user}
+                  token={token}
+                  expired={expired}
+                  onPrepared={setRecoveryPrepared}
+                />
+              )}
+              {tab === "Overview" && (
+                <>
+                  <div className="section-heading">
+                    <p className="subtle">{data.sales.date} · Manila time</p>
+                    <div className="button-row">
                       <button
                         type="button"
-                        className="compact-btn"
-                        onClick={copySupplierReorderList}
-                        title="Copy formatted low-stock reorder list to clipboard"
+                        className="primary compact-btn"
+                        disabled={busy}
+                        onClick={async () => {
+                          setBusy(true);
+                          setError(null);
+                          setNotice("");
+                          try {
+                            const file = await api("management/csv", {
+                              token,
+                              query: {
+                                from: data.sales.date,
+                                to: data.sales.date,
+                                format: "xlsx_structured",
+                                include_voided: "1",
+                              },
+                              timeout: 60000,
+                            });
+                            download(
+                              file.filename,
+                              file.content,
+                              file.mime ||
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                              file.encoding || "base64",
+                            );
+                            setNotice(
+                              `Downloaded today's Z-Reading Excel workbook (${file.filename}).`,
+                            );
+                          } catch (e) {
+                            setError(e);
+                            if (e.status === 401) expired();
+                          } finally {
+                            setBusy(false);
+                          }
+                        }}
                       >
-                        📋 Copy supplier reorder list
+                        Download Today’s Z-Reading (.xlsx)
                       </button>
-                    )}
-                    {ingredients.some(
-                      (i) => Number(i.is_active) && Number(i.waste_due) > 0,
-                    ) && (
                       <button
                         type="button"
                         className="compact-btn"
                         onClick={() => {
                           setNotice("");
                           setError(null);
-                          setTab("Stock operations");
+                          setTab("Reports");
                         }}
                       >
-                        Manage expired stock →
+                        Open Reports →
                       </button>
-                    )}
+                    </div>
                   </div>
-                </div>
-                {ingredients.filter(
-                  (i) =>
-                    Number(i.is_active) &&
-                    (Number(i.eligible_stock) <= Number(i.minimum_stock) ||
-                      Number(i.waste_due) > 0),
-                ).length === 0 ? (
-                  <p className="subtle">No stock alerts.</p>
-                ) : (
-                  <ul className="alert-list">
-                    {ingredients
-                      .filter(
-                        (i) =>
-                          Number(i.is_active) &&
-                          (Number(i.eligible_stock) <=
-                            Number(i.minimum_stock) ||
-                            Number(i.waste_due) > 0),
-                      )
-                      .map((i) => (
-                        <li key={i.id} className="alert-action-row">
-                          <div>
-                            <strong>{i.name}</strong> · {i.eligible_stock}{" "}
-                            {i.unit} eligible (min {i.minimum_stock} {i.unit})
-                            {Number(i.waste_due) > 0 && (
-                              <span>
-                                {" "}
-                                ·{" "}
-                                <span className="stock-badge danger">
-                                  EXPIRED / USE-BY
-                                </span>{" "}
-                                {i.waste_due} {i.unit} set aside for waste
-                                recording.
-                              </span>
-                            )}
-                          </div>
-                          <div className="button-row" style={{ marginTop: 0 }}>
-                            {Number(i.eligible_stock) <=
-                              Number(i.minimum_stock) && (
-                              <button
-                                type="button"
-                                className="compact-btn"
-                                onClick={() => openQuickReceiveStock(i.id)}
-                              >
-                                Receive stock →
-                              </button>
-                            )}
-                            {Number(i.waste_due) > 0 && (
-                              <button
-                                type="button"
-                                className="danger compact-btn"
-                                onClick={() => openIngredientExpiredWaste(i.id)}
-                              >
-                                Record waste
-                              </button>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                  </ul>
-                )}
-              </section>
-              <section className="panel section-space">
-                <h2>Today’s latest sales</h2>
-                {!data.sales.recent.length ? (
-                  <p className="subtle">No confirmed sales today.</p>
-                ) : (
-                  <Table
-                    headers={[
-                      "Sale",
-                      "Time",
-                      "Customer / Note",
-                      "Payment",
-                      "Status",
-                      "Gross",
-                      "Net",
-                      "VAT",
-                      "Details",
-                    ]}
-                  >
-                    {data.sales.recent.map((s) => (
-                      <tr key={s.id}>
-                        <td>#{s.id}</td>
-                        <td>{s.sale_at}</td>
-                        <td>
-                          {s.customer_name ? (
-                            <span className="customer-tag">
-                              🏷️ <strong>{s.customer_name}</strong>
-                            </span>
-                          ) : (
-                            <span className="subtle">—</span>
-                          )}
-                        </td>
-                        <td>
-                          <span className="pill">
-                            {paymentMethodLabel(s.payment_method)}
-                          </span>
-                          {s.payment_reference && (
-                            <small>Ref #{s.payment_reference}</small>
-                          )}
-                        </td>
-                        <td>
-                          {s.status === "voided" ? (
-                            <span className="pill pill-voided">VOIDED</span>
-                          ) : (
-                            "Completed"
-                          )}
-                        </td>
-                        <td>{money(s.total_gross)}</td>
-                        <td>{money(s.total_net)}</td>
-                        <td>{money(s.total_vat)}</td>
-                        <td>
-                          <div className="button-row">
-                            <button onClick={() => showReceipt(s.id)}>
-                              View sale #{s.id}
-                            </button>
-                            {s.status !== "voided" && (
-                              <button
-                                className="danger"
-                                onClick={() => setVoidTarget(s)}
-                              >
-                                Void #{s.id}
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
+                  <div className="stats">
+                    {[
+                      ["Sales", data.sales.totals.count],
+                      ["Gross sales", money(data.sales.totals.gross)],
+                      [
+                        "Cash in drawer",
+                        money(
+                          data.sales.totals.cash_drawer_gross ??
+                            data.sales.totals.gross,
+                        ),
+                      ],
+                      [
+                        "Online / E-Wallet",
+                        money(data.sales.totals.online_gross ?? 0),
+                      ],
+                      ["VATable sales", money(data.sales.totals.net)],
+                      ["VAT (12%)", money(data.sales.totals.vat)],
+                    ].map(([name, value]) => (
+                      <section className="panel stat" key={name}>
+                        <p>{name}</p>
+                        <strong>{value}</strong>
+                      </section>
                     ))}
-                  </Table>
-                )}
-              </section>
-              {receipt && (
-                <Receipt
-                  sale={receipt}
-                  onClose={() => setReceipt(null)}
-                  onVoid={(s) => setVoidTarget(s)}
-                />
+                  </div>
+
+                  <SalesTrendChart
+                    sales={data.sales}
+                    token={token}
+                    onOpenReports={() => {
+                      setNotice("");
+                      setError(null);
+                      setTab("Reports");
+                    }}
+                  />
+
+                  <section className="panel warnings-center-panel section-space">
+                    <div className="section-heading">
+                      <div>
+                        <p className="eyebrow">PROACTIVE HEALTH & READINESS</p>
+                        <h2>Stock, Variant & Menu Warnings</h2>
+                      </div>
+                      <div className="button-row" style={{ marginTop: 0 }}>
+                        {ingredients.some(
+                          (i) =>
+                            Number(i.is_active) &&
+                            Number(i.eligible_stock) <= Number(i.minimum_stock),
+                        ) && (
+                          <button
+                            type="button"
+                            className="compact-btn"
+                            onClick={copySupplierReorderList}
+                            title="Copy formatted low-stock reorder list to clipboard"
+                          >
+                            Copy supplier reorder list
+                          </button>
+                        )}
+                        {ingredients.some(
+                          (i) => Number(i.is_active) && Number(i.waste_due) > 0,
+                        ) && (
+                          <button
+                            type="button"
+                            className="compact-btn"
+                            onClick={() => {
+                              setNotice("");
+                              setError(null);
+                              setTab("Stock operations");
+                            }}
+                          >
+                            Manage expired stock →
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="warnings-summary-strip">
+                      <button
+                        type="button"
+                        className={`warning-filter-chip${warningFilter === "all" ? " active" : ""}`}
+                        onClick={() => setWarningFilter("all")}
+                      >
+                        <span>All warnings</span>
+                        <span className="warning-chip-count">{warnings.all.length}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`warning-filter-chip${warningFilter === "stock" ? " active" : ""}`}
+                        onClick={() => setWarningFilter("stock")}
+                      >
+                        <span>Ingredients & batches</span>
+                        <span className="warning-chip-count">
+                          {warnings.ingredientWarnings.length}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`warning-filter-chip${warningFilter === "variants" ? " active" : ""}`}
+                        onClick={() => setWarningFilter("variants")}
+                      >
+                        <span>Variants & recipes</span>
+                        <span className="warning-chip-count">
+                          {warnings.variantWarnings.length}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`warning-filter-chip${warningFilter === "products" ? " active" : ""}`}
+                        onClick={() => setWarningFilter("products")}
+                      >
+                        <span>Products</span>
+                        <span className="warning-chip-count">
+                          {warnings.productWarnings.length}
+                        </span>
+                      </button>
+                    </div>
+
+                    {warnings.all.length === 0 ? (
+                      <p className="subtle">
+                        No stock alerts or menu warnings. All active products, variants, recipes and ingredients are ready for service.
+                      </p>
+                    ) : (
+                      <ul className="alert-list">
+                        {(warningFilter === "all" || warningFilter === "stock") &&
+                          ingredients
+                            .filter(
+                              (i) =>
+                                Number(i.is_active) &&
+                                (Number(i.eligible_stock) <=
+                                  Number(i.minimum_stock) ||
+                                  Number(i.waste_due) > 0),
+                            )
+                            .map((i) => {
+                              const isDepleted = Number(i.eligible_stock) <= 0;
+                              return (
+                                <li key={`ing-${i.id}`} className="alert-action-row">
+                                  <div>
+                                    <span
+                                      className={`stock-badge ${
+                                        isDepleted ? "danger" : "amber"
+                                      }`}
+                                      style={{ marginRight: "8px" }}
+                                    >
+                                      {isDepleted ? "DEPLETED" : "LOW STOCK"}
+                                    </span>
+                                    <strong>{i.name}</strong> · {i.eligible_stock}{" "}
+                                    {i.unit} eligible (min {i.minimum_stock} {i.unit})
+                                    {Number(i.waste_due) > 0 && (
+                                      <span>
+                                        {" "}
+                                        ·{" "}
+                                        <span className="stock-badge danger">
+                                          EXPIRED / USE-BY
+                                        </span>{" "}
+                                        {i.waste_due} {i.unit} set aside for waste
+                                        recording.
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="button-row" style={{ marginTop: 0 }}>
+                                    {Number(i.eligible_stock) <=
+                                      Number(i.minimum_stock) && (
+                                      <button
+                                        type="button"
+                                        className="compact-btn"
+                                        onClick={() => openQuickReceiveStock(i.id)}
+                                      >
+                                        Receive stock →
+                                      </button>
+                                    )}
+                                    {Number(i.waste_due) > 0 && (
+                                      <button
+                                        type="button"
+                                        className="danger compact-btn"
+                                        onClick={() => openIngredientExpiredWaste(i.id)}
+                                      >
+                                        Record waste
+                                      </button>
+                                    )}
+                                  </div>
+                                </li>
+                              );
+                            })}
+
+                        {(warningFilter === "all" || warningFilter === "stock") &&
+                          warnings.ingredientWarnings
+                            .filter((w) => w.batch)
+                            .map((w) => (
+                              <li key={w.id} className="alert-action-row">
+                                <div>
+                                  <span
+                                    className={`stock-badge ${w.severity}`}
+                                    style={{ marginRight: "8px" }}
+                                  >
+                                    {w.tag}
+                                  </span>
+                                  <strong>{w.name}</strong> · {w.detail}
+                                </div>
+                                <div className="button-row" style={{ marginTop: 0 }}>
+                                  <button
+                                    type="button"
+                                    className="compact-btn"
+                                    onClick={() => setTab("Stock")}
+                                  >
+                                    Inspect batch →
+                                  </button>
+                                </div>
+                              </li>
+                            ))}
+
+                        {(warningFilter === "all" || warningFilter === "variants") &&
+                          warnings.variantWarnings.map((w) => (
+                            <li key={w.id} className="alert-action-row">
+                              <div>
+                                <span
+                                  className={`stock-badge ${w.severity}`}
+                                  style={{ marginRight: "8px" }}
+                                >
+                                  {w.tag}
+                                </span>
+                                <strong>{w.title}</strong> · {w.detail}
+                              </div>
+                              <div className="button-row" style={{ marginTop: 0 }}>
+                                <button
+                                  type="button"
+                                  className="compact-btn"
+                                  onClick={() => handleWarningAction(w)}
+                                >
+                                  {w.actionLabel}
+                                </button>
+                              </div>
+                            </li>
+                          ))}
+
+                        {(warningFilter === "all" || warningFilter === "products") &&
+                          warnings.productWarnings.map((w) => (
+                            <li key={w.id} className="alert-action-row">
+                              <div>
+                                <span
+                                  className={`stock-badge ${w.severity}`}
+                                  style={{ marginRight: "8px" }}
+                                >
+                                  {w.tag}
+                                </span>
+                                <strong>{w.title}</strong> · {w.detail}
+                              </div>
+                              <div className="button-row" style={{ marginTop: 0 }}>
+                                <button
+                                  type="button"
+                                  className="compact-btn"
+                                  onClick={() => handleWarningAction(w)}
+                                >
+                                  {w.actionLabel}
+                                </button>
+                              </div>
+                            </li>
+                          ))}
+                      </ul>
+                    )}
+                  </section>
+
+                  <section className="panel section-space">
+                    <h2>Today’s latest sales</h2>
+                    {!data.sales.recent.length ? (
+                      <p className="subtle">No confirmed sales today.</p>
+                    ) : (
+                      <Table
+                        headers={[
+                          "Sale",
+                          "Time",
+                          "Customer / Note",
+                          "Payment",
+                          "Status",
+                          "Gross",
+                          "Net",
+                          "VAT",
+                          "Details",
+                        ]}
+                      >
+                        {data.sales.recent.map((s) => (
+                          <tr key={s.id}>
+                            <td>#{s.id}</td>
+                            <td>{s.sale_at}</td>
+                            <td>
+                              {s.customer_name ? (
+                                <span className="customer-tag">
+                                  <strong>{s.customer_name}</strong>
+                                </span>
+                              ) : (
+                                <span className="subtle">—</span>
+                              )}
+                            </td>
+                            <td>
+                              <span className="pill">
+                                {paymentMethodLabel(s.payment_method)}
+                              </span>
+                              {s.payment_reference && (
+                                <small>Ref #{s.payment_reference}</small>
+                              )}
+                            </td>
+                            <td>
+                              {s.status === "voided" ? (
+                                <span className="pill pill-voided">VOIDED</span>
+                              ) : (
+                                "Completed"
+                              )}
+                            </td>
+                            <td>{money(s.total_gross)}</td>
+                            <td>{money(s.total_net)}</td>
+                            <td>{money(s.total_vat)}</td>
+                            <td>
+                              <div className="button-row">
+                                <button onClick={() => showReceipt(s.id)}>
+                                  View sale #{s.id}
+                                </button>
+                                {s.status !== "voided" && (
+                                  <button
+                                    className="danger"
+                                    onClick={() => setVoidTarget(s)}
+                                  >
+                                    Void #{s.id}
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </Table>
+                    )}
+                  </section>
+                  {receipt && (
+                    <Receipt
+                      sale={receipt}
+                      onClose={() => setReceipt(null)}
+                      onVoid={(s) => setVoidTarget(s)}
+                    />
+                  )}
+                </>
               )}
-            </>
-          )}
           {tab === "Ingredients" && (
             <div className="editor-layout">
               <section className="panel">
@@ -1076,33 +1757,49 @@ export default function Management({ user, token, expired }) {
                       "Edit",
                     ]}
                   >
-                    {ingredients.map((i) => (
-                      <tr key={i.id}>
-                        <td>
-                          {i.name}
-                          <small>{i.unit}</small>
-                        </td>
-                        <td>{i.current_stock}</td>
-                        <td>{i.eligible_stock}</td>
-                        <td>{i.minimum_stock}</td>
-                        <td>{i.opened_shelf_life_hours ?? "—"}</td>
-                        <td>{Number(i.is_active) ? "Active" : "Inactive"}</td>
-                        <td>
-                          <button
-                            disabled={busy}
-                            onClick={() =>
-                              setIngredient({
-                                ...i,
-                                opened_shelf_life_hours:
-                                  i.opened_shelf_life_hours ?? "",
-                              })
-                            }
-                          >
-                            Edit {i.name}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {ingredients.map((i) => {
+                      const ingHealth = warnings.ingredientHealthMap.get(
+                        Number(i.id),
+                      );
+                      return (
+                        <tr key={i.id}>
+                          <td>
+                            {i.name}
+                            <small>{i.unit}</small>
+                            {ingHealth &&
+                              (ingHealth.tone === "danger" ||
+                                ingHealth.tone === "amber") && (
+                                <div style={{ marginTop: "4px" }}>
+                                  <span
+                                    className={`stock-badge ${ingHealth.tone}`}
+                                  >
+                                    {ingHealth.badge}
+                                  </span>
+                                </div>
+                              )}
+                          </td>
+                          <td>{i.current_stock}</td>
+                          <td>{i.eligible_stock}</td>
+                          <td>{i.minimum_stock}</td>
+                          <td>{i.opened_shelf_life_hours ?? "—"}</td>
+                          <td>{Number(i.is_active) ? "Active" : "Inactive"}</td>
+                          <td>
+                            <button
+                              disabled={busy}
+                              onClick={() =>
+                                setIngredient({
+                                  ...i,
+                                  opened_shelf_life_hours:
+                                    i.opened_shelf_life_hours ?? "",
+                                })
+                              }
+                            >
+                              Edit {i.name}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </Table>
                 )}
               </section>
@@ -1248,77 +1945,95 @@ export default function Management({ user, token, expired }) {
                     <p className="subtle">No products yet.</p>
                   ) : (
                     <Table headers={["Product", "Category", "Status", "Edit"]}>
-                      {data.products.map((p) => (
-                        <tr key={p.id}>
-                          <td>
-                            <div className="product-table-cell">
-                              {p.image_filename ? (
-                                <img
-                                  className="product-table-thumb"
-                                  src={productImageUrl(p.image_filename)}
-                                  alt={p.name}
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <span
-                                  className="product-table-thumb fallback"
-                                  aria-hidden="true"
+                      {data.products.map((p) => {
+                        const pHealth = warnings.productHealthMap.get(
+                          Number(p.id),
+                        );
+                        return (
+                          <tr key={p.id}>
+                            <td>
+                              <div className="product-table-cell">
+                                {p.image_filename ? (
+                                  <img
+                                    className="product-table-thumb"
+                                    src={productImageUrl(p.image_filename)}
+                                    alt={p.name}
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <span
+                                    className="product-table-thumb fallback"
+                                    aria-hidden="true"
+                                  >
+                                    {p.name.slice(0, 2).toUpperCase()}
+                                  </span>
+                                )}
+                                <div>
+                                  <div>{p.name}</div>
+                                  {pHealth &&
+                                    (pHealth.tone === "danger" ||
+                                      pHealth.tone === "amber") && (
+                                      <div style={{ marginTop: "3px" }}>
+                                        <span
+                                          className={`stock-badge ${pHealth.tone}`}
+                                        >
+                                          {pHealth.badge}
+                                        </span>
+                                      </div>
+                                    )}
+                                </div>
+                              </div>
+                            </td>
+                            <td>{p.category}</td>
+                            <td>{Number(p.is_active) ? "Active" : "Inactive"}</td>
+                            <td>
+                              <div className="button-row" style={{ marginTop: 0 }}>
+                                <button
+                                  disabled={busy}
+                                  onClick={() => {
+                                    setProduct({
+                                      ...p,
+                                      image_data: "",
+                                      remove_image: 0,
+                                    });
+                                    if (productImageInputRef.current) {
+                                      productImageInputRef.current.value = "";
+                                    }
+                                  }}
                                 >
-                                  {p.name.slice(0, 2).toUpperCase()}
-                                </span>
-                              )}
-                              <span>{p.name}</span>
-                            </div>
-                          </td>
-                          <td>{p.category}</td>
-                          <td>{Number(p.is_active) ? "Active" : "Inactive"}</td>
-                          <td>
-                            <div className="button-row" style={{ marginTop: 0 }}>
-                              <button
-                                disabled={busy}
-                                onClick={() => {
-                                  setProduct({
-                                    ...p,
-                                    image_data: "",
-                                    remove_image: 0,
-                                  });
-                                  if (productImageInputRef.current) {
-                                    productImageInputRef.current.value = "";
-                                  }
-                                }}
-                              >
-                                Edit {p.name}
-                              </button>
-                              <button
-                                type="button"
-                                className="compact-btn"
-                                disabled={busy}
-                                onClick={() => {
-                                  setSkuCustom(false);
-                                  const nextSku = generateVariantSku(
-                                    p,
-                                    emptyVariant.size,
-                                    emptyVariant.temperature,
-                                    data.variants,
-                                    null,
-                                    user?.shop_name,
-                                  );
-                                  setVariant({
-                                    ...emptyVariant,
-                                    product_id: String(p.id),
-                                    sku: nextSku,
-                                  });
-                                  setNotice(
-                                    `Selected "${p.name}" in Add variant below.`,
-                                  );
-                                }}
-                              >
-                                + Add variant
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                                  Edit {p.name}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="compact-btn"
+                                  disabled={busy}
+                                  onClick={() => {
+                                    setSkuCustom(false);
+                                    const nextSku = generateVariantSku(
+                                      p,
+                                      emptyVariant.size,
+                                      emptyVariant.temperature,
+                                      data.variants,
+                                      null,
+                                      user?.shop_name,
+                                    );
+                                    setVariant({
+                                      ...emptyVariant,
+                                      product_id: String(p.id),
+                                      sku: nextSku,
+                                    });
+                                    setNotice(
+                                      `Selected "${p.name}" in Add variant below.`,
+                                    );
+                                  }}
+                                >
+                                  + Add variant
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </Table>
                   )}
                 </section>
@@ -1601,20 +2316,24 @@ export default function Management({ user, token, expired }) {
                       headers={["Variant", "SKU", "Price", "Status", "Actions"]}
                     >
                       {data.variants.map((v) => {
-                        const hasRecipe = data.recipes.some(
-                          (r) => Number(r.variant_id) === Number(v.id),
+                        const vHealth = warnings.variantHealthMap.get(
+                          Number(v.id),
                         );
                         return (
                           <tr key={v.id}>
                             <td>
                               {variantLabel(v, data.products)}
-                              {!hasRecipe && (
-                                <div>
-                                  <span className="stock-badge amber">
-                                    No recipe
-                                  </span>
-                                </div>
-                              )}
+                              {vHealth &&
+                                (vHealth.tone === "danger" ||
+                                  vHealth.tone === "amber") && (
+                                  <div style={{ marginTop: "4px" }}>
+                                    <span
+                                      className={`stock-badge ${vHealth.tone}`}
+                                    >
+                                      {vHealth.badge}
+                                    </span>
+                                  </div>
+                                )}
                             </td>
                             <td>{v.sku}</td>
                             <td>{money(v.price)}</td>
@@ -2240,8 +2959,10 @@ export default function Management({ user, token, expired }) {
               </section>
             </>
           )}
-        </>
-      )}
+            </>
+          )}
+        </div>
+      </div>
     </>
   );
 }

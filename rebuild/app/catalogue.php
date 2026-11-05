@@ -79,9 +79,54 @@ function today_sales(PDO $db, string $at): array
     foreach (["gross", "net", "vat", "cash_drawer_gross", "online_gross"] as $key) {
         $totals[$key] = decimal(fixed($totals[$key], 2, "total", true));
     }
+    $weeklyRows = query(
+        $db,
+        "SELECT DATE(sale_at) AS date,
+                COUNT(*) AS count,
+                COALESCE(SUM(total_gross),0) AS gross,
+                COALESCE(SUM(total_net),0) AS net,
+                COALESCE(SUM(total_vat),0) AS vat,
+                COALESCE(SUM(CASE WHEN COALESCE(payment_method,'CASH')='CASH' THEN total_gross ELSE 0 END),0) AS cash_drawer_gross,
+                COALESCE(SUM(CASE WHEN COALESCE(payment_method,'CASH')<>'CASH' THEN total_gross ELSE 0 END),0) AS online_gross
+         FROM sales
+         WHERE status='completed'
+           AND sale_at>=DATE_SUB(?,INTERVAL 6 DAY)
+           AND sale_at<DATE_ADD(?,INTERVAL 1 DAY)
+         GROUP BY DATE(sale_at)
+         ORDER BY date ASC",
+        [$date, $date],
+    )->fetchAll();
+    $byDate = [];
+    foreach ($weeklyRows as $wRow) {
+        $dKey = (string) $wRow["date"];
+        $byDate[$dKey] = [
+            "date" => $dKey,
+            "count" => (int) $wRow["count"],
+            "gross" => decimal(fixed($wRow["gross"], 2, "gross", true)),
+            "net" => decimal(fixed($wRow["net"], 2, "net", true)),
+            "vat" => decimal(fixed($wRow["vat"], 2, "vat", true)),
+            "cash_drawer_gross" => decimal(fixed($wRow["cash_drawer_gross"], 2, "cash", true)),
+            "online_gross" => decimal(fixed($wRow["online_gross"], 2, "online", true)),
+        ];
+    }
+    $weekly = [];
+    $baseDt = new DateTimeImmutable($date);
+    for ($i = 6; $i >= 0; $i--) {
+        $dStr = $baseDt->modify("-{$i} days")->format("Y-m-d");
+        $weekly[] = $byDate[$dStr] ?? [
+            "date" => $dStr,
+            "count" => 0,
+            "gross" => "0.00",
+            "net" => "0.00",
+            "vat" => "0.00",
+            "cash_drawer_gross" => "0.00",
+            "online_gross" => "0.00",
+        ];
+    }
     return [
         "date" => $date,
         "totals" => $totals,
+        "weekly" => $weekly,
         "recent" => query(
             $db,
             "SELECT id,transaction_key,user_id,sale_at,payment_method,payment_reference,customer_name,total_gross,total_net,total_vat,status,void_reason,voided_at FROM sales WHERE sale_at>=? AND sale_at<DATE_ADD(?,INTERVAL 1 DAY) ORDER BY id DESC LIMIT 10",
