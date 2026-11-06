@@ -5,6 +5,15 @@
  * Shared configuration settings for Local Daemon and Cloud API.
  */
 
+$cloudApiUrl = 'https://nearbycafe.infinityfreeapp.com/api';
+$cloudConfigPath = dirname(__DIR__, 2) . '/rebuild/config/cloud.local.json';
+if (file_exists($cloudConfigPath)) {
+    $custom = json_decode(file_get_contents($cloudConfigPath), true);
+    if (!empty($custom['cloud_url'])) {
+        $cloudApiUrl = rtrim($custom['cloud_url'], '/') . '/api';
+    }
+}
+
 return [
     // Pre-shared security token to authenticate shop pushes to the cloud
     'sync_secret_token' => 'NV_SYNC_SEC_98f4b6e2a1_intramuros_nearbycafe',
@@ -14,8 +23,7 @@ return [
     'shop_name' => 'Nearby Café (Legaspi St., Intramuros)',
 
     // Target Cloud API URL (Where the local daemon pushes outbox records)
-    // In production: 'https://nearbycafe.infinityfreeapp.com/api'
-    'cloud_api_url' => 'https://nearbycafe.infinityfreeapp.com/api',
+    'cloud_api_url' => $cloudApiUrl,
     
     // Batch processing limits
     'batch_size' => 50,             // Number of transactions to send in one POST payload

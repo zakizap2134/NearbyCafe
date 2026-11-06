@@ -79,6 +79,21 @@ const CONFIG = {
   db_name: "venuevue_rebuild",
 };
 
+const CLOUD_CONFIG_PATH = path.resolve(__dirname, "../../rebuild/config/cloud.local.json");
+if (fs.existsSync(CLOUD_CONFIG_PATH)) {
+  try {
+    const customCfg = JSON.parse(fs.readFileSync(CLOUD_CONFIG_PATH, "utf8"));
+    if (customCfg.cloud_url) CONFIG.cloud_url = customCfg.cloud_url.trim().replace(/\/+$/, "");
+    if (customCfg.cloud_user) CONFIG.cloud_user = customCfg.cloud_user.trim();
+    if (customCfg.cloud_pass) CONFIG.cloud_pass = customCfg.cloud_pass.trim();
+    if (customCfg.shop_id) CONFIG.shop_id = customCfg.shop_id.trim();
+    if (customCfg.shop_name) CONFIG.shop_name = customCfg.shop_name.trim();
+    console.log(`[SYNC BRIDGE] Loaded custom cloud target: ${CONFIG.cloud_url} (${CONFIG.cloud_user})`);
+  } catch (err) {
+    console.error("[SYNC BRIDGE] Warning: Could not parse cloud.local.json; fallback to default.", err.message);
+  }
+}
+
 function runLocalSql(query) {
   try {
     const cmd = `"${CONFIG.mysql_bin}" -u${CONFIG.db_user} -D${CONFIG.db_name} -sN`;

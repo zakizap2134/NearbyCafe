@@ -10,6 +10,7 @@
 !.env.example
 /rebuild/config/local.php
 /rebuild/config/launcher.local.json
+/rebuild/config/cloud.local.json
 /rebuild/config/nearby-httpd.conf
 /rebuild/storage/*
 !/rebuild/storage/.gitkeep
@@ -29,6 +30,8 @@ aria_log*
 *.sql
 !/rebuild/database/*.sql
 !/sync-engine/database/*.sql
+!/venuevue-ready.sql
+!/venuevue-brand-new.sql
 # Credentials / recovery material and private keys
 *.pem
 *.key
@@ -43,6 +46,7 @@ aria_log*
 *.log
 *.tmp
 *.zip
+!/venuevue-nearbycafe.zip
 *.bundle
 *.patch
 .vscode/

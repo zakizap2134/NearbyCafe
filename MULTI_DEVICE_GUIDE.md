@@ -87,58 +87,47 @@ cd C:\Projects
 git clone https://github.com/zakizap2134/NearbyCafe.git
 ```
 
-### Step 3: Run the 1-Click Automated Setup
+### Step 3: Run the Quick Device Setup (Installs Starter Database & Owner)
+1. Open PowerShell or Command Prompt in the repository:
+   ```powershell
+   cd C:\Projects\NearbyCafe\sync-engine
+   .\setup_new_device.bat
+   ```
+2. The automated script will:
+   * Connect to your local XAMPP MySQL server at port 3306.
+   * Create the database `venuevue_rebuild` if it does not exist yet.
+   * Automatically import the complete Nearby Café catalogue (`venuevue-ready.sql`):
+     - All 6 coffee items: Espresso, Caramel Macchiato, Dalgona, Spanish Latte, Dirty Matcha, Americano
+     - All 9 variants with sizes, temperatures, and prices
+     - All ingredients, recipes, and initial inventory batches
+   * Set up synchronization tables (`sync_outbox`, `sync_inbox`, `sync_meta`).
+   * Provision the `zakizap` Owner account with password `callmepapaton2x`.
+   * Create `rebuild/config/local.php` and storage directories.
+
+### Step 4: Run the 1-Click Windows Launcher Setup
 1. Navigate into the rebuild folder:
    ```powershell
    cd C:\Projects\NearbyCafe\rebuild
    ```
 2. Right-click **`One-Click-Setup.bat`** and choose **Run as administrator** (or double-click it).
-3. The automated script will:
-   * Check your XAMPP installation (`C:\xampp\apache` and `C:\xampp\mysql`).
-   * Initialize the MariaDB database `venuevue_rebuild` on port `3306`.
-   * Configure `config/local.php` with proper port and session security.
-   * Register dedicated background Windows services (`NearbyCafeWeb` on port `5174`).
-   * Create the **Nearby Café** shortcut on your Windows Desktop.
+3. The installer registers dedicated background Windows services (`NearbyCafeWeb` on port `5174`) and creates the **Nearby Café** shortcut on your Windows Desktop.
 
-### Step 4: Configure the `zakizap` Owner Account & Sync Tables
-In PowerShell, run the quick initialization script:
-```powershell
-cd C:\Projects\NearbyCafe\sync-engine
-.\setup_new_device.bat
-```
-This automatically ensures:
-* The `zakizap` Owner account is configured with password `callmepapaton2x`.
-* The `sync_outbox`, `sync_inbox`, and `sync_meta` synchronization tables are active.
-
-### Step 5: Start the Local POS
-Double-click the **Nearby Café** desktop shortcut or open your browser to:
-```
-http://localhost:5174/#/login
-```
-Sign in with:
-* **Username:** `zakizap`
-* **Password:** `callmepapaton2x`
+### Step 5: Start the Local POS & Automatic Live Sync
+1. Double-click the **Nearby Café** desktop shortcut or run `rebuild\Start-Nearby-Cafe.bat`.
+2. The app and the background sync bridge will start automatically!
+3. Sign in at `http://localhost:5174/#/login` with:
+   * **Username:** `zakizap`
+   * **Password:** `callmepapaton2x`
 
 ---
 
-## Scenario 4: Running the Offline-to-Cloud Sync Bridge
+## Scenario 4: Autonomous Offline-to-Cloud Sync Bridge
 
 Nearby Café uses an **Offline-First Hybrid Architecture**:
 * During regular operation or an internet outage, the counter operates 100% locally with zero latency.
 * Transactions are saved to the local MariaDB database and queued in `sync_outbox`.
-* When internet is connected, the autonomous sync daemon pushes transactions to the InfinityFree cloud.
-
-### Starting the Sync Daemon
-To enable automatic background syncing on your laptop:
-1. Double-click:
-   ```
-   C:\Projects\NearbyCafe\sync-engine\Run_InfinityFree_Live_Sync.bat
-   ```
-2. The daemon will launch a lightweight background Edge session that:
-   * Completes the InfinityFree security handshake (`/aes.js`).
-   * Polls the local outbox every 15 seconds.
-   * Automatically flushes pending transactions to the cloud when online.
-   * Gracefully buffers orders when offline, ensuring **zero data loss**.
+* When the app starts, **`Start-NearbySync` runs automatically in the background** without requiring you to manually open any batch files.
+* When the app closes, **`Stop-NearbySync` automatically terminates cleanly** with zero orphaned processes or database locks.
 
 ---
 
@@ -146,60 +135,62 @@ To enable automatic background syncing on your laptop:
 
 If you replace the shop PC/laptop, or want to deploy to a **new InfinityFree account / new custom domain**, here is how to set it up:
 
-### A. Migrating Existing Café Data vs. Starting 100% Clean
+### A. Initializing the Database on the New Account
 
-* **To preserve your existing products, variants, recipes, stock levels, and sales history:**
-  1. On your current/old device, go to **Management → Backup & restore**.
-  2. Click **Download Backup (.sql)** and save the file to a flash drive or cloud storage.
-  3. On your new device or new cloud database, import that `.sql` file via phpMyAdmin (`http://localhost/phpmyadmin` locally or vPanel phpMyAdmin on InfinityFree).
-  * *Result: All your catalogue, recipes, inventory stock, staff accounts, and sales are restored instantly.*
-* **To start with a 100% clean/fresh café database:**
-  1. Import the clean starter schema from `rebuild/database/schema.sql`.
+1. In your new InfinityFree vPanel, go to **MySQL Databases** and create a new database (e.g. `venuevue`). Note your:
+   * **MySQL Host:** `sqlxxx.infinityfree.com`
+   * **Database Name:** `if0_xxxxxxxx_venuevue`
+   * **MySQL Username:** `if0_xxxxxxxx`
+   * **MySQL Password:** Your InfinityFree vPanel password
+2. Click **phpMyAdmin** next to the newly created database.
+3. In phpMyAdmin, click the **Import** tab at the top.
+4. Click **Choose File**, select **`venuevue-ready.sql`** from your repository folder, and click **Go**.
+   * *Result: Installs the complete schema, catalogue, recipes, inventory, sync tables, and the `zakizap` Owner account in 5 seconds.*
 
 ---
 
-### B. Deploying Code to a New InfinityFree Cloud Account
+### B. Deploying Code to the New InfinityFree Account
 
-When creating a new InfinityFree account, you will get a new domain (e.g. `yourcafename.infinityfreeapp.com`), a new username (`if0_xxxxxxxx`), and a new MySQL host (`sqlxxx.infinityfree.com`).
-
-1. **Deploy the frontend and backend files in 30 seconds**:
-   Run the automated deploy script from PowerShell:
-   ```powershell
-   powershell -File C:\Projects\NearbyCafe\rebuild\scripts\deploy_to_cloud.ps1 -FtpUser "YOUR_NEW_IF0_USER" -FtpPass "YOUR_NEW_VPANEL_PASSWORD"
-   ```
-2. **Configure Database Credentials on the New Cloud**:
-   In the new InfinityFree File Manager, edit `htdocs/config/local.php` with your new database connection details:
-   ```php
-   return [
-       'db' => [
-           'host' => 'sqlxxx.infinityfree.com', // Found on your InfinityFree MySQL page
-           'port' => 3306,
-           'name' => 'if0_xxxxxxxx_venuevue',   // Your new database name
-           'user' => 'if0_xxxxxxxx',            // Your new username
-           'password' => 'YOUR_VPANEL_PASSWORD',
-       ],
-       'session_hours' => 12,
-       'vat_rate' => '0.1200',
-       'app_url' => 'https://yourcafename.infinityfreeapp.com',
-   ];
-   ```
+1. **Option 1 (Easiest - 1-Click Upload via File Manager)**:
+   * In the InfinityFree Control Panel, open the **File Manager**.
+   * Navigate inside the **`htdocs/`** directory.
+   * Click **Upload** -> select **`venuevue-nearbycafe.zip`** (found on your Desktop or repository root).
+   * Right-click the uploaded ZIP and click **Extract**.
+   * In `htdocs/config/`, rename `local.example.php` to `local.php` (or edit `local.php`) with your new MySQL details:
+     ```php
+     return [
+         'db' => [
+             'host' => 'sqlxxx.infinityfree.com', // Your new MySQL host
+             'port' => 3306,
+             'name' => 'if0_xxxxxxxx_venuevue',   // Your new database name
+             'user' => 'if0_xxxxxxxx',            // Your new username
+             'password' => 'YOUR_VPANEL_PASSWORD',
+         ],
+         'session_hours' => 12,
+         'vat_rate' => '0.1200',
+         'app_url' => 'https://yourcafename.infinityfreeapp.com',
+     ];
+     ```
+2. **Option 2 (Automated FTP Deploy Script)**:
+   * Run the deployment script from PowerShell:
+     ```powershell
+     powershell -File C:\Projects\NearbyCafe\rebuild\scripts\deploy_to_cloud.ps1 -FtpUser "YOUR_NEW_IF0_USER" -FtpPass "YOUR_NEW_VPANEL_PASSWORD"
+     ```
 
 ---
 
 ### C. Pointing the Local Sync Engine to the New Cloud
 
-To connect your shop PC's offline sync daemon to the new cloud URL:
+To switch the local POS sync engine to push to your new InfinityFree domain:
 
-1. In `sync-engine/config/sync_config.php`, update:
-   ```php
-   'cloud_api_url' => 'https://yourcafename.infinityfreeapp.com/api',
+1. Double-click **`sync-engine\Configure_Cloud_Account.bat`** (or run in PowerShell):
+   ```powershell
+   cd C:\Projects\NearbyCafe\sync-engine
+   .\Configure_Cloud_Account.bat
    ```
-2. In `sync-engine/local_daemon/infinityfree_sync_bridge.mjs`, update:
-   ```javascript
-   cloud_url: "https://yourcafename.infinityfreeapp.com",
-   cloud_user: "zakizap",           // Your admin username on the new shop
-   cloud_pass: "your_password",     // Your admin password
-   ```
+2. Enter your new cloud URL (e.g. `https://yourcafename.infinityfreeapp.com`).
+3. Press Enter to confirm your username (`zakizap`) and password (`callmepapaton2x`).
+4. That's it! The sync engine automatically updates its target and will push all offline and future transactions to your new cloud account whenever Nearby Café runs.
 
 ---
 
