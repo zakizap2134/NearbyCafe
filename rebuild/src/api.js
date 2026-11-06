@@ -39,7 +39,18 @@ export async function api(
       "Cannot reach the local host. Check that the host and shop Wi-Fi are running.",
     );
   }
-  const result = await response.json().catch(() => null);
+  const rawText = await response.text().catch(() => "");
+  let result = null;
+  try {
+    result = JSON.parse(rawText);
+  } catch {
+    // If the host returned an HTML security challenge (e.g. InfinityFree's /aes.js bot protection)
+    if (typeof window !== "undefined" && (rawText.includes("aes.js") || rawText.includes("__test"))) {
+      window.location.reload();
+      return new Promise(() => {});
+    }
+  }
+
   if (!result)
     throw new ApiError(
       "The host returned an unreadable response. Ask the owner to check the server.",

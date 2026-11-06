@@ -142,15 +142,84 @@ To enable automatic background syncing on your laptop:
 
 ---
 
+## Scenario 5: Moving to a Fresh Device or Brand-New Cloud Account
+
+If you replace the shop PC/laptop, or want to deploy to a **new InfinityFree account / new custom domain**, here is how to set it up:
+
+### A. Migrating Existing Café Data vs. Starting 100% Clean
+
+* **To preserve your existing products, variants, recipes, stock levels, and sales history:**
+  1. On your current/old device, go to **Management → Backup & restore**.
+  2. Click **Download Backup (.sql)** and save the file to a flash drive or cloud storage.
+  3. On your new device or new cloud database, import that `.sql` file via phpMyAdmin (`http://localhost/phpmyadmin` locally or vPanel phpMyAdmin on InfinityFree).
+  * *Result: All your catalogue, recipes, inventory stock, staff accounts, and sales are restored instantly.*
+* **To start with a 100% clean/fresh café database:**
+  1. Import the clean starter schema from `rebuild/database/schema.sql`.
+
+---
+
+### B. Deploying Code to a New InfinityFree Cloud Account
+
+When creating a new InfinityFree account, you will get a new domain (e.g. `yourcafename.infinityfreeapp.com`), a new username (`if0_xxxxxxxx`), and a new MySQL host (`sqlxxx.infinityfree.com`).
+
+1. **Deploy the frontend and backend files in 30 seconds**:
+   Run the automated deploy script from PowerShell:
+   ```powershell
+   powershell -File C:\Projects\NearbyCafe\rebuild\scripts\deploy_to_cloud.ps1 -FtpUser "YOUR_NEW_IF0_USER" -FtpPass "YOUR_NEW_VPANEL_PASSWORD"
+   ```
+2. **Configure Database Credentials on the New Cloud**:
+   In the new InfinityFree File Manager, edit `htdocs/config/local.php` with your new database connection details:
+   ```php
+   return [
+       'db' => [
+           'host' => 'sqlxxx.infinityfree.com', // Found on your InfinityFree MySQL page
+           'port' => 3306,
+           'name' => 'if0_xxxxxxxx_venuevue',   // Your new database name
+           'user' => 'if0_xxxxxxxx',            // Your new username
+           'password' => 'YOUR_VPANEL_PASSWORD',
+       ],
+       'session_hours' => 12,
+       'vat_rate' => '0.1200',
+       'app_url' => 'https://yourcafename.infinityfreeapp.com',
+   ];
+   ```
+
+---
+
+### C. Pointing the Local Sync Engine to the New Cloud
+
+To connect your shop PC's offline sync daemon to the new cloud URL:
+
+1. In `sync-engine/config/sync_config.php`, update:
+   ```php
+   'cloud_api_url' => 'https://yourcafename.infinityfreeapp.com/api',
+   ```
+2. In `sync-engine/local_daemon/infinityfree_sync_bridge.mjs`, update:
+   ```javascript
+   cloud_url: "https://yourcafename.infinityfreeapp.com",
+   cloud_user: "zakizap",           // Your admin username on the new shop
+   cloud_pass: "your_password",     // Your admin password
+   ```
+
+---
+
 ## Troubleshooting & FAQs
 
 ### Q1: Can I use Nearby Café if the internet goes down?
 **Yes.** The Local POS server (`http://127.0.0.1:5174`) runs entirely on your local machine using Apache and MariaDB. Cashiers can continue ringing up customers, deducting inventory, and printing receipts. Once internet connectivity is restored, run the sync bridge to push all recorded sales to the cloud.
 
-### Q2: Why does the sync bridge use headless Edge/Playwright?
+### Q2: Why did I see "Let's reconnect: The host returned an unreadable response"?
+This occurs exclusively on InfinityFree's free tier due to their **`/aes.js` anti-bot security challenge**:
+1. When opening the cloud site in a fresh browser session, InfinityFree serves an HTML challenge script to verify you are a human browser before allowing access to the PHP API.
+2. If an API request executes before the browser stores the security cookie (`__test`), the API receives the HTML security page instead of JSON, triggering the *"unreadable response"* notice.
+3. **How to resolve**:
+   * Simply click **"Try again"** or press **Ctrl + F5** (hard refresh). The security cookie is now saved, and the app connects normally.
+   * In our latest build, the app detects this challenge automatically and silently refreshes the browser to pass the handshake without interrupting you.
+
+### Q3: Why does the sync bridge use headless Edge/Playwright?
 InfinityFree's free hosting tier uses an anti-bot security challenge (`<script src="/aes.js"></script>`) that blocks standard cURL scripts. Our Edge daemon runs the challenge in an automated browser context to acquire the `__test` cookie, enabling seamless API synchronization without paying for premium hosting.
 
-### Q3: What if port 5174 is in use on my new laptop?
+### Q4: What if port 5174 is in use on my new laptop?
 If another application is using port 5174, edit `rebuild/tools/launcher-service.ps1` or run:
 ```powershell
 Stop-Service NearbyCafeWeb
@@ -161,7 +230,7 @@ cd C:\Projects\NearbyCafe\rebuild
 php -S 127.0.0.1:8080 -t public
 ```
 
-### Q4: How do I pull the latest changes from GitHub on another device?
+### Q5: How do I pull the latest changes from GitHub on another device?
 Whenever updates are pushed to GitHub, simply run in your project folder:
 ```powershell
 cd C:\Projects\NearbyCafe
