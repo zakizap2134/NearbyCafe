@@ -1962,22 +1962,189 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
   border-radius: 4px;
   color: #1e293b;
 }
+.receipt-print-footer {
+  display: none;
+}
 @media print {
+  @page {
+    margin: 5mm;
+    size: auto;
+  }
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 11px !important;
+  }
+
+  /* Completely suppress all navigation, layouts, history tables, banners, buttons and admin sections */
   .workspace-header,
   .page-heading,
   .register-layout,
   .pending-banner,
+  .register-stock-banner,
   .tabs,
   .management-sidebar,
+  .management-content,
+  .management-page,
+  .app-layout-management,
+  .app-footer,
   .no-print,
-  .app-footer {
+  .section-space,
+  .order-success-overlay,
+  .modal-overlay,
+  .toast,
+  .button-row,
+  .button-row button,
+  .receipt-actions,
+  button {
     display: none !important;
   }
-  .receipt {
-    border: 0 !important;
-    box-shadow: none !important;
-    margin: 0 !important;
+
+  /* Unconstrain wrapper layout so only the receipt prints */
+  .app-layout,
+  .app-content,
+  .workspace {
+    display: block !important;
     padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  /* Professional Thermal POS Receipt Slip (80mm standard paper width) */
+  .receipt {
+    display: block !important;
+    width: 100% !important;
+    max-width: 330px !important;
+    margin: 0 auto !important;
+    padding: 12px 10px !important;
+    border: 1px dashed #64748b !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace, sans-serif !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .receipt * {
+    color: #000000 !important;
+  }
+
+  .receipt .brand {
+    text-align: center !important;
+    margin-bottom: 6px !important;
+  }
+
+  .receipt .brand img {
+    max-height: 42px !important;
+    filter: grayscale(100%) contrast(150%) !important;
+  }
+
+  .receipt .section-heading {
+    text-align: center !important;
+    border-bottom: 1px dashed #000000 !important;
+    padding-bottom: 6px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .receipt .section-heading h2 {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    margin: 0 0 4px 0 !important;
+  }
+
+  .receipt .section-heading .pill {
+    border: 1px solid #000000 !important;
+    background: transparent !important;
+    font-size: 9px !important;
+    padding: 1px 5px !important;
+  }
+
+  .receipt > p.subtle {
+    text-align: center !important;
+    font-size: 10px !important;
+    margin: 4px 0 8px 0 !important;
+    border-bottom: 1px dashed #000000 !important;
+    padding-bottom: 6px !important;
+  }
+
+  .receipt-customer-note {
+    border-left: 2px solid #000000 !important;
+    background: #f8fafc !important;
+    padding: 4px 6px !important;
+    margin: 6px 0 !important;
+    font-size: 11px !important;
+  }
+
+  .receipt table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 10px !important;
+    margin: 6px 0 !important;
+  }
+
+  .receipt table th,
+  .receipt table td {
+    padding: 3px 2px !important;
+    border-bottom: 1px dotted #cbd5e1 !important;
+    text-align: left !important;
+  }
+
+  .receipt table th:nth-child(2),
+  .receipt table td:nth-child(2),
+  .receipt table th:nth-child(3),
+  .receipt table td:nth-child(3),
+  .receipt table th:nth-child(4),
+  .receipt table td:nth-child(4),
+  .receipt table th:nth-child(5),
+  .receipt table td:nth-child(5) {
+    text-align: right !important;
+  }
+
+  .receipt table th {
+    border-bottom: 1px solid #000000 !important;
+    font-weight: 700 !important;
+  }
+
+  .receipt .sale-totals {
+    border-top: 1px dashed #000000 !important;
+    padding-top: 6px !important;
+    margin-top: 6px !important;
+    font-size: 10px !important;
+  }
+
+  .receipt .sale-totals div {
+    display: flex !important;
+    justify-content: space-between !important;
+    padding: 2px 0 !important;
+  }
+
+  .receipt .sale-totals div:last-child {
+    font-weight: 700 !important;
+    font-size: 12px !important;
+  }
+
+  .receipt-print-footer {
+    display: block !important;
+    text-align: center !important;
+    margin-top: 10px !important;
+    padding-top: 8px !important;
+    border-top: 1px dashed #000000 !important;
+    font-size: 10px !important;
+  }
+  .receipt-print-footer p {
+    font-weight: 600 !important;
+    margin: 0 0 2px 0 !important;
+  }
+  .receipt-print-footer small {
+    font-size: 9px !important;
+    color: #475569 !important;
   }
 }
 

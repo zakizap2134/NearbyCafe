@@ -538,7 +538,7 @@ export default function Register({ user, token, expired }) {
             </div>
           </div>
           {lowStockAlerts.length > 0 && (
-            <section className="register-stock-banner" aria-label="Low stock alerts" role="status">
+            <section className="register-stock-banner no-print" aria-label="Low stock alerts" role="status">
               <div className="register-stock-banner-header">
                 <div className="register-stock-banner-title">
                   <span className="register-stock-pill" aria-hidden="true">Low Stock</span>
@@ -955,7 +955,7 @@ export default function Register({ user, token, expired }) {
           onReloadItems={reloadSaleToBasket}
         />
       )}
-      <section className="panel section-space">
+      <section className="panel section-space no-print">
         <h2>Your orders on this device</h2>
         <p className="subtle small">
           History for this account and browser. Confirmed receipts remain stored

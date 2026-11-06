@@ -68,7 +68,7 @@ export function Receipt({ sale, onVoid, onReloadItems, onPrint, onClose }) {
           {onClose && (
             <button
               type="button"
-              className="compact-btn"
+              className="compact-btn no-print"
               onClick={onClose}
             >
               Close receipt
@@ -142,6 +142,10 @@ export function Receipt({ sale, onVoid, onReloadItems, onPrint, onClose }) {
           </div>
         ))}
       </dl>
+      <div className="receipt-print-footer">
+        <p>Thank you for visiting Nearby Café!</p>
+        <small>Good coffee, always nearby. · Please keep this receipt.</small>
+      </div>
       <div className="button-row receipt-actions no-print">
         {onPrint && (
           <button type="button" onClick={onPrint}>
