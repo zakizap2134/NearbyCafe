@@ -16,6 +16,54 @@ const { chromium } = pkg;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const PID_FILE = path.resolve(__dirname, "../../rebuild/storage/launcher/sync_bridge.pid");
+
+function acquireInstanceLock() {
+  if (fs.existsSync(PID_FILE)) {
+    try {
+      const existingPid = parseInt(fs.readFileSync(PID_FILE, "utf8").trim(), 10);
+      if (existingPid && existingPid !== process.pid) {
+        try {
+          process.kill(existingPid, 0);
+          console.log(`[SYNC BRIDGE] Daemon already running (PID: ${existingPid}). Exiting duplicate.`);
+          process.exit(0);
+        } catch {
+          // Process does not exist; stale PID file
+        }
+      }
+    } catch {}
+  }
+  try {
+    fs.mkdirSync(path.dirname(PID_FILE), { recursive: true });
+    fs.writeFileSync(PID_FILE, String(process.pid), "utf8");
+  } catch {}
+}
+
+let activeBrowser = null;
+
+function releaseInstanceLock() {
+  try {
+    if (fs.existsSync(PID_FILE)) {
+      const savedPid = parseInt(fs.readFileSync(PID_FILE, "utf8").trim(), 10);
+      if (savedPid === process.pid) {
+        fs.unlinkSync(PID_FILE);
+      }
+    }
+  } catch {}
+}
+
+async function cleanShutdown() {
+  releaseInstanceLock();
+  if (activeBrowser) {
+    try { await activeBrowser.close(); } catch {}
+  }
+  process.exit(0);
+}
+
+process.on("exit", releaseInstanceLock);
+process.on("SIGINT", cleanShutdown);
+process.on("SIGTERM", cleanShutdown);
+
 const CONFIG = {
   shop_id: "nearbycafe_intramuros_01",
   shop_name: "Nearby Café (Legaspi St., Intramuros)",
@@ -79,6 +127,9 @@ function updateLocalStatus(status) {
 
 async function main() {
   const isOnce = process.argv.includes("--once");
+  if (!isOnce) {
+    acquireInstanceLock();
+  }
   console.log("=".repeat(75));
   console.log("VENUEVUE · INFINITYFREE LIVE CLOUD SYNC BRIDGE");
   console.log(`Target Cloud: ${CONFIG.cloud_url}`);
@@ -91,6 +142,7 @@ async function main() {
     headless: true,
     executablePath: "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
   });
+  activeBrowser = browser;
   const context = await browser.newContext();
   const page = await context.newPage();
 

@@ -44,6 +44,38 @@ function Save-NearbyOwnership($State,[string]$Kind,$Service,$Ops){
  # Publish ownership in memory only after atomic persistence succeeds.
  $State[$Kind]=$next[$Kind]
 }
+function Start-NearbySync($Config){
+ try{
+  $repoRoot=[IO.Path]::GetFullPath((Split-Path $Config.Root -Parent))
+  $syncScript=Join-Path $repoRoot 'sync-engine\local_daemon\infinityfree_sync_bridge.mjs'
+  if(-not(Test-Path -LiteralPath $syncScript)){return}
+  $pidFile=Join-Path $Config.Root 'storage\launcher\sync_bridge.pid'
+  if(Test-Path -LiteralPath $pidFile){
+   try{
+    $oldPid=[int](Get-Content -Path $pidFile -Raw).Trim()
+    if($oldPid -gt 0 -and (Get-Process -Id $oldPid -ErrorAction SilentlyContinue)){return}
+   }catch{}
+  }
+  $node=(Get-Command 'node' -ErrorAction SilentlyContinue).Source
+  if(-not $node -and (Test-Path 'C:\Program Files\nodejs\node.exe')){$node='C:\Program Files\nodejs\node.exe'}
+  if($node){
+   Start-Process -FilePath $node -ArgumentList @($syncScript) -WorkingDirectory (Split-Path $syncScript -Parent) -WindowStyle Hidden
+  }
+ }catch{}
+}
+function Stop-NearbySync($Config){
+ try{
+  $pidFile=Join-Path $Config.Root 'storage\launcher\sync_bridge.pid'
+  if(Test-Path -LiteralPath $pidFile){
+   try{
+    $pidVal=[int](Get-Content -Path $pidFile -Raw).Trim()
+    if($pidVal -gt 0){Stop-Process -Id $pidVal -Force -ErrorAction SilentlyContinue}
+    Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
+   }catch{}
+  }
+  Get-CimInstance Win32_Process -Filter "CommandLine LIKE '%infinityfree_sync_bridge.mjs%'" -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+ }catch{}
+}
 function Start-NearbyStack($Config,$State,$Ops,[scriptblock]$Status){
  & $Status 'checking' 'Checking setup'; & $Ops.Validate
  $probe=& $Ops.Database
@@ -73,10 +105,12 @@ function Start-NearbyStack($Config,$State,$Ops,[scriptblock]$Status){
  Wait-Nearby {(& $Ops.Service 'web').Status -eq 'Running'} $Config.Attempts $Ops 'APP_TIMEOUT'
  if($started){Save-NearbyOwnership $State 'web' (& $Ops.Service 'web') $Ops}
  Wait-Nearby {& $Ops.HttpReady $ready.data.epoch} $Config.Attempts $Ops 'APP_TIMEOUT'
+  Start-NearbySync $Config
  & $Status 'ready' 'Ready'; & $Ops.Open
  return @{Ready=$true}
 }
 function Stop-NearbyStack($Config,$State,$Ops,[scriptblock]$Status){
+ Stop-NearbySync $Config
  & $Status 'checking' 'Stopping Nearby Cafe'
  $web=& $Ops.Service 'web'
  if($web.Status -eq 'StopPending'){
