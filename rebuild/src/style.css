@@ -1815,28 +1815,54 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
 }
 
 /* ============================================================================
-   MANAGEMENT WORKSPACE: MODERN LEFT SIDEBAR, 7-DAY SALES GRAPH & WARNINGS
+   MANAGEMENT WORKSPACE: SUPER LEFT CORNER DOCKED SIDEBAR, 7-DAY SALES GRAPH & WARNINGS
    ============================================================================ */
+
+.workspace.workspace-management,
+.workspace:has(.management-page) {
+  max-width: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.management-page {
+  width: 100%;
+  min-height: calc(100vh - 96px);
+}
 
 .management-workspace {
   display: grid;
-  grid-template-columns: 256px minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-  margin-top: 6px;
+  grid-template-columns: 268px minmax(0, 1fr);
+  gap: 0;
+  align-items: stretch;
+  min-height: calc(100vh - 96px);
+  margin-top: 0;
 }
 
 .management-sidebar {
   position: sticky;
-  top: 20px;
+  top: 0;
+  width: 268px;
+  min-height: calc(100vh - 96px);
+  max-height: 100vh;
+  overflow-y: auto;
   background: var(--nearby-surface, #ffffff);
-  border: 1px solid var(--nearby-border, #e7d9cb);
-  border-radius: 14px;
-  padding: 16px 14px;
-  box-shadow:
-    0 6px 20px -6px rgba(57, 33, 27, 0.08),
-    0 2px 6px -2px rgba(57, 33, 27, 0.04);
+  border-right: 1px solid var(--nearby-border, #e7d9cb);
+  border-top: none;
+  border-left: none;
+  border-bottom: none;
+  border-radius: 0;
+  padding: 24px 16px 36px 20px;
+  box-shadow: 2px 0 12px -3px rgba(57, 33, 27, 0.04);
   min-width: 0;
+  z-index: 10;
+}
+
+.management-main {
+  min-width: 0;
+  padding: 28px 36px 48px;
+  background: var(--nearby-paper, #fff9f0);
 }
 
 .sidebar-panel-header {
@@ -2442,14 +2468,31 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
 }
 
 @media (max-width: 980px) {
+  .workspace.workspace-management,
+  .workspace:has(.management-page) {
+    padding: 16px;
+  }
+
   .management-workspace {
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
+    min-height: auto;
   }
 
   .management-sidebar {
     position: static;
-    padding: 12px;
+    width: 100%;
+    min-height: auto;
+    max-height: none;
+    overflow-y: visible;
+    border-radius: 14px;
+    border: 1px solid var(--nearby-border, #e7d9cb);
+    padding: 14px;
+    box-shadow: 0 4px 14px -4px rgba(57, 33, 27, 0.06);
+  }
+
+  .management-main {
+    padding: 0;
   }
 
   .management-sidebar-nav.tabs {

@@ -1091,36 +1091,7 @@ export default function Management({ user, token, expired }) {
     }
   }
   return (
-    <>
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">YOUR SHOP, AT A GLANCE</p>
-          <h1>Management</h1>
-          <p className="subtle">
-            Your menu, stock, sales and team — all in one place.
-          </p>
-        </div>
-        <button
-          disabled={busy || loading}
-          onClick={() => {
-            setError(null);
-            refresh();
-          }}
-        >
-          Refresh records
-        </button>
-      </div>
-      {recoveryPrepared === false && tab !== "Account security" && (
-        <section className="panel section-space" aria-label="Prepare Owner recovery">
-          <h2>Protect your Owner account</h2>
-          <p>
-            Set up your recovery email and Gmail SMTP in Account security so you can reset your password anytime.
-          </p>
-          <button className="primary" onClick={() => setTab("Account security")}>
-            Set up email recovery
-          </button>
-        </section>
-      )}
+    <div className="management-page">
       <div className="management-workspace">
         <aside className="management-sidebar">
           <div className="sidebar-panel-header">
@@ -1210,6 +1181,35 @@ export default function Management({ user, token, expired }) {
         </aside>
 
         <div className="management-main">
+          <div className="page-heading">
+            <div>
+              <p className="eyebrow">YOUR SHOP, AT A GLANCE</p>
+              <h1>Management</h1>
+              <p className="subtle">
+                Your menu, stock, sales and team — all in one place.
+              </p>
+            </div>
+            <button
+              disabled={busy || loading}
+              onClick={() => {
+                setError(null);
+                refresh();
+              }}
+            >
+              Refresh records
+            </button>
+          </div>
+          {recoveryPrepared === false && tab !== "Account security" && (
+            <section className="panel section-space" aria-label="Prepare Owner recovery">
+              <h2>Protect your Owner account</h2>
+              <p>
+                Set up your recovery email and Gmail SMTP in Account security so you can reset your password anytime.
+              </p>
+              <button className="primary" onClick={() => setTab("Account security")}>
+                Set up email recovery
+              </button>
+            </section>
+          )}
           <ErrorNotice error={error} />
           {notice && (
             <p className="success" role="status">
@@ -2963,6 +2963,6 @@ export default function Management({ user, token, expired }) {
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }

@@ -7,6 +7,7 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
   useNavigate,
 } from "react-router-dom";
 import { api, readToken, storeToken } from "./api";
@@ -403,6 +404,8 @@ function Login({ onSuccess, sessionNotice }) {
   );
 }
 function Shell({ user, signOut, children }) {
+  const location = useLocation();
+  const isManagement = location.pathname.startsWith("/management");
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(null);
   async function leave() {
@@ -417,7 +420,7 @@ function Shell({ user, signOut, children }) {
     }
   }
   return (
-    <div className="app-layout">
+    <div className={`app-layout${isManagement ? " app-layout-management" : ""}`}>
       <header className="workspace-header">
         <Brand compact header />
         <div className="header-workspace">
@@ -435,13 +438,13 @@ function Shell({ user, signOut, children }) {
           </div>
         </div>
       </header>
-      <div className="app-content">
+      <div className={`app-content${isManagement ? " management-mode" : ""}`}>
         {error && (
           <div className="page-error">
             <ErrorMessage error={error} />
           </div>
         )}
-        <main className="workspace">{children}</main>
+        <main className={`workspace${isManagement ? " workspace-management" : ""}`}>{children}</main>
         <footer className="app-footer">
           Nearby Café · Powered by VenueVue <span>Café POS</span>
         </footer>
