@@ -143,23 +143,6 @@ Nearby Café enforces strict, modern authentication security:
 
 ---
 
-## Developer Commands & Automated Testing
-
-From the `rebuild` directory in PowerShell:
-
-```powershell
-# Build frontend for release (bundles into public/assets/)
-node ..\..\antigravity\brain\...\scratch\build-frontend.mjs
-
-# Run full integration test suite (29 tests: Local API, Headless Edge E2E, and Live Online)
-node ..\..\antigravity\brain\...\scratch\test-integration.mjs
-
-# Lint all PHP backend files
-Get-ChildItem -Path "app\*.php" | ForEach-Object { & "C:\xampp\php\php.exe" -l $_.FullName }
-```
-
----
-
 ## Support & Verification
 
 - **Integration Testing Status**: 29 / 29 automated tests passed (Local backend, Playwright browser E2E, and InfinityFree live production).

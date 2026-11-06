@@ -116,5 +116,5 @@ To reset a local installation or test a clean setup from scratch:
 When updating an existing installation:
 1. Preserve `config/local.php` and `storage/` (which contains your product photos and SMTP credentials).
 2. For cloud hosting: upload the new `venuevue-nearbycafe.zip` over `htdocs`.
-3. For local installations: pull the latest Git changes and re-run `node build-frontend.mjs` (or extract the update package).
+3. For local installations: pull the latest Git changes and run `npm run build` inside `rebuild/`.
 4. Hard-refresh your browser (`Ctrl + Shift + R`) to load the new frontend assets.
