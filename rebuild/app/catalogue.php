@@ -28,14 +28,30 @@ function ingredient_stock(PDO $db, string $at): array
 function catalogue_data(PDO $db): array
 {
     $at = database_time($db);
+    $rawIngredients = ingredient_stock($db, $at);
     $available = [];
-    foreach (ingredient_stock($db, $at) as $i) {
+    $lowStockAlerts = [];
+    foreach ($rawIngredients as $i) {
         $available[(int) $i["id"]] = fixed(
             $i["eligible_stock"],
             3,
             "stock",
             true,
         );
+        if ((int) $i["is_active"]) {
+            $eligible = (float) $i["eligible_stock"];
+            $min = (float) $i["minimum_stock"];
+            if ($min > 0 && $eligible <= $min) {
+                $lowStockAlerts[] = [
+                    "id" => (int) $i["id"],
+                    "name" => $i["name"],
+                    "unit" => $i["unit"],
+                    "eligible_stock" => $i["eligible_stock"],
+                    "minimum_stock" => $i["minimum_stock"],
+                    "is_out_of_stock" => ($eligible <= 0.0001),
+                ];
+            }
+        }
     }
     $variants = $db
         ->query(
@@ -49,6 +65,7 @@ function catalogue_data(PDO $db): array
             [$v["id"]],
         )->fetchAll();
         $count = $recipe ? PHP_INT_MAX : 0;
+        $hasLowIngredient = false;
         foreach ($recipe as $r) {
             $count = min(
                 $count,
@@ -57,14 +74,22 @@ function catalogue_data(PDO $db): array
                     fixed($r["qty"], 3, "recipe"),
                 ),
             );
+            foreach ($lowStockAlerts as $lsa) {
+                if ($lsa["id"] === (int) $r["ingredient_id"]) {
+                    $hasLowIngredient = true;
+                }
+            }
         }
         $v["available_count"] = $count;
         $v["recipe_ready"] = (bool) $recipe;
+        $v["has_low_ingredient"] = $hasLowIngredient;
     }
     return [
         "variants" => $variants,
         "server_time" => $at,
         "today_sales" => today_sales($db, $at),
+        "low_stock_alerts" => $lowStockAlerts,
+        "ingredients" => $rawIngredients,
     ];
 }
 function today_sales(PDO $db, string $at): array

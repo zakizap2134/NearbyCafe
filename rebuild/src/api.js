@@ -44,8 +44,14 @@ export async function api(
   try {
     result = JSON.parse(rawText);
   } catch {
-    // If the host returned an HTML security challenge (e.g. InfinityFree's /aes.js bot protection)
-    if (typeof window !== "undefined" && (rawText.includes("aes.js") || rawText.includes("__test"))) {
+    // If the host returned an HTML security challenge (e.g. InfinityFree's /aes.js bot protection or transient challenge)
+    const isHtmlHostPage =
+      rawText.includes("aes.js") ||
+      rawText.includes("__test") ||
+      rawText.trim().startsWith("<") ||
+      rawText.includes("<html") ||
+      rawText.includes("<!DOCTYPE");
+    if (typeof window !== "undefined" && isHtmlHostPage) {
       window.location.reload();
       return new Promise(() => {});
     }

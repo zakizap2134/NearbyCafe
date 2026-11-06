@@ -46,26 +46,35 @@ function App() {
     setBoot(true);
     setError(null);
     (async () => {
-      try {
-        await api("health", { signal: controller.signal });
-        if (token) {
-          const data = await api("session", {
-            token,
-            signal: controller.signal,
-          });
-          if (live) setUser(data.user);
+      let attempts = 0;
+      while (live && attempts < 3) {
+        try {
+          await api("health", { signal: controller.signal });
+          if (token) {
+            const data = await api("session", {
+              token,
+              signal: controller.signal,
+            });
+            if (live) setUser(data.user);
+          }
+          break;
+        } catch (e) {
+          attempts++;
+          if (!live) return;
+          if (e.status === 401) {
+            setSessionNotice(endedMessage);
+            storeToken("");
+            setToken("");
+            setUser(null);
+            break;
+          } else if (e.name !== "AbortError" && attempts >= 3) {
+            setError(e);
+          } else if (attempts < 3) {
+            await new Promise((r) => setTimeout(r, 800));
+          }
         }
-      } catch (e) {
-        if (!live) return;
-        if (e.status === 401) {
-          setSessionNotice(endedMessage);
-          storeToken("");
-          setToken("");
-          setUser(null);
-        } else if (e.name !== "AbortError") setError(e);
-      } finally {
-        if (live) setBoot(false);
       }
+      if (live) setBoot(false);
     })();
     return () => {
       live = false;

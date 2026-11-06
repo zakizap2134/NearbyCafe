@@ -70,6 +70,7 @@ export default function Register({ user, token, expired }) {
     [voidTarget, setVoidTarget] = useState(null),
     [saving, setSaving] = useState(0),
     [historyLimit, setHistoryLimit] = useState(10),
+    [showStockAlertDetails, setShowStockAlertDetails] = useState(false),
     [chimeEnabled, setChimeEnabled] = useState(() => {
       try {
         return localStorage.getItem("venuevue_chime_enabled") !== "0";
@@ -379,6 +380,7 @@ export default function Register({ user, token, expired }) {
       (o) => o && (o.state === "confirmed" || o.state === "resolved"),
     );
   const allVariants = Array.isArray(menu?.variants) ? menu.variants : [];
+  const lowStockAlerts = Array.isArray(menu?.low_stock_alerts) ? menu.low_stock_alerts : [];
   const menuCategories = Array.from(
     new Set(allVariants.map((v) => v?.category).filter(Boolean)),
   );
@@ -522,10 +524,11 @@ export default function Register({ user, token, expired }) {
                 type="button"
                 className={`compact-btn sound-toggle-btn${chimeEnabled ? " sound-active" : ""}`}
                 onClick={toggleChime}
-                title={chimeEnabled ? "Register chime is ON (Click to mute)" : "Register chime is MUTED (Click to unmute)"}
+                title={chimeEnabled ? "Register chime is on (Click to mute)" : "Register chime is muted (Click to unmute)"}
                 aria-label={chimeEnabled ? "Chime enabled" : "Chime muted"}
               >
-                {chimeEnabled ? "🔔 Chime On" : "🔕 Chime Off"}
+                <span className={`chime-dot ${chimeEnabled ? "active" : ""}`} aria-hidden="true" />
+                <span>{chimeEnabled ? "Chime on" : "Chime muted"}</span>
               </button>
               {menu && (
                 <span className="subtle">
@@ -534,6 +537,42 @@ export default function Register({ user, token, expired }) {
               )}
             </div>
           </div>
+          {lowStockAlerts.length > 0 && (
+            <section className="register-stock-banner" aria-label="Low stock alerts" role="status">
+              <div className="register-stock-banner-header">
+                <div className="register-stock-banner-title">
+                  <span className="register-stock-pill" aria-hidden="true">Low Stock</span>
+                  <strong>{lowStockAlerts.length} ingredient{lowStockAlerts.length === 1 ? "" : "s"} running low</strong>
+                </div>
+                <button
+                  type="button"
+                  className="compact-btn register-stock-toggle-btn"
+                  onClick={() => setShowStockAlertDetails((prev) => !prev)}
+                  aria-expanded={showStockAlertDetails}
+                >
+                  {showStockAlertDetails ? "Hide details" : "View ingredients"}
+                </button>
+              </div>
+              {showStockAlertDetails && (
+                <div className="register-stock-list">
+                  {lowStockAlerts.map((item) => (
+                    <div key={item.id} className={`register-stock-item ${item.is_out_of_stock ? "out" : "warning"}`}>
+                      <div className="stock-item-info">
+                        <span className="stock-item-name">{item.name}</span>
+                        <span className="stock-item-qty">
+                          <strong>{Number(item.eligible_stock).toLocaleString()} {item.unit}</strong> left
+                          <small> (min threshold: {Number(item.minimum_stock).toLocaleString()} {item.unit})</small>
+                        </span>
+                      </div>
+                      <span className={`stock-item-badge ${item.is_out_of_stock ? "danger" : "warning"}`}>
+                        {item.is_out_of_stock ? "Out of stock" : "Low stock"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
           <Field
             label="Find a drink (Press / to search)"
             placeholder="Search name or category"
@@ -631,30 +670,37 @@ export default function Register({ user, token, expired }) {
                     </>
                   )}
                   <div className="variant-grid">
-                    {p.variants.map((v) => (
-                      <button
-                        key={v.id}
-                        aria-label={"Add " + variantLabel(v)}
-                        disabled={busy || !ready || v.available_count < 1}
-                        onClick={() => add(v)}
-                      >
-                        <strong>
-                          {v.size} · {{ S: 12, M: 16, L: 22 }[v.size]} oz
-                          {v.temperature === "NA"
-                            ? ""
-                            : " · " +
-                              (v.temperature === "ICED" ? "Iced" : "Hot")}
-                        </strong>
-                        <span>{money(v.price)}</span>
-                        <small>
-                          {v.available_count > 0
-                            ? v.available_count + " available"
-                            : v.recipe_ready
-                              ? "Out of stock"
-                              : "Recipe needed"}
-                        </small>
-                      </button>
-                    ))}
+                    {p.variants.map((v) => {
+                      const isOut = v.available_count < 1;
+                      const isLow = v.available_count > 0 && (v.available_count <= 5 || v.has_low_ingredient);
+                      return (
+                        <button
+                          key={v.id}
+                          aria-label={"Add " + variantLabel(v)}
+                          disabled={busy || !ready || isOut}
+                          onClick={() => add(v)}
+                          className={`variant-card-btn${isOut ? " is-out" : isLow ? " is-low" : ""}`}
+                        >
+                          <strong>
+                            {v.size} · {{ S: 12, M: 16, L: 22 }[v.size]} oz
+                            {v.temperature === "NA"
+                              ? ""
+                              : " · " +
+                                (v.temperature === "ICED" ? "Iced" : "Hot")}
+                          </strong>
+                          <span>{money(v.price)}</span>
+                          <small className={`variant-stock-badge ${isOut ? "badge-out" : isLow ? "badge-low" : "badge-ok"}`}>
+                            {isOut
+                              ? (v.recipe_ready ? "Out of stock" : "Recipe needed")
+                              : isLow
+                                ? (v.has_low_ingredient && v.available_count > 5
+                                    ? `Low ingredient (${v.available_count} left)`
+                                    : `Low: ${v.available_count} left`)
+                                : `${v.available_count} available`}
+                          </small>
+                        </button>
+                      );
+                    })}
                   </div>
                 </article>
               ))}
@@ -699,34 +745,48 @@ export default function Register({ user, token, expired }) {
           {!basket.length ? (
             <p className="subtle basket-empty">Select a size to add a drink.</p>
           ) : (
-            basket.map((line) => (
-              <div className="basket-line" key={line.id}>
-                <div>
-                  <strong>{variantLabel(line)}</strong>
-                  <p>{money(line.price)} each</p>
+            basket.map((line) => {
+              const currentVariant = menu?.variants?.find((cand) => Number(cand.id) === Number(line.id));
+              const hasLowIng = Boolean(currentVariant?.has_low_ingredient ?? line.has_low_ingredient);
+              const maxAvail = currentVariant?.available_count ?? line.available_count;
+              const isOut = maxAvail !== undefined && maxAvail < 1;
+              const exceedsAvail = maxAvail !== undefined && line.qty > maxAvail;
+              return (
+                <div className="basket-line" key={line.id}>
+                  <div>
+                    <strong>{variantLabel(line)}</strong>
+                    {isOut ? (
+                      <div className="basket-alert-tag danger">Out of stock</div>
+                    ) : exceedsAvail ? (
+                      <div className="basket-alert-tag danger">Exceeds stock ({maxAvail} left)</div>
+                    ) : hasLowIng ? (
+                      <div className="basket-alert-tag warning">Low ingredient stock</div>
+                    ) : null}
+                    <p>{money(line.price)} each</p>
+                  </div>
+                  <div className="quantity-controls">
+                    <button
+                      aria-label={"Remove one " + variantLabel(line)}
+                      onClick={() => adjust(line.id, -1)}
+                      disabled={busy || !ready}
+                    >
+                      −
+                    </button>
+                    <span>{line.qty}</span>
+                    <button
+                      aria-label={"Add one " + variantLabel(line)}
+                      onClick={() => adjust(line.id, 1)}
+                      disabled={busy || !ready || line.qty >= 100}
+                    >
+                      +
+                    </button>
+                  </div>
+                  <strong>
+                    {money(cashString(cents(line.price) * line.qty))}
+                  </strong>
                 </div>
-                <div className="quantity-controls">
-                  <button
-                    aria-label={"Remove one " + variantLabel(line)}
-                    onClick={() => adjust(line.id, -1)}
-                    disabled={busy || !ready}
-                  >
-                    −
-                  </button>
-                  <span>{line.qty}</span>
-                  <button
-                    aria-label={"Add one " + variantLabel(line)}
-                    onClick={() => adjust(line.id, 1)}
-                    disabled={busy || !ready || line.qty >= 100}
-                  >
-                    +
-                  </button>
-                </div>
-                <strong>
-                  {money(cashString(cents(line.price) * line.qty))}
-                </strong>
-              </div>
-            ))
+              );
+            })
           )}
           <div className="checkout-total">
             <span>Total</span>
