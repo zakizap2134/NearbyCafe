@@ -1,4 +1,4 @@
-# Uninstall and clean reset for Nearby Cafe (VenueVue).
+﻿# Uninstall and clean reset for Nearby Cafe (VenueVue).
 [CmdletBinding()]
 param(
  [switch]$Elevated,

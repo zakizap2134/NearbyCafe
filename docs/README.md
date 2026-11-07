@@ -41,7 +41,7 @@ Start from the [root README](../README.md) or the [application README](../rebuil
 | [VENUEVUE PROJECT PLAN Rev 2.3.md](academic/VENUEVUE%20PROJECT%20PLAN%20Rev%202.3.md) | COSC 75 Software Engineering II Project Plan (Markdown source) |
 | [VENUEVUE MASTER PROJECT PLAN AUDIT & REALIGNMENT.md](academic/VENUEVUE%20MASTER%20PROJECT%20PLAN%20AUDIT%20&%20REALIGNMENT.md) | Academic baseline audit and architectural alignment notes |
 
-Formal PDF/DOCX deliverables remain in `Docu/` at the repository root. Raw verification outputs are stored in `docs/verification/`.
+Formal PDF/DOCX deliverables are stored in `docs/project-plans/` and presentations in `docs/presentations/`. Multi-device setup instructions are in [MULTI_DEVICE_GUIDE.md](MULTI_DEVICE_GUIDE.md). Raw verification outputs are stored in `docs/verification/`.
 
 ---
 

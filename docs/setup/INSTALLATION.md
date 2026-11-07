@@ -10,15 +10,14 @@ This guide covers both deployment pathways for Nearby Café (VenueVue):
 
 | Component / Artifact | Path / Location | Description |
 |---|---|---|
-| **Cloud Deployment Package** | `Desktop\venuevue-nearbycafe.zip` | Release ZIP containing built frontend, backend modules, `.htaccess`, and database schema. |
+| **Cloud Deployment Package** | `releases\venuevue-nearbycafe.zip` | Release ZIP containing built frontend, backend modules, `.htaccess`, and database schema. |
 | **Web Root on Hosting** | `htdocs/` (or `public_html/`) | Public web root on the shared host. |
 | **Database Connection Config** | `htdocs/config/local.php` (or `rebuild/config/local.php`) | Database connection credentials (`host`, `name`, `user`, `password`). Never committed to Git. |
 | **SMTP Configuration** | `rebuild/storage/smtp.json` | Web-managed SMTP credentials saved automatically from the Management dashboard. |
 | **Server Outbox Log** | `rebuild/storage/mail-outbox.log` | Private server-side log of dispatched reset codes for admin auditing. |
 | **Product Images** | `rebuild/storage/uploads/products/` | Uploaded product photos, served securely via `api/index.php?route=product/image`. |
-| **1-Click Local Installer** | `rebuild\One-Click-Setup.bat` | Automated 1-click setup script for Windows local host laptops. |
-| **1-Click Local Uninstaller** | `rebuild\Uninstall-Nearby-Cafe.bat` | Automated service/shortcut uninstaller and optional database reset tool. |
-| **Daily Launcher Shortcut** | `Desktop\Nearby Café.lnk` | Starts, opens, and stops Nearby Café services on local Windows installs. |
+| **1-Click Local Launchers** | `launchers\` | `One-Click-Setup.bat`, `Start-Nearby-Cafe.bat`, `Stop-Nearby-Cafe.bat`, `Uninstall-Nearby-Cafe.bat`, `Create-Shortcuts.bat`. |
+| **Daily Launcher Shortcut** | `Desktop\Nearby Café.lnk` | Starts, opens, and stops Nearby Café services on local Windows installs (also generated in project root). |
 
 ---
 
@@ -27,7 +26,7 @@ This guide covers both deployment pathways for Nearby Café (VenueVue):
 ### Step 1: Upload the Deployment ZIP
 1. Open your hosting **Control Panel** (e.g. InfinityFree vPanel or cPanel) and open **File Manager**.
 2. Navigate inside the **`htdocs`** (or `public_html`) directory.
-3. Click **Upload** $\rightarrow$ **Upload Zip** $\rightarrow$ select **`Desktop\venuevue-nearbycafe.zip`**.
+3. Click **Upload** $\rightarrow$ **Upload Zip** $\rightarrow$ select **`releases\venuevue-nearbycafe.zip`**.
 4. The File Manager unpacks all application files, including:
    - Root files: `index.html`, `favicon.ico`, `.htaccess`, and `assets/` (bundled JS & CSS)
    - Application directories: `app/`, `config/`, `database/`, `storage/`, and `api/`

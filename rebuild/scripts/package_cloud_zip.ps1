@@ -17,7 +17,9 @@ if (Test-Path $productsDir) {
     Copy-Item -Path "$productsDir\*" -Destination "$staging\storage\uploads\products" -Recurse -Force
 }
 
-$targetZip = Join-Path $repoDir "venuevue-nearbycafe.zip"
+$releasesDir = Join-Path $repoDir "releases"
+if (-not (Test-Path $releasesDir)) { New-Item -ItemType Directory -Path $releasesDir -Force | Out-Null }
+$targetZip = Join-Path $releasesDir "venuevue-nearbycafe.zip"
 if (Test-Path $targetZip) { Remove-Item -Force $targetZip }
 
 Compress-Archive -Path "$staging\*" -DestinationPath $targetZip

@@ -1,4 +1,4 @@
-# Unified 1-Click Client Setup for Nearby Cafe (VenueVue).
+﻿# Unified 1-Click Client Setup for Nearby Cafe (VenueVue).
 [CmdletBinding()]
 param(
  [string]$XamppRoot='C:\xampp',
@@ -220,6 +220,10 @@ return [
  $installScript=Join-Path $PSScriptRoot 'Install.ps1'
  & $installScript -Elevated -Quiet -XamppRoot $x -WebPort $WebPort -OwnerSid $OwnerSid -OwnerDesktop $OwnerDesktop -LocalOnly:$LocalOnly -KeepDatabaseRunning:$KeepDatabaseRunning
  if(-not(Test-Path -LiteralPath (Join-Path $root 'config\launcher.local.json') -PathType Leaf)){throw 'SERVICE_SETUP_FAILED'}
+ $shortcutsHelper=Join-Path (Split-Path $root -Parent) 'launchers\Create-Shortcuts.ps1'
+ if(Test-Path -LiteralPath $shortcutsHelper -PathType Leaf){
+  try{& $shortcutsHelper -Silent}catch{}
+ }
 
  # 7. Ensure MariaDB is running and provision/migrate database schema
  $cfg=Get-NearbyConfig $root

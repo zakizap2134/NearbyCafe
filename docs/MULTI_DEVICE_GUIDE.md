@@ -88,17 +88,18 @@ git clone https://github.com/zakizap2134/NearbyCafe.git
 ```
 
 ### Step 3: Run the 1-Click Automated Setup
-1. Open the cloned folder `C:\Projects\NearbyCafe`.
+1. Open the cloned folder `C:\Projects\NearbyCafe\launchers`.
 2. Right-click **`One-Click-Setup.bat`** and choose **Run as administrator** (or double-click it).
 3. The 1-Click installer automatically handles the entire setup with **zero manual database steps**:
-   * **Database Auto-Provisioning**: Connects to your local MySQL (port 3306), creates the `venuevue_rebuild` database, and automatically imports `venuevue-ready.sql` (all 6 coffee items, 9 variants, recipes, stock batches, and containers).
+   * **Database Auto-Provisioning**: Connects to your local MySQL (port 3306), creates the `venuevue_rebuild` database, and automatically imports `rebuild/database/venuevue-ready.sql` (all 6 coffee items, 9 variants, recipes, stock batches, and containers).
    * **Account Setup**: Automatically sets up the Owner account (`zakizap` / `callmepapaton2x` / `zapicozaki83@gmail.com`).
-   * **Background Service**: Registers the dedicated `NearbyCafeWeb` service on port `5174` and adds the **Nearby Café** shortcut to your Desktop.
+   * **Background Service & Shortcuts**: Registers the dedicated `NearbyCafeWeb` service on port `5174` and creates the **`Nearby Café`** and **`Nearby Café Folder`** shortcuts on your Desktop and inside `C:\Projects\NearbyCafe`.
    * **Launches POS**: Opens `http://localhost:5174` in your default browser ready to take orders!
 
 ### Step 4: Start/Stop at Any Time
-- **To Start**: Double-click **`Start-Nearby-Cafe.bat`** (or the Desktop shortcut).
-- **To Stop**: Double-click **`Stop-Nearby-Cafe.bat`**.
+- **To Start**: Double-click **`Nearby Café`** on your Desktop (or inside `C:\Projects\NearbyCafe`, or `launchers\Start-Nearby-Cafe.bat`).
+- **To Stop**: Open the **`Nearby Café`** launcher window and click **Stop Nearby Café** (or run `launchers\Stop-Nearby-Cafe.bat`).
+- **To Recreate Shortcuts**: Double-click `launchers\Create-Shortcuts.bat`.
 
 ---
 
@@ -135,10 +136,10 @@ If you replace the shop PC/laptop, or want to deploy to a **new InfinityFree acc
 
 ### Choosing the Right Starter Database:
 
-| SQL File | When to Use | What It Contains |
+| SQL File (`rebuild/database/`) | When to Use | What It Contains |
 | :--- | :--- | :--- |
-| **`venuevue-ready.sql`** *(Recommended)* | Fast deployment with standard café data | Pre-configured catalogue (Espresso, Macchiato, Dalgona, Spanish Latte, Matcha, Americano), recipes, stock batches, and Owner `zakizap` (`callmepapaton2x` / `zapicozaki83@gmail.com`). |
-| **`venuevue-brand-new.sql`** | Setting up a completely new custom café | Clean database schema with 0 products and 0 inventory. Launches the interactive first-time store onboarding wizard at `/#/setup`. |
+| **`rebuild/database/venuevue-ready.sql`** *(Recommended)* | Fast deployment with standard café data | Pre-configured catalogue (Espresso, Macchiato, Dalgona, Spanish Latte, Matcha, Americano), recipes, stock batches, and Owner `zakizap` (`callmepapaton2x` / `zapicozaki83@gmail.com`). |
+| **`rebuild/database/venuevue-brand-new.sql`** | Setting up a completely new custom café | Clean database schema with 0 products and 0 inventory. Launches the interactive first-time store onboarding wizard at `/#/setup`. |
 
 ---
 
@@ -151,7 +152,7 @@ If you replace the shop PC/laptop, or want to deploy to a **new InfinityFree acc
    * **MySQL Password:** Your hosting vPanel password
 2. Click **phpMyAdmin** next to the newly created database.
 3. In phpMyAdmin, click the **Import** tab at the top.
-4. Click **Choose File**, select **`venuevue-ready.sql`** (or `venuevue-brand-new.sql`), and click **Go**.
+4. Click **Choose File**, select **`rebuild/database/venuevue-ready.sql`** (or `rebuild/database/venuevue-brand-new.sql`), and click **Go**.
    * *Result: Installs the complete schema, catalogue, recipes, inventory, sync tables, and the `zakizap` Owner account in 5 seconds.*
 
 ---
@@ -161,7 +162,7 @@ If you replace the shop PC/laptop, or want to deploy to a **new InfinityFree acc
 1. **Option 1 (Easiest - 1-Click Upload via File Manager)**:
    * In the InfinityFree Control Panel, open the **File Manager**.
    * Navigate inside the **`htdocs/`** directory.
-   * Click **Upload** -> select **`venuevue-nearbycafe.zip`** (found on your Desktop or repository root).
+   * Click **Upload** -> select **`releases/venuevue-nearbycafe.zip`**.
    * Right-click the uploaded ZIP and click **Extract**.
    * In `htdocs/config/`, rename `local.example.php` to `local.php` (or edit `local.php`) with your new MySQL details:
      ```php

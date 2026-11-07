@@ -33,9 +33,9 @@ try {
 
     if (!$hasUsers) {
         echo "[*] Brand new database detected. Installing complete Nearby Café schema & catalogue...\n";
-        $readySqlPath = dirname(__DIR__) . '/venuevue-ready.sql';
+        $readySqlPath = dirname(__DIR__) . '/rebuild/database/venuevue-ready.sql';
         if (!file_exists($readySqlPath)) {
-            $readySqlPath = dirname(__DIR__) . '/rebuild/database/venuevue-ready.sql';
+            $readySqlPath = dirname(__DIR__) . '/venuevue-ready.sql';
         }
         if (file_exists($readySqlPath)) {
             $pdo->exec("SET FOREIGN_KEY_CHECKS=0;");

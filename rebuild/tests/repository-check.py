@@ -16,7 +16,8 @@ tracked = set(git('ls-files', '-z').decode().rstrip('\0').split('\0'))
 for path in tracked:
     parts = Path(path).parts
     assert not any(x in parts for x in ('node_modules', 'test-results', '__pycache__', 'previousPrompts')), path
-    assert not path.endswith(('.log', '.sqlite', '.sqlite3', '.ibd', '.pyc', '.zip')), path
+    if path != 'releases/venuevue-nearbycafe.zip':
+        assert not path.endswith(('.log', '.sqlite', '.sqlite3', '.ibd', '.pyc', '.zip')), path
     assert not path.startswith(('backend/', 'src/', 'database/')), path
     assert not path.startswith('rebuild/rebuild/'), path
     if path.startswith('rebuild/storage/'):
@@ -44,15 +45,15 @@ print('PASS ignore rules protect synthetic private/config/ownership/backup/test/
 
 docs = [root/'README.md', *sorted((root/'docs').rglob('*.md')), *sorted((root/'rebuild').glob('*.md'))]
 for p in docs:
-    for href in re.findall(r'\]\(([^)]+)\)', p.read_text()):
+    for href in re.findall(r'\]\(([^)]+)\)', p.read_text(encoding='utf-8')):
         target = href.split('#')[0]
         if not target or re.match(r'\w+://|mailto:', target):
             continue
         assert (p.parent/urllib.parse.unquote(target)).is_file(), (str(p.relative_to(root)), target)
 print('PASS local document links resolve; historical course documents are outside current deployment guidance')
 
-pkg = json.loads((root/'rebuild/package.json').read_text())
-lock = json.loads((root/'rebuild/package-lock.json').read_text())
+pkg = json.loads((root/'rebuild/package.json').read_text(encoding='utf-8'))
+lock = json.loads((root/'rebuild/package-lock.json').read_text(encoding='utf-8'))
 assert pkg['devDependencies']['vite'] == '8.3.5'
 assert lock['packages']['']['devDependencies'] == pkg['devDependencies']
 assert lock['packages']['']['dependencies'] == pkg['dependencies']
@@ -64,7 +65,7 @@ high_confidence = re.compile(r'gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_
 for p in tracked:
     file = root/p
     if file.suffix in ('.php', '.js', '.jsx', '.json', '.md', '.txt', '.ps1', '.psm1', '.sql'):
-        assert not high_confidence.search(file.read_text(errors='ignore')), 'Credential pattern in '+p
+        assert not high_confidence.search(file.read_text(encoding='utf-8', errors='ignore')), 'Credential pattern in '+p
 print('PASS scoped token/private-key scan of staged source/docs; not a guarantee about historical Git data')
 git('diff', '--cached', '--check')
 print('PASS staged diff whitespace check')

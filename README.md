@@ -4,7 +4,7 @@ A locally hosted and cloud-deployable point-of-sale and recipe-driven inventory 
 
 > [!TIP]
 > **Using another laptop, phone, or tablet?**  
-> Read the complete **[Multi-Device Setup & Access Guide](MULTI_DEVICE_GUIDE.md)** for instructions on accessing live cloud production or setting up on a new device.
+> Read the complete **[Multi-Device Setup & Access Guide](docs/MULTI_DEVICE_GUIDE.md)** for instructions on accessing live cloud production or setting up on a new device.
 
 ---
 
@@ -18,9 +18,24 @@ A locally hosted and cloud-deployable point-of-sale and recipe-driven inventory 
 
 ---
 
+## Clean Project Folder Layout
+
+```text
+NearbyCafe/
+├── Nearby Café.lnk         # 1-Click POS Launcher Shortcut (also placed on Desktop)
+├── One-Click Setup.lnk     # 1-Click Fresh Device Setup Shortcut
+├── launchers/              # All Windows control scripts (Start, Stop, Setup, Uninstall, Shortcuts)
+├── rebuild/                # Core POS Web App (React + PHP API + Windows Services + Database seeds)
+├── sync-engine/            # Autonomous Offline-to-Cloud Bidirectional Sync Daemon
+├── releases/               # Cloud Deployment Package (venuevue-nearbycafe.zip)
+└── docs/                   # Guides, Operations, Thesis Project Plans & Presentations
+```
+
+---
+
 ## Documentation Map
 
-- **Multi-Device & Setup**: **[Multi-Device Access Guide](MULTI_DEVICE_GUIDE.md)** · [Installation & Upgrades (Cloud & Local)](docs/setup/INSTALLATION.md) · [Owner Guide & Wi-Fi Hardening](docs/setup/OWNER_GUIDE.md) · [Windows Launcher Setup](docs/setup/WINDOWS_LAUNCHER_SETUP.md) · [Start Here](docs/setup/START_HERE.md)
+- **Multi-Device & Setup**: **[Multi-Device Access Guide](docs/MULTI_DEVICE_GUIDE.md)** · [Installation & Upgrades (Cloud & Local)](docs/setup/INSTALLATION.md) · [Owner Guide & Wi-Fi Hardening](docs/setup/OWNER_GUIDE.md) · [Windows Launcher Setup](docs/setup/WINDOWS_LAUNCHER_SETUP.md) · [Start Here](docs/setup/START_HERE.md)
 - **Offline Sync Engine**: [Sync Architecture](sync-engine/docs/ARCHITECTURE_DESIGN.md) · [Defense Presentation Points](sync-engine/docs/DEFENSE_TALKING_POINTS.md) · [Sync Engine Overview](sync-engine/README.md)
 - **Operations & Recovery (`docs/operations/`)**: [Account Recovery & Email SMTP](docs/operations/RECOVERY.md) · [Backup, Restore & Outage Recovery](docs/operations/BACKUP_RESTORE.md) · [Handover Guide](docs/operations/HANDOVER.md) · [Demo Script](docs/operations/DEMO_SCRIPT.md) · [UAT Acceptance](docs/operations/ACCEPTANCE.md)
 - **Academic & Verification (`docs/academic/`)**: [Verification Report](docs/academic/VERIFICATION.md) · [Integration Review](docs/academic/INTEGRATION.md) · [Publishing Guide](docs/academic/PUBLISHING.md)
@@ -46,15 +61,16 @@ A locally hosted and cloud-deployable point-of-sale and recipe-driven inventory 
 
 | Component / Artifact | Path / Location | Purpose |
 |---|---|---|
-| **Cloud Deployment ZIP** | `Desktop\venuevue-nearbycafe.zip` | Complete, pre-built deployment package ready to upload to `htdocs` on InfinityFree or cPanel. |
+| **Cloud Deployment ZIP** | `releases\venuevue-nearbycafe.zip` | Complete, pre-built deployment package ready to upload to `htdocs` on InfinityFree or cPanel. |
 | **Cloud Public Directory** | `htdocs/` | Root web folder containing `index.html`, `assets/`, `.htaccess`, and `api/index.php`. |
 | **Application Logic** | `rebuild/app/` (or `htdocs/app/`) | Core PHP backend modules (`auth.php`, `browser_recovery.php`, `management.php`, `reports.php`). |
+| **Starter SQL Seeds** | `rebuild/database/` | `venuevue-ready.sql` (pre-seeded store) and `venuevue-brand-new.sql` (clean blank schema). |
 | **Database Connection Config** | `rebuild/config/local.php` | MariaDB/MySQL connection settings (`host`, `name`, `user`, `password`). Never committed to Git. |
 | **SMTP Configuration** | `rebuild/storage/smtp.json` | Web-managed SMTP credentials saved automatically when configured in the Management UI. |
 | **Server Outbox Audit Log** | `rebuild/storage/mail-outbox.log` | Private server-side log of dispatched reset codes for admin troubleshooting. |
 | **Product Images** | `rebuild/storage/uploads/products/` | Uploaded product photos served securely through `api/index.php?route=product/image`. |
-| **Local 1-Click Installer** | `rebuild\One-Click-Setup.bat` | Automated offline installer for Windows host laptops with XAMPP. |
-| **Local 1-Click Uninstaller** | `rebuild\Uninstall-Nearby-Cafe.bat` | Automated uninstaller and database reset tool for testing clean installations. |
+| **Local 1-Click Scripts** | `launchers\` | `One-Click-Setup.bat`, `Start-Nearby-Cafe.bat`, `Stop-Nearby-Cafe.bat`, `Uninstall-Nearby-Cafe.bat`, `Create-Shortcuts.bat`. |
+| **Desktop & Folder Shortcuts** | `Desktop\Nearby Café.lnk` | 1-click launcher shortcut with official Nearby Café icon (also generated in project root). |
 
 ---
 
@@ -63,7 +79,7 @@ A locally hosted and cloud-deployable point-of-sale and recipe-driven inventory 
 ### Step 1: Upload the Release ZIP
 1. Open your hosting **Control Panel** (e.g., InfinityFree vPanel or cPanel) $\rightarrow$ open **File Manager**.
 2. Navigate inside the **`htdocs`** (or `public_html`) folder.
-3. Click **Upload** $\rightarrow$ **Upload Zip** $\rightarrow$ select **`Desktop\venuevue-nearbycafe.zip`**.
+3. Click **Upload** $\rightarrow$ **Upload Zip** $\rightarrow$ select **`releases\venuevue-nearbycafe.zip`**.
 4. The File Manager will automatically unpack all files into `htdocs`.
 
 ### Step 2: Configure Database Credentials
@@ -114,14 +130,14 @@ A locally hosted and cloud-deployable point-of-sale and recipe-driven inventory 
 For running Nearby Café locally on a shop laptop using XAMPP:
 
 1. Install **[XAMPP for Windows (PHP 8.2+)](https://www.apachefriends.org/)** at `C:\xampp`.
-2. Extract the project into `C:\Projects\NearbyCafe\rebuild`.
-3. Double-click **`One-Click-Setup.bat`** and accept the Administrator prompt:
-   - Configures local database `venuevue_rebuild` on `127.0.0.1:3306`.
-   - Registers dedicated Windows background services (`NearbyCafeWeb` and `NearbyCafeDatabase`).
+2. Extract or clone the project into `C:\Projects\NearbyCafe`.
+3. Double-click **`launchers\One-Click-Setup.bat`** (or **`One-Click Setup`** in the root folder) and accept the Administrator prompt:
+   - Configures local database `venuevue_rebuild` on `127.0.0.1:3306` and seeds `rebuild/database/venuevue-ready.sql`.
+   - Registers dedicated Windows background services (`NearbyCafeWeb` and `NearbyCafeDatabase`) and Desktop shortcuts.
    - Opens `http://localhost:5174` in your browser.
-4. Create your Owner account and start selling!
+4. Sign in and start selling!
 
-To stop the services at the end of the day, use the **Nearby Café** desktop shortcut and click **Stop Nearby Café**. To test a fresh installation from scratch, run **`Uninstall-Nearby-Cafe.bat`**.
+To start or stop the services anytime, double-click **`Nearby Café`** on your Desktop (or inside `C:\Projects\NearbyCafe`), or use the scripts in **`launchers\`**.
 
 ---
 

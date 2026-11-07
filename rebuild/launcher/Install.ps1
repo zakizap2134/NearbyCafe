@@ -1,4 +1,4 @@
-# One-time developer installation. Does not initialize, migrate or reset the database.
+﻿# One-time developer installation. Does not initialize, migrate or reset the database.
 [CmdletBinding()]
 param([string]$XamppRoot='C:\xampp',[int]$WebPort=5174,[switch]$LocalOnly,[switch]$KeepDatabaseRunning,[switch]$Elevated,[string]$OwnerSid,[string]$OwnerDesktop,[switch]$Quiet)
 Set-StrictMode -Version Latest
