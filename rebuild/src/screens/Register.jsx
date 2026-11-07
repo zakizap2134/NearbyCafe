@@ -970,7 +970,7 @@ export default function Register({ user, token, expired }) {
                 <tr>
                   <th>Order</th>
                   <th>Status</th>
-                  <th>Cash</th>
+                  <th>Total</th>
                   <th>Details</th>
                 </tr>
               </thead>
@@ -991,7 +991,7 @@ export default function Register({ user, token, expired }) {
                         "Reviewed; no sale"
                       )}
                     </td>
-                    <td>{money(o.body?.cash_received)}</td>
+                    <td>{money(o.sale?.total_gross ?? o.body?.cash_received)}</td>
                     <td>
                       {o.state === "confirmed" && o.sale ? (
                         <div className="table-actions">

@@ -370,10 +370,19 @@ summary {
   padding: 8px 0;
   gap: 20px;
 }
+.sale-totals div.sale-total-highlight,
 .sale-totals div:nth-child(5) {
   border-top: 1px solid #d8dfce;
   font-weight: 700;
   font-size: 20px;
+}
+.receipt table th:nth-child(2),
+.receipt table td:nth-child(2) {
+  text-align: center;
+}
+.receipt table th:nth-child(3),
+.receipt table td:nth-child(3) {
+  text-align: right;
 }
 .receipt-note {
   font-size: 11px;
@@ -2097,13 +2106,12 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
   }
 
   .receipt table th:nth-child(2),
-  .receipt table td:nth-child(2),
+  .receipt table td:nth-child(2) {
+    text-align: center !important;
+  }
+
   .receipt table th:nth-child(3),
-  .receipt table td:nth-child(3),
-  .receipt table th:nth-child(4),
-  .receipt table td:nth-child(4),
-  .receipt table th:nth-child(5),
-  .receipt table td:nth-child(5) {
+  .receipt table td:nth-child(3) {
     text-align: right !important;
   }
 
@@ -2123,6 +2131,14 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
     display: flex !important;
     justify-content: space-between !important;
     padding: 2px 0 !important;
+  }
+
+  .receipt .sale-totals div.sale-total-highlight {
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    border-top: 1px dashed #000000 !important;
+    margin-top: 4px !important;
+    padding-top: 4px !important;
   }
 
   .receipt .sale-totals div:last-child {

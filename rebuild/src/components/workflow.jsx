@@ -106,9 +106,7 @@ export function Receipt({ sale, onVoid, onReloadItems, onPrint, onClose }) {
             <tr>
               <th>Item</th>
               <th>Qty</th>
-              <th>Gross</th>
-              <th>Net</th>
-              <th>VAT</th>
+              <th>Price</th>
             </tr>
           </thead>
           <tbody>
@@ -117,8 +115,6 @@ export function Receipt({ sale, onVoid, onReloadItems, onPrint, onClose }) {
                 <td>{line.variant_label}</td>
                 <td>{line.qty}</td>
                 <td>{money(line.line_gross)}</td>
-                <td>{money(line.line_net)}</td>
-                <td>{money(line.line_vat)}</td>
               </tr>
             ))}
           </tbody>
@@ -128,15 +124,11 @@ export function Receipt({ sale, onVoid, onReloadItems, onPrint, onClose }) {
         {[
           ...(sale.customer_name ? [["Customer / Note", sale.customer_name, true]] : []),
           ["Payment Method", sale.payment_reference ? `${payLabel} (Ref #${sale.payment_reference})` : payLabel, true],
-          ["VATable Sales", sale.total_net, false],
-          ["VAT (12%)", sale.total_vat, false],
-          ["VAT-Exempt", "0", false],
-          ["Zero-Rated", "0", false],
-          ["Total", sale.total_gross, false],
+          ["Total", sale.total_gross, false, true],
           [payMethod === "CASH" ? "Cash received" : `${payLabel} amount`, sale.cash_received, false],
           ["Change", sale.change_due, false],
-        ].map(([name, value, isText]) => (
-          <div key={name}>
+        ].map(([name, value, isText, isMainTotal]) => (
+          <div key={name} className={isMainTotal ? "sale-total-highlight" : undefined}>
             <dt>{name}</dt>
             <dd>{isText ? value : money(value)}</dd>
           </div>
@@ -235,7 +227,7 @@ export function OrderSuccessModal({
         </div>
         <div className="order-success-cash-grid">
           <div className="order-cash-box">
-            <span>Total Gross</span>
+            <span>Total</span>
             <strong>{money(sale.total_gross)}</strong>
           </div>
           <div className="order-cash-box">
