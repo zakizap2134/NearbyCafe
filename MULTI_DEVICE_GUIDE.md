@@ -70,54 +70,35 @@ When running the café counter on your main laptop, staff can use phones or tabl
 
 ---
 
-## Scenario 3: Setting Up a Brand-New Laptop or PC from Scratch
+## Scenario 3: Setting Up a Brand-New Laptop or PC from Scratch (1-Click)
 
 If you get a new laptop, change devices, or want a teammate to run the local server on their computer:
 
 ### Step 1: Install Required Software
-1. **XAMPP for Windows (PHP 8.2+)**: Download and install from [apachefriends.org](https://www.apachefriends.org/). Install at default path `C:\xampp`.
+1. **XAMPP for Windows (PHP 8.2+)**: Download and install from [apachefriends.org](https://www.apachefriends.org/) at the default path `C:\xampp`.
 2. **Git for Windows**: Download from [git-scm.com](https://git-scm.com/).
 3. **Node.js (LTS version 18 or 20)**: Download from [nodejs.org](https://nodejs.org/).
 
 ### Step 2: Clone the GitHub Repository
-Open PowerShell or Command Prompt and clone the repository:
+Open PowerShell or Command Prompt:
 ```powershell
 mkdir C:\Projects
 cd C:\Projects
 git clone https://github.com/zakizap2134/NearbyCafe.git
 ```
 
-### Step 3: Run the Quick Device Setup (Installs Starter Database & Owner)
-1. Open PowerShell or Command Prompt in the repository:
-   ```powershell
-   cd C:\Projects\NearbyCafe\sync-engine
-   .\setup_new_device.bat
-   ```
-2. The automated script will:
-   * Connect to your local XAMPP MySQL server at port 3306.
-   * Create the database `venuevue_rebuild` if it does not exist yet.
-   * Automatically import the complete Nearby Café catalogue (`venuevue-ready.sql`):
-     - All 6 coffee items: Espresso, Caramel Macchiato, Dalgona, Spanish Latte, Dirty Matcha, Americano
-     - All 9 variants with sizes, temperatures, and prices
-     - All ingredients, recipes, and initial inventory batches
-   * Set up synchronization tables (`sync_outbox`, `sync_inbox`, `sync_meta`).
-   * Provision the `zakizap` Owner account with password `callmepapaton2x`.
-   * Create `rebuild/config/local.php` and storage directories.
-
-### Step 4: Run the 1-Click Windows Launcher Setup
-1. Navigate into the rebuild folder:
-   ```powershell
-   cd C:\Projects\NearbyCafe\rebuild
-   ```
+### Step 3: Run the 1-Click Automated Setup
+1. Open the cloned folder `C:\Projects\NearbyCafe`.
 2. Right-click **`One-Click-Setup.bat`** and choose **Run as administrator** (or double-click it).
-3. The installer registers dedicated background Windows services (`NearbyCafeWeb` on port `5174`) and creates the **Nearby Café** shortcut on your Windows Desktop.
+3. The 1-Click installer automatically handles the entire setup with **zero manual database steps**:
+   * **Database Auto-Provisioning**: Connects to your local MySQL (port 3306), creates the `venuevue_rebuild` database, and automatically imports `venuevue-ready.sql` (all 6 coffee items, 9 variants, recipes, stock batches, and containers).
+   * **Account Setup**: Automatically sets up the Owner account (`zakizap` / `callmepapaton2x` / `zapicozaki83@gmail.com`).
+   * **Background Service**: Registers the dedicated `NearbyCafeWeb` service on port `5174` and adds the **Nearby Café** shortcut to your Desktop.
+   * **Launches POS**: Opens `http://localhost:5174` in your default browser ready to take orders!
 
-### Step 5: Start the Local POS & Automatic Live Sync
-1. Double-click the **Nearby Café** desktop shortcut or run `rebuild\Start-Nearby-Cafe.bat`.
-2. The app and the background sync bridge will start automatically!
-3. Sign in at `http://localhost:5174/#/login` with:
-   * **Username:** `zakizap`
-   * **Password:** `callmepapaton2x`
+### Step 4: Start/Stop at Any Time
+- **To Start**: Double-click **`Start-Nearby-Cafe.bat`** (or the Desktop shortcut).
+- **To Stop**: Double-click **`Stop-Nearby-Cafe.bat`**.
 
 ---
 

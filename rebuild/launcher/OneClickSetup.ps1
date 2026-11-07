@@ -239,6 +239,13 @@ return [
   if(-not $dbProbe.ok){throw 'DB_START_TIMEOUT'}
  }
 
+ # Auto-seed complete Nearby Cafe database & sync tables on a brand-new device
+ $repoParent=Split-Path $root -Parent
+ $deviceSetupScript=Join-Path $repoParent 'sync-engine\setup_device.php'
+ if(Test-Path -LiteralPath $deviceSetupScript -PathType Leaf){
+  Invoke-NearbyExe $php @($deviceSetupScript) | Out-Null
+ }
+
  $installDbRes=Invoke-NearbyExe $php @((Join-Path $root 'tools\install.php'))
  if($installDbRes.Exit -ne 0){throw ('DB_INSTALL_FAILED: '+$installDbRes.Output)}
 

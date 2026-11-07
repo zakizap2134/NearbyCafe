@@ -21,7 +21,14 @@ const VV_DOMAIN_TABLES = [
     "sale_items",
     "stock_movements",
 ];
-const VV_RELIABILITY_TABLES = ["checkout_rejections", "owner_recovery"];
+const VV_RELIABILITY_TABLES = [
+    "checkout_rejections",
+    "owner_recovery",
+    "password_resets",
+    "sync_outbox",
+    "sync_inbox",
+    "sync_meta",
+];
 const VV_MANAGEMENT_TABLES = [
     "runtime_meta",
     "stock_operations",
