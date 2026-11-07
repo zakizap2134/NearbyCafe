@@ -304,6 +304,14 @@ export function VoidSaleModal({
   async function handleSubmit(e) {
     e.preventDefault();
     if (busy) return;
+    if (!isOwner && !ownerPassword.trim()) {
+      setError(
+        new Error(
+          "Owner password is required to authorize voiding this order.",
+        ),
+      );
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -400,6 +408,11 @@ export function VoidSaleModal({
               onChange={(e) => setOwnerPassword(e.target.value)}
               placeholder="Enter Owner password"
             />
+            {!isOwner && (
+              <p className="subtle" style={{ margin: "4px 0 12px", fontSize: "12px" }}>
+                Baristas cannot void orders alone. An owner or manager must enter their password to authorize this action.
+              </p>
+            )}
             <div className="button-row">
               <button type="button" onClick={onClose} disabled={busy}>
                 Cancel
