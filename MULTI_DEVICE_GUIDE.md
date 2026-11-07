@@ -8,10 +8,10 @@
 
 | Environment | Access Method | URL / Address | Credentials | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
-| **Cloud Production** | Any browser (Phone / Laptop / PC) | `https://nearbycafe.infinityfreeapp.com` | User: `zakizap`<br>Pass: `callmepapaton2x` | Online management, reports, and remote access from anywhere. |
-| **Local Café Counter** | Local host browser | `http://127.0.0.1:5174` | User: `zakizap`<br>Pass: `callmepapaton2x` | Offline-first POS counter, fast barcode/order entry with zero internet lag. |
+| **Cloud Production** | Any browser (Phone / Laptop / PC) | `https://nearbycafe.infinityfreeapp.com` | User: `zakizap`<br>Email: `zapicozaki83@gmail.com`<br>Pass: `callmepapaton2x` | Online management, reports, and remote access from anywhere. |
+| **Local Café Counter** | Local host browser | `http://127.0.0.1:5174` | User: `zakizap`<br>Email: `zapicozaki83@gmail.com`<br>Pass: `callmepapaton2x` | Offline-first POS counter, fast barcode/order entry with zero internet lag. |
 | **Table-side Mobile** | Phone / Tablet on Café Wi-Fi | `http://<LAPTOP_LOCAL_IP>:5174` | Barista / Owner account | Mobile ordering at customer tables inside the café. |
-| **Sync Engine** | Local Windows Daemon | `sync-engine\Run_InfinityFree_Live_Sync.bat` | Autonomous / Headless Edge | Automatically pushes offline local sales to InfinityFree Cloud. |
+| **Sync Engine** | Local Windows Daemon | `sync-engine\Run_InfinityFree_Live_Sync.bat` | Autonomous / Headless Edge | Automatically pushes local sales and syncs catalogue/accounts both ways. |
 
 ---
 
@@ -121,13 +121,30 @@ git clone https://github.com/zakizap2134/NearbyCafe.git
 
 ---
 
-## Scenario 4: Autonomous Offline-to-Cloud Sync Bridge
+## Scenario 4: Autonomous Offline-to-Cloud Sync Bridge (Bidirectional)
 
 Nearby Café uses an **Offline-First Hybrid Architecture**:
-* During regular operation or an internet outage, the counter operates 100% locally with zero latency.
-* Transactions are saved to the local MariaDB database and queued in `sync_outbox`.
-* When the app starts, **`Start-NearbySync` runs automatically in the background** without requiring you to manually open any batch files.
-* When the app closes, **`Stop-NearbySync` automatically terminates cleanly** with zero orphaned processes or database locks.
+* **100% Offline Capability**: During normal operations or an internet outage, the counter operates locally with zero network delay.
+* **Autonomous Background Operation**: When the app starts, **`Start-NearbySync` runs automatically in the background** without requiring you to manually open any batch files. When the app closes, **`Stop-NearbySync` automatically terminates cleanly** with zero orphaned processes or database locks.
+
+### What Synchronizes Automatically (Two-Way Sync):
+
+1. **Staff & Barista Accounts (Bidirectional)**:
+   * **Local $\rightarrow$ Cloud**: When you create or update a staff account in **Management → Staff** on your local laptop, a `STAFF_SAVE` event queues in `sync_outbox`. The background sync bridge pushes it to InfinityFree Cloud so the staff member can also sign in online.
+   * **Cloud $\rightarrow$ Local (Vice-Versa)**: If an owner creates a Barista account remotely on the Cloud (`https://nearbycafe.infinityfreeapp.com`), the local sync bridge’s downstream cycle securely pulls the new barista account and its password hash into your laptop's MariaDB. The barista can sign in at the local counter even when offline!
+   * *Safety Guard*: Only `BARISTA` accounts sync downstream. The `OWNER` profile (`zakizap`) is safeguarded and cannot be overwritten.
+
+2. **Menu Catalogue & Product Images (Bidirectional)**:
+   * Drink items, variants, sizes, prices, and recipe ingredients stay synchronized between local and cloud.
+   * Uploaded product photos (such as the Espresso cup image in `storage/uploads/products/`) are automatically synced and deployed to match on both local and cloud.
+
+3. **Transactions & Inventory Depletions (Local $\rightarrow$ Cloud)**:
+   * Completed sales, receipts, void operations, and waste adjustments queue locally in `sync_outbox` and sync upstream whenever internet is available.
+
+4. **Customer POS Receipt Presentation & Thermal Isolation**:
+   * **Customer-Facing Receipt**: Displays a clean retail layout (`Item | Qty | Price`) using the gross retail price.
+   * **VAT Transparency**: Full Philippine BIR-compliant tax summary is presented in the totals block (`VATable Sales`, `12% VAT`, `VAT-Exempt`, `Zero-Rated`, `Total`).
+   * **Thermal POS Print Isolation**: When cashiers click **Print receipt**, the CSS print media engine (`@media print`) isolates strictly the 80mm receipt paper slip, completely hiding background panels, buttons, order history, and navigation bars from the physical printer.
 
 ---
 
@@ -135,16 +152,25 @@ Nearby Café uses an **Offline-First Hybrid Architecture**:
 
 If you replace the shop PC/laptop, or want to deploy to a **new InfinityFree account / new custom domain**, here is how to set it up:
 
+### Choosing the Right Starter Database:
+
+| SQL File | When to Use | What It Contains |
+| :--- | :--- | :--- |
+| **`venuevue-ready.sql`** *(Recommended)* | Fast deployment with standard café data | Pre-configured catalogue (Espresso, Macchiato, Dalgona, Spanish Latte, Matcha, Americano), recipes, stock batches, and Owner `zakizap` (`callmepapaton2x` / `zapicozaki83@gmail.com`). |
+| **`venuevue-brand-new.sql`** | Setting up a completely new custom café | Clean database schema with 0 products and 0 inventory. Launches the interactive first-time store onboarding wizard at `/#/setup`. |
+
+---
+
 ### A. Initializing the Database on the New Account
 
-1. In your new InfinityFree vPanel, go to **MySQL Databases** and create a new database (e.g. `venuevue`). Note your:
+1. In your new InfinityFree vPanel (or cPanel), go to **MySQL Databases** and create a new database (e.g. `venuevue`). Note your:
    * **MySQL Host:** `sqlxxx.infinityfree.com`
    * **Database Name:** `if0_xxxxxxxx_venuevue`
    * **MySQL Username:** `if0_xxxxxxxx`
-   * **MySQL Password:** Your InfinityFree vPanel password
+   * **MySQL Password:** Your hosting vPanel password
 2. Click **phpMyAdmin** next to the newly created database.
 3. In phpMyAdmin, click the **Import** tab at the top.
-4. Click **Choose File**, select **`venuevue-ready.sql`** from your repository folder, and click **Go**.
+4. Click **Choose File**, select **`venuevue-ready.sql`** (or `venuevue-brand-new.sql`), and click **Go**.
    * *Result: Installs the complete schema, catalogue, recipes, inventory, sync tables, and the `zakizap` Owner account in 5 seconds.*
 
 ---

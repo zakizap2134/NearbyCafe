@@ -12,9 +12,9 @@ A locally hosted and cloud-deployable point-of-sale and recipe-driven inventory 
 
 | Environment | Access Link | Credentials | Status |
 | :--- | :--- | :--- | :--- |
-| **Live Cloud Production** | **[nearbycafe.infinityfreeapp.com](https://nearbycafe.infinityfreeapp.com)** | User: `zakizap`<br>Pass: `callmepapaton2x` | **ONLINE (Active)** |
-| **Local Café Counter** | `http://127.0.0.1:5174` | User: `zakizap`<br>Pass: `callmepapaton2x` | **100% Offline-Ready** |
-| **Hybrid Sync Engine** | `sync-engine/` | Autonomous Playwright/Edge | **Active (Outbox Bridge)** |
+| **Live Cloud Production** | **[nearbycafe.infinityfreeapp.com](https://nearbycafe.infinityfreeapp.com)** | User: `zakizap`<br>Email: `zapicozaki83@gmail.com`<br>Pass: `callmepapaton2x` | **ONLINE (Active)** |
+| **Local Café Counter** | `http://127.0.0.1:5174` | User: `zakizap`<br>Email: `zapicozaki83@gmail.com`<br>Pass: `callmepapaton2x` | **100% Offline-Ready** |
+| **Hybrid Sync Engine** | `sync-engine/` | Autonomous Playwright/Edge | **Active (Bidirectional)** |
 
 ---
 
@@ -34,6 +34,8 @@ A locally hosted and cloud-deployable point-of-sale and recipe-driven inventory 
 - **Barista Role**: Register access and personal pending orders. Management is strictly restricted by server-side authorization.
 - **Recipe-Driven Inventory**: Atomic deductions on completed sales, tracking batches, expiration dates, and opened-container use-by hours.
 - **Resilient Pending Orders**: Unconfirmed sales survive browser reloads and reconnect for completion without double-charging cash.
+- **Customer Receipt Formatting & POS Isolation**: Customer slips present a clean retail format (`Item | Qty | Price`) with a full Philippine BIR-compliant VAT summary (`VATable Sales`, `12% VAT`, `VAT-Exempt`, `Zero-Rated`, `Total`). Thermal printing strictly isolates the 80mm slip and suppresses all background UI.
+- **Bidirectional Staff & Catalogue Synchronization**: Creates and updates staff accounts, menu items, and product images interchangeably between local offline MariaDB and InfinityFree Cloud.
 - **Cloud Web Onboarding**: Browser-based first-time owner initialization at `/#/setup` on a fresh database without requiring server terminal access.
 - **Interactive Gmail SMTP Setup**: Configure and live-test Google SMTP directly inside **Management → Account security** using a 16-character Google App Password with zero FTP editing.
 - **Secure 6-Digit Email Recovery**: Lost passwords are reset via a 15-minute 6-digit verification code sent strictly to the owner's private email inbox. Codes are **never exposed on-screen**, preventing unauthorized account takeovers.
