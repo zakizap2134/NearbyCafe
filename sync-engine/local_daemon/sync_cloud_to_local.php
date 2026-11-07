@@ -201,6 +201,35 @@ try {
         echo "[✓] Synchronized " . count($containers) . " stock containers.\n";
     }
 
+    // 7. Synchronize Barista / Staff Accounts
+    $staff = $data['staff'] ?? [];
+    if (!empty($staff)) {
+        $stmtStaff = $pdo->prepare("INSERT INTO users (id, username, display_name, email, password_hash, role, is_active, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, 'BARISTA', ?, NOW(), NOW())
+            ON DUPLICATE KEY UPDATE
+                display_name = VALUES(display_name),
+                email = VALUES(email),
+                password_hash = VALUES(password_hash),
+                is_active = VALUES(is_active),
+                updated_at = NOW()");
+
+        $count = 0;
+        foreach ($staff as $s) {
+            if (($s['role'] ?? '') === 'BARISTA') {
+                $stmtStaff->execute([
+                    $s['id'],
+                    $s['username'],
+                    $s['display_name'],
+                    $s['email'] ?? null,
+                    $s['password_hash'],
+                    $s['is_active'] ?? 1
+                ]);
+                $count++;
+            }
+        }
+        echo "[✓] Synchronized " . $count . " barista staff accounts.\n";
+    }
+
     $pdo->exec("SET FOREIGN_KEY_CHECKS = 1;");
     $pdo->commit();
 

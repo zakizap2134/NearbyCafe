@@ -378,6 +378,11 @@ function management_data(PDO $db): array
             )
             ->fetchAll(),
         "sales" => today_sales($db, $at),
+        "staff" => $db
+            ->query(
+                "SELECT id,username,display_name,email,password_hash,role,is_active FROM users WHERE role='BARISTA' ORDER BY id",
+            )
+            ->fetchAll(),
     ];
 }
 function save_catalogue(
