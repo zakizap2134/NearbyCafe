@@ -71,6 +71,14 @@ if (Test-Path -LiteralPath $logoPath) {
     $filesToUpload += @{ Local = $logoPath; Remote = "htdocs/assets/nearby-cafe-logo-fBv87dTc.png" }
 }
 
+# Upload product catalogue images (e.g. Espresso, etc.)
+$productsDir = "$rebuildDir\storage\uploads\products"
+if (Test-Path -LiteralPath $productsDir) {
+    Get-ChildItem -Path $productsDir -File | ForEach-Object {
+        $filesToUpload += @{ Local = $_.FullName; Remote = "htdocs/storage/uploads/products/$($_.Name)" }
+    }
+}
+
 Write-Host "Starting deployment to Nearby Café InfinityFree Cloud..." -ForegroundColor Yellow
 foreach ($item in $filesToUpload) {
     if (Test-Path -LiteralPath $item.Local) {

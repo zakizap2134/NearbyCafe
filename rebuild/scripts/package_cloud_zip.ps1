@@ -11,6 +11,12 @@ Copy-Item -Path "$rebuildDir\public\*" -Destination $staging -Recurse
 New-Item -ItemType Directory -Path "$staging\app" | Out-Null
 Copy-Item -Path "$rebuildDir\app\*" -Destination "$staging\app" -Recurse
 
+$productsDir = "$rebuildDir\storage\uploads\products"
+if (Test-Path $productsDir) {
+    New-Item -ItemType Directory -Path "$staging\storage\uploads\products" -Force | Out-Null
+    Copy-Item -Path "$productsDir\*" -Destination "$staging\storage\uploads\products" -Recurse -Force
+}
+
 $targetZip = Join-Path $repoDir "venuevue-nearbycafe.zip"
 if (Test-Path $targetZip) { Remove-Item -Force $targetZip }
 
