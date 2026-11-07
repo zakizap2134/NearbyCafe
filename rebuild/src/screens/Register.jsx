@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import {
   money,
@@ -436,40 +436,61 @@ export default function Register({ user, token, expired }) {
       setError(e);
     }
   }
-  const pending = (orders ?? []).filter(
-      (o) => o && (o.state === "submitted" || o.state === "review"),
+  // Memoized: typing cash or a cup note re-renders the screen, but the menu
+  // grouping only depends on the catalogue, category chip and search text.
+  const pending = useMemo(
+      () =>
+        (orders ?? []).filter(
+          (o) => o && (o.state === "submitted" || o.state === "review"),
+        ),
+      [orders],
     ),
-    history = (orders ?? []).filter(
-      (o) => o && (o.state === "confirmed" || o.state === "resolved"),
+    history = useMemo(
+      () =>
+        (orders ?? []).filter(
+          (o) => o && (o.state === "confirmed" || o.state === "resolved"),
+        ),
+      [orders],
     );
-  const allVariants = Array.isArray(menu?.variants) ? menu.variants : [];
-  const lowStockAlerts = Array.isArray(menu?.low_stock_alerts) ? menu.low_stock_alerts : [];
-  const menuCategories = Array.from(
-    new Set(allVariants.map((v) => v?.category).filter(Boolean)),
+  const allVariants = useMemo(
+    () => (Array.isArray(menu?.variants) ? menu.variants : []),
+    [menu],
   );
-  const products = allVariants
-    .filter((v) => {
-      if (categoryFilter !== "ALL" && v?.category !== categoryFilter) {
-        return false;
-      }
-      return `${v?.product_name ?? ""} ${v?.category ?? ""}`
-        .toLowerCase()
-        .includes(search.toLowerCase());
-    })
-    .reduce((all, v) => {
-      const pid = v.product_id ?? v.id;
-      const entry = (all[pid] ??= {
-        name: v.product_name ?? "Drink",
-        category: v.category ?? "",
-        image_filename: v.image_filename || null,
-        variants: [],
-      });
-      if (!entry.image_filename && v.image_filename) {
-        entry.image_filename = v.image_filename;
-      }
-      entry.variants.push(v);
-      return all;
-    }, {});
+  const lowStockAlerts = useMemo(
+    () => (Array.isArray(menu?.low_stock_alerts) ? menu.low_stock_alerts : []),
+    [menu],
+  );
+  const menuCategories = useMemo(
+    () =>
+      Array.from(new Set(allVariants.map((v) => v?.category).filter(Boolean))),
+    [allVariants],
+  );
+  const products = useMemo(() => {
+    const needle = search.toLowerCase();
+    return allVariants
+      .filter((v) => {
+        if (categoryFilter !== "ALL" && v?.category !== categoryFilter) {
+          return false;
+        }
+        return `${v?.product_name ?? ""} ${v?.category ?? ""}`
+          .toLowerCase()
+          .includes(needle);
+      })
+      .reduce((all, v) => {
+        const pid = v.product_id ?? v.id;
+        const entry = (all[pid] ??= {
+          name: v.product_name ?? "Drink",
+          category: v.category ?? "",
+          image_filename: v.image_filename || null,
+          variants: [],
+        });
+        if (!entry.image_filename && v.image_filename) {
+          entry.image_filename = v.image_filename;
+        }
+        entry.variants.push(v);
+        return all;
+      }, {});
+  }, [allVariants, categoryFilter, search]);
   return (
     <>
       <div className="page-heading">

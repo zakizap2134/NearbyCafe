@@ -3435,3 +3435,11 @@ button.primary.charge-cta-btn:disabled {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* Placeholder shown while a lazily loaded workspace screen downloads */
+.screen-loading {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--nearby-muted);
+  font-size: 14px;
+}

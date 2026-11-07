@@ -72,6 +72,7 @@ SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=`$1
  Require all denied
  <FilesMatch "\.(js|css|svg|png|ico|woff2)$">
   Require ip $allowed
+  Header set Cache-Control "public, max-age=31536000, immutable"
  </FilesMatch>
 </Directory>
 <Directory "$app/public/api">

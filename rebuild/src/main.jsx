@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { Component, Suspense, lazy, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   HashRouter,
@@ -12,11 +12,53 @@ import {
 } from "react-router-dom";
 import { api, readToken, storeToken } from "./api";
 import "./style.css";
-import Register from "./screens/Register";
-import Management from "./screens/Management";
 import Brand from "./components/Brand";
 import OwnerSetup from "./screens/OwnerSetup";
-import OwnerRecovery from "./screens/OwnerRecovery";
+
+// Workspace screens load on demand so the sign-in screen ships a smaller bundle.
+// Baristas never download the Management screen.
+const Register = lazy(() => import("./screens/Register"));
+const Management = lazy(() => import("./screens/Management"));
+const OwnerRecovery = lazy(() => import("./screens/OwnerRecovery"));
+
+function ScreenLoading() {
+  return (
+    <p className="screen-loading" role="status">
+      Loading…
+    </p>
+  );
+}
+
+// A redeployed site removes old hashed chunks; offer a reload instead of a blank screen.
+class ScreenBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <section className="panel connection" role="alert">
+        <h1>This screen could not load</h1>
+        <p>The app may have been updated. Reload to get the latest version.</p>
+        <button className="primary" onClick={() => location.reload()}>
+          Reload
+        </button>
+      </section>
+    );
+  }
+}
+
+function LazyScreen({ children }) {
+  return (
+    <ScreenBoundary>
+      <Suspense fallback={<ScreenLoading />}>{children}</Suspense>
+    </ScreenBoundary>
+  );
+}
 
 function ErrorMessage({ error }) {
   return (
@@ -136,19 +178,25 @@ function App() {
       </div>
     );
   if (!user)
-    return <Routes><Route path="/forgot-password" element={<OwnerRecovery />} /><Route path="*" element={<Login onSuccess={signedIn} sessionNotice={sessionNotice} />} /></Routes>;
+    return <Routes><Route path="/forgot-password" element={<LazyScreen><OwnerRecovery /></LazyScreen>} /><Route path="*" element={<Login onSuccess={signedIn} sessionNotice={sessionNotice} />} /></Routes>;
   return (
     <Shell user={user} signOut={signOut}>
       <Routes>
         <Route
           path="/register"
-          element={<Register user={user} token={token} expired={expired} />}
+          element={
+            <LazyScreen>
+              <Register user={user} token={token} expired={expired} />
+            </LazyScreen>
+          }
         />
         <Route
           path="/management"
           element={
             user.role === "OWNER" ? (
-              <Management user={user} token={token} expired={expired} />
+              <LazyScreen>
+                <Management user={user} token={token} expired={expired} />
+              </LazyScreen>
             ) : (
               <Navigate to="/register" replace />
             )
