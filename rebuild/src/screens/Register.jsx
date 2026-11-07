@@ -53,6 +53,62 @@ function playRegisterChime() {
   }
 }
 
+function DrinkMedia({ name, category, imageFilename, variants }) {
+  const [imgFailed, setImgFailed] = useState(false);
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [imageFilename]);
+
+  if (imageFilename && !imgFailed) {
+    return (
+      <div className="drink-media">
+        <img
+          src={productImageUrl(imageFilename)}
+          alt={name}
+          loading="lazy"
+          onError={() => setImgFailed(true)}
+        />
+      </div>
+    );
+  }
+
+  const catLower = String(category || "").toLowerCase();
+  const nameLower = String(name || "").toLowerCase();
+  const allIced =
+    Array.isArray(variants) &&
+    variants.length > 0 &&
+    variants.every((v) => v.temperature === "ICED");
+  const isColdStyle =
+    allIced ||
+    nameLower.includes("iced") ||
+    nameLower.includes("cold") ||
+    nameLower.includes("frappe") ||
+    catLower.includes("matcha") ||
+    catLower.includes("specialty");
+
+  return (
+    <div className="drink-media drink-media-placeholder" aria-hidden="true">
+      {isColdStyle ? (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14.5 3L13 8" />
+          <path d="M6.5 8h11l-1.2 11.2a2 2 0 0 1-2 1.8H9.7a2 2 0 0 1-2-1.8L6.5 8z" />
+          <path d="M5.5 8h13" />
+          <path d="M7.3 13.5c1.5.7 3 .7 4.7 0s3.2-.7 4.7 0" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 4c0 1.2-1 1.8-1 3" />
+          <path d="M13 4c0 1.2-1 1.8-1 3" />
+          <path d="M5 9.5h11v4.5a5.5 5.5 0 0 1-11 0V9.5z" />
+          <path d="M16 10.5h1.5a2.5 2.5 0 0 1 0 5H16" />
+          <path d="M4 20h13" />
+        </svg>
+      )}
+    </div>
+  );
+}
+
 export default function Register({ user, token, expired }) {
   const [menu, setMenu] = useState(null),
     [error, setError] = useState(null),
@@ -86,11 +142,18 @@ export default function Register({ user, token, expired }) {
     liveKeys = useRef(new Set()),
     sync = useRef(null),
     searchInputRef = useRef(null),
+    reviewRef = useRef(null),
     chimeRef = useRef(chimeEnabled);
 
   useEffect(() => {
     chimeRef.current = chimeEnabled;
   }, [chimeEnabled]);
+
+  useEffect(() => {
+    if (review) {
+      reviewRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [review]);
 
   function toggleChime() {
     setChimeEnabled((prev) => {
@@ -645,30 +708,18 @@ export default function Register({ user, token, expired }) {
             <div className="drink-grid">
               {Object.entries(products).map(([id, p]) => (
                 <article className="panel drink" key={id}>
-                  {p.image_filename ? (
-                    <div className="drink-card-top">
-                      <div className="drink-media">
-                        <img
-                          src={productImageUrl(p.image_filename)}
-                          alt={p.name}
-                          loading="lazy"
-                          onError={(e) => {
-                            const media = e.currentTarget.closest(".drink-media");
-                            if (media) media.style.display = "none";
-                          }}
-                        />
-                      </div>
-                      <div className="drink-card-title">
-                        <p className="eyebrow">{p.category}</p>
-                        <h2>{p.name}</h2>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
+                  <div className="drink-card-top">
+                    <DrinkMedia
+                      name={p.name}
+                      category={p.category}
+                      imageFilename={p.image_filename}
+                      variants={p.variants}
+                    />
+                    <div className="drink-card-title">
                       <p className="eyebrow">{p.category}</p>
                       <h2>{p.name}</h2>
-                    </>
-                  )}
+                    </div>
+                  </div>
                   <div className="variant-grid">
                     {p.variants.map((v) => {
                       const isOut = v.available_count < 1;
@@ -708,207 +759,255 @@ export default function Register({ user, token, expired }) {
           )}
         </section>
         <aside className="panel basket">
-          <div className="section-heading">
-            <h2>Current order</h2>
-            <div className="button-row">
-              {history.some((o) => o.state === "confirmed" && !o.voided) && (
-                <button
-                  type="button"
-                  className="compact-btn"
-                  disabled={busy || !ready}
-                  onClick={repeatLastOrder}
-                >
-                  Repeat last order
-                </button>
-              )}
-              {basket.length > 0 && (
-                <button
-                  type="button"
-                  className="clear-order-btn"
-                  disabled={busy || !ready}
-                  onClick={() =>
-                    edit({
-                      basket: [],
-                      cash: "",
-                      customer_name: "",
-                      payment_method: "CASH",
-                      payment_reference: "",
-                    })
-                  }
-                >
-                  Clear order
-                </button>
-              )}
-              <span className="pill">{paymentMethodLabel(paymentMethod)}</span>
+          <div className="basket-header">
+            <div className="basket-title-row">
+              <h2>Current order</h2>
+              <div className="basket-badges">
+                {basket.length > 0 && (
+                  <span className="basket-count-pill">
+                    {basket.reduce((sum, item) => sum + item.qty, 0)}{" "}
+                    {basket.reduce((sum, item) => sum + item.qty, 0) === 1 ? "cup" : "cups"}
+                  </span>
+                )}
+                <span className="pill basket-method-pill">{paymentMethodLabel(paymentMethod)}</span>
+              </div>
             </div>
+            {(history.some((o) => o.state === "confirmed" && !o.voided) || basket.length > 0) && (
+              <div className="basket-quick-actions">
+                {history.some((o) => o.state === "confirmed" && !o.voided) && (
+                  <button
+                    type="button"
+                    className="compact-btn"
+                    disabled={busy || !ready}
+                    onClick={repeatLastOrder}
+                  >
+                    Repeat last order
+                  </button>
+                )}
+                {basket.length > 0 && (
+                  <button
+                    type="button"
+                    className="clear-order-btn"
+                    disabled={busy || !ready}
+                    onClick={() =>
+                      edit({
+                        basket: [],
+                        cash: "",
+                        customer_name: "",
+                        payment_method: "CASH",
+                        payment_reference: "",
+                      })
+                    }
+                  >
+                    Clear order
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           {!basket.length ? (
-            <p className="subtle basket-empty">Select a size to add a drink.</p>
+            <div className="basket-empty-state">
+              <span className="basket-empty-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 9h11v4.5a5.5 5.5 0 0 1-11 0V9z" />
+                  <path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16" />
+                  <path d="M4 19.5h13" />
+                </svg>
+              </span>
+              <p className="subtle basket-empty">Select a size to add a drink.</p>
+            </div>
           ) : (
-            basket.map((line) => {
-              const currentVariant = menu?.variants?.find((cand) => Number(cand.id) === Number(line.id));
-              const hasLowIng = Boolean(currentVariant?.has_low_ingredient ?? line.has_low_ingredient);
-              const maxAvail = currentVariant?.available_count ?? line.available_count;
-              const isOut = maxAvail !== undefined && maxAvail < 1;
-              const exceedsAvail = maxAvail !== undefined && line.qty > maxAvail;
-              return (
-                <div className="basket-line" key={line.id}>
-                  <div>
-                    <strong>{variantLabel(line)}</strong>
-                    {isOut ? (
-                      <div className="basket-alert-tag danger">Out of stock</div>
-                    ) : exceedsAvail ? (
-                      <div className="basket-alert-tag danger">Exceeds stock ({maxAvail} left)</div>
-                    ) : hasLowIng ? (
-                      <div className="basket-alert-tag warning">Low ingredient stock</div>
-                    ) : null}
-                    <p>{money(line.price)} each</p>
-                  </div>
-                  <div className="quantity-controls">
-                    <button
-                      aria-label={"Remove one " + variantLabel(line)}
-                      onClick={() => adjust(line.id, -1)}
-                      disabled={busy || !ready}
-                    >
-                      −
-                    </button>
-                    <span>{line.qty}</span>
-                    <button
-                      aria-label={"Add one " + variantLabel(line)}
-                      onClick={() => adjust(line.id, 1)}
-                      disabled={busy || !ready || line.qty >= 100}
-                    >
-                      +
-                    </button>
-                  </div>
-                  <strong>
-                    {money(cashString(cents(line.price) * line.qty))}
-                  </strong>
-                </div>
-              );
-            })
-          )}
-          <div className="checkout-total">
-            <span>Total</span>
-            <strong>{money(cashString(total))}</strong>
-          </div>
-          <p className="subtle small">
-            Includes 12% VAT. Pending orders do not reserve stock.
-          </p>
-          <Field
-            label="Customer name / Cup note (optional)"
-            maxLength={100}
-            placeholder="e.g. Sarah / Table 4 / Less sweet"
-            value={customerName}
-            onChange={(e) => edit({ customer_name: e.target.value })}
-            disabled={busy || !ready}
-          />
-          <div className="quick-preset-row payment-method-row">
-            <span className="preset-caption">Payment method (1-click):</span>
-            <div className="quick-chip-group">
-              {PAYMENT_METHODS.map((pm) => {
-                const isActive = paymentMethod === pm.code;
+            <div className="basket-items-scroll">
+              {basket.map((line) => {
+                const currentVariant = menu?.variants?.find((cand) => Number(cand.id) === Number(line.id));
+                const hasLowIng = Boolean(currentVariant?.has_low_ingredient ?? line.has_low_ingredient);
+                const maxAvail = currentVariant?.available_count ?? line.available_count;
+                const isOut = maxAvail !== undefined && maxAvail < 1;
+                const exceedsAvail = maxAvail !== undefined && line.qty > maxAvail;
                 return (
-                  <button
-                    key={pm.code}
-                    type="button"
-                    disabled={busy || !ready}
-                    className={`compact-btn quick-chip${isActive ? " active" : ""}`}
-                    onClick={() => {
-                      const nextChanges = { payment_method: pm.code };
-                      if (pm.code !== "CASH" && total > 0) {
-                        nextChanges.cash = cashString(total);
-                      } else if (pm.code === "CASH") {
-                        nextChanges.payment_reference = "";
-                      }
-                      edit(nextChanges);
-                    }}
-                  >
-                    {pm.label}
-                  </button>
+                  <div className="basket-line" key={line.id}>
+                    <div className="basket-line-info">
+                      <div className="basket-line-title">
+                        <strong>{variantLabel(line)}</strong>
+                        {isOut ? (
+                          <span className="basket-alert-tag danger">Out of stock</span>
+                        ) : exceedsAvail ? (
+                          <span className="basket-alert-tag danger">Exceeds stock ({maxAvail} left)</span>
+                        ) : hasLowIng ? (
+                          <span className="basket-alert-tag warning">Low ingredient stock</span>
+                        ) : null}
+                      </div>
+                      <p>{money(line.price)} each</p>
+                    </div>
+                    <div className="basket-line-controls">
+                      <div className="quantity-controls">
+                        <button
+                          type="button"
+                          aria-label={"Remove one " + variantLabel(line)}
+                          onClick={() => adjust(line.id, -1)}
+                          disabled={busy || !ready}
+                        >
+                          −
+                        </button>
+                        <span>{line.qty}</span>
+                        <button
+                          type="button"
+                          aria-label={"Add one " + variantLabel(line)}
+                          onClick={() => adjust(line.id, 1)}
+                          disabled={busy || !ready || line.qty >= 100}
+                        >
+                          +
+                        </button>
+                      </div>
+                      <strong className="basket-line-subtotal">
+                        {money(cashString(cents(line.price) * line.qty))}
+                      </strong>
+                    </div>
+                  </div>
                 );
               })}
             </div>
+          )}
+          <div className="basket-total-card">
+            <div className="checkout-total">
+              <span>Total</span>
+              <strong>{money(cashString(total))}</strong>
+            </div>
+            <p className="subtle small basket-vat-note">
+              Includes 12% VAT. Pending orders do not reserve stock.
+            </p>
           </div>
-          {paymentMethod !== "CASH" && (
+          <div className="basket-payment-card">
             <Field
-              label={`${paymentMethodLabel(paymentMethod)} reference # (optional · last 4–13 digits)`}
-              maxLength={80}
-              placeholder={`e.g. ${paymentMethod === "GCASH" ? "GCash" : paymentMethod === "MAYA" ? "Maya" : "QR / Terminal"} Ref #904218`}
-              value={paymentReference}
-              onChange={(e) => edit({ payment_reference: e.target.value })}
+              label="Customer name / Cup note (optional)"
+              maxLength={100}
+              placeholder="e.g. Sarah / Table 4 / Less sweet"
+              value={customerName}
+              onChange={(e) => edit({ customer_name: e.target.value })}
               disabled={busy || !ready}
             />
-          )}
-          <Field
-            label={
-              paymentMethod === "CASH"
-                ? "Cash received"
-                : `${paymentMethodLabel(paymentMethod)} amount received`
-            }
-            inputMode="decimal"
-            placeholder="0.00"
-            value={cash}
-            onChange={(e) => edit({ cash: e.target.value })}
-            disabled={busy || !ready}
-          />
-          {total > 0 && (
-            <div className="button-row" style={{ marginBottom: "10px", flexWrap: "wrap", gap: "6px" }}>
-              <button
-                type="button"
-                className="compact-btn"
+            <div className="basket-divider" aria-hidden="true" />
+            <div className="quick-preset-row payment-method-row">
+              <span className="preset-caption">Payment method (1-click):</span>
+              <div className="quick-chip-group">
+                {PAYMENT_METHODS.map((pm) => {
+                  const isActive = paymentMethod === pm.code;
+                  return (
+                    <button
+                      key={pm.code}
+                      type="button"
+                      disabled={busy || !ready}
+                      className={`compact-btn quick-chip${isActive ? " active" : ""}`}
+                      onClick={() => {
+                        const nextChanges = { payment_method: pm.code };
+                        if (pm.code !== "CASH" && total > 0) {
+                          nextChanges.cash = cashString(total);
+                        } else if (pm.code === "CASH") {
+                          nextChanges.payment_reference = "";
+                        }
+                        edit(nextChanges);
+                      }}
+                    >
+                      {pm.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            {paymentMethod !== "CASH" && (
+              <Field
+                label={`${paymentMethodLabel(paymentMethod)} reference # (optional · last 4–13 digits)`}
+                maxLength={80}
+                placeholder={`e.g. ${paymentMethod === "GCASH" ? "GCash" : paymentMethod === "MAYA" ? "Maya" : "QR / Terminal"} Ref #904218`}
+                value={paymentReference}
+                onChange={(e) => edit({ payment_reference: e.target.value })}
                 disabled={busy || !ready}
-                title="Shortcut: Alt + E"
-                onClick={() => edit({ cash: cashString(total) })}
-              >
-                Exact
-              </button>
-              {[100, 200, 500, 1000].map((amt) => (
+              />
+            )}
+            <Field
+              label={
+                paymentMethod === "CASH"
+                  ? "Cash received"
+                  : `${paymentMethodLabel(paymentMethod)} amount received`
+              }
+              inputMode="decimal"
+              placeholder="0.00"
+              value={cash}
+              onChange={(e) => edit({ cash: e.target.value })}
+              disabled={busy || !ready}
+            />
+            {total > 0 && (
+              <div className="cash-preset-row">
                 <button
-                  key={amt}
                   type="button"
                   className="compact-btn"
                   disabled={busy || !ready}
-                  onClick={() => edit({ cash: String(amt) })}
+                  title="Shortcut: Alt + E"
+                  onClick={() => edit({ cash: cashString(total) })}
                 >
-                  ₱{amt}
+                  Exact
                 </button>
-              ))}
+                {[100, 200, 500, 1000].map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    className="compact-btn"
+                    disabled={busy || !ready}
+                    onClick={() => edit({ cash: String(amt) })}
+                  >
+                    ₱{amt}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div
+              className={`change${
+                total > 0 && cashCents !== null && cashCents >= total
+                  ? " is-ready"
+                  : cashCents !== null && cashCents < total
+                    ? " is-short"
+                    : ""
+              }`}
+            >
+              <span>Change</span>
+              <strong>
+                {cashCents !== null && cashCents >= total
+                  ? money(cashString(cashCents - total))
+                  : "—"}
+              </strong>
             </div>
-          )}
-          <div className="change">
-            <span>Change</span>
-            <strong>
-              {cashCents !== null && cashCents >= total
-                ? money(cashString(cashCents - total))
-                : "—"}
-            </strong>
+            {cashCents !== null && cashCents < total && (
+              <p className="small basket-short-warning">Cash received is below the total.</p>
+            )}
           </div>
-          {cashCents !== null && cashCents < total && (
-            <p className="small">Cash received is below the total.</p>
-          )}
-          <p className="subtle small" role="status">
-            {saving
-              ? "Saving draft…"
-              : ready
-                ? "Draft saved on this device."
-                : "Loading saved draft…"}
-          </p>
-          <button
-            className="primary full"
-            disabled={
-              busy ||
-              !ready ||
-              !basket.length ||
-              cashCents === null ||
-              cashCents < total
-            }
-            onClick={() => setReview(true)}
-          >
-            Charge
-          </button>
+          <div className="basket-cta-footer">
+            <button
+              className="primary full charge-cta-btn"
+              disabled={
+                busy ||
+                !ready ||
+                !basket.length ||
+                cashCents === null ||
+                cashCents < total
+              }
+              onClick={() => setReview(true)}
+            >
+              Charge
+            </button>
+            <p className="subtle small basket-draft-status" role="status">
+              {saving
+                ? "Saving draft…"
+                : ready
+                  ? "Draft saved on this device."
+                  : "Loading saved draft…"}
+            </p>
+          </div>
           {review && (
-            <section className="checkout-review" aria-label="Review payment">
+            <section
+              ref={reviewRef}
+              className="checkout-review"
+              aria-label="Review payment"
+            >
               <h3>Confirm {paymentMethodLabel(paymentMethod)} payment</h3>
               <p>
                 {paymentMethod === "CASH" ? (

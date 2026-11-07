@@ -59,6 +59,15 @@ try {
     $pdo->exec("SET FOREIGN_KEY_CHECKS = 0;");
 
     // 1. Synchronize Products
+    $localUploadsDir = realpath(__DIR__ . '/../../rebuild/storage/uploads/products')
+        ?: (__DIR__ . '/../../rebuild/storage/uploads/products');
+    $existingImages = [];
+    foreach ($pdo->query("SELECT id, image_filename FROM products") as $row) {
+        if (!empty($row['image_filename'])) {
+            $existingImages[(int) $row['id']] = $row['image_filename'];
+        }
+    }
+
     $stmtProd = $pdo->prepare("INSERT INTO products (id, name, category, image_filename, is_active, is_vat_exempt, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
@@ -70,11 +79,26 @@ try {
             updated_at = VALUES(updated_at)");
 
     foreach ($products as $p) {
+        $pid = (int) $p['id'];
+        $imgFile = $p['image_filename'] ?? null;
+        if (is_string($imgFile) && $imgFile !== '') {
+            $safeBase = basename($imgFile);
+            $targetPath = $localUploadsDir . DIRECTORY_SEPARATOR . $safeBase;
+            if (!is_file($targetPath) && isset($existingImages[$pid])) {
+                $localExisting = $localUploadsDir . DIRECTORY_SEPARATOR . basename($existingImages[$pid]);
+                if (is_file($localExisting)) {
+                    @copy($localExisting, $targetPath);
+                    if (!is_file($targetPath)) {
+                        $imgFile = $existingImages[$pid];
+                    }
+                }
+            }
+        }
         $stmtProd->execute([
-            $p['id'],
+            $pid,
             $p['name'],
             $p['category'] ?? 'Coffee',
-            $p['image_filename'] ?? null,
+            $imgFile,
             $p['is_active'] ?? 1,
             $p['is_vat_exempt'] ?? 0,
             $p['created_at'] ?? date('Y-m-d H:i:s'),
