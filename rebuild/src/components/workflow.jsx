@@ -124,6 +124,10 @@ export function Receipt({ sale, onVoid, onReloadItems, onPrint, onClose }) {
         {[
           ...(sale.customer_name ? [["Customer / Note", sale.customer_name, true]] : []),
           ["Payment Method", sale.payment_reference ? `${payLabel} (Ref #${sale.payment_reference})` : payLabel, true],
+          ["VATable Sales", sale.total_net, false],
+          ["VAT (12%)", sale.total_vat, false],
+          ["VAT-Exempt", "0", false],
+          ["Zero-Rated", "0", false],
           ["Total", sale.total_gross, false, true],
           [payMethod === "CASH" ? "Cash received" : `${payLabel} amount`, sale.cash_received, false],
           ["Change", sale.change_due, false],
