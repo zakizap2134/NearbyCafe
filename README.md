@@ -6,17 +6,7 @@ A locally hosted and cloud-deployable point-of-sale and recipe-driven inventory 
 > **Using another laptop, phone, or tablet?**  
 > Read the complete **[Multi-Device Setup & Access Guide](docs/MULTI_DEVICE_GUIDE.md)** for instructions on accessing live cloud production or setting up on a new device.
 
----
 
-## Quick Access Summary
-
-| Environment | Access Link | Credentials | Status |
-| :--- | :--- | :--- | :--- |
-| **Live Cloud Production** | **[nearbycafe.infinityfreeapp.com](https://nearbycafe.infinityfreeapp.com)** | User: `zakizap`<br>Email: `zapicozaki83@gmail.com`<br>Pass: `callmepapaton2x` | **ONLINE (Active)** |
-| **Local Café Counter** | `http://127.0.0.1:5174` | User: `zakizap`<br>Email: `zapicozaki83@gmail.com`<br>Pass: `callmepapaton2x` | **100% Offline-Ready** |
-| **Hybrid Sync Engine** | `sync-engine/` | Autonomous Playwright/Edge | **Active (Bidirectional)** |
-
----
 
 ## Clean Project Folder Layout
 
