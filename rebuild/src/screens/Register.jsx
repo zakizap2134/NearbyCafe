@@ -127,6 +127,8 @@ export default function Register({ user, token, expired }) {
     [saving, setSaving] = useState(0),
     [historyLimit, setHistoryLimit] = useState(10),
     [showStockAlertDetails, setShowStockAlertDetails] = useState(false),
+    [hideOutOfStock, setHideOutOfStock] = useState(false),
+    [showNoteField, setShowNoteField] = useState(false),
     [chimeEnabled, setChimeEnabled] = useState(() => {
       try {
         return localStorage.getItem("venuevue_chime_enabled") !== "0";
@@ -143,6 +145,7 @@ export default function Register({ user, token, expired }) {
     sync = useRef(null),
     searchInputRef = useRef(null),
     reviewRef = useRef(null),
+    basketRef = useRef(null),
     chimeRef = useRef(chimeEnabled);
 
   useEffect(() => {
@@ -465,11 +468,28 @@ export default function Register({ user, token, expired }) {
       Array.from(new Set(allVariants.map((v) => v?.category).filter(Boolean))),
     [allVariants],
   );
+  const qtyByVariant = useMemo(() => {
+    const map = new Map();
+    for (const item of draft?.basket || []) {
+      map.set(
+        Number(item.id),
+        (map.get(Number(item.id)) || 0) + Number(item.qty || 0),
+      );
+    }
+    return map;
+  }, [draft?.basket]);
+  const outOfStockCount = useMemo(
+    () => allVariants.filter((v) => Number(v?.available_count ?? 0) < 1).length,
+    [allVariants],
+  );
   const products = useMemo(() => {
     const needle = search.toLowerCase();
     return allVariants
       .filter((v) => {
         if (categoryFilter !== "ALL" && v?.category !== categoryFilter) {
+          return false;
+        }
+        if (hideOutOfStock && Number(v?.available_count ?? 0) < 1) {
           return false;
         }
         return `${v?.product_name ?? ""} ${v?.category ?? ""}`
@@ -490,7 +510,7 @@ export default function Register({ user, token, expired }) {
         entry.variants.push(v);
         return all;
       }, {});
-  }, [allVariants, categoryFilter, search]);
+  }, [allVariants, categoryFilter, search, hideOutOfStock]);
   return (
     <>
       <div className="page-heading">
@@ -677,7 +697,7 @@ export default function Register({ user, token, expired }) {
               }}
             />
           </Field>
-          {menuCategories.length > 0 && (
+          {(menuCategories.length > 0 || outOfStockCount > 0) && (
             <div className="quick-preset-row register-category-row">
               <div className="quick-chip-group">
                 <button
@@ -697,13 +717,26 @@ export default function Register({ user, token, expired }) {
                     {cat}
                   </button>
                 ))}
-                {(search || categoryFilter !== "ALL") && (
+                {outOfStockCount > 0 && (
+                  <button
+                    type="button"
+                    aria-pressed={hideOutOfStock}
+                    className={`compact-btn quick-chip${hideOutOfStock ? " active" : ""}`}
+                    onClick={() => setHideOutOfStock((prev) => !prev)}
+                  >
+                    {hideOutOfStock
+                      ? "In stock only"
+                      : `Hide unavailable (${outOfStockCount})`}
+                  </button>
+                )}
+                {(search || categoryFilter !== "ALL" || hideOutOfStock) && (
                   <button
                     type="button"
                     className="compact-btn"
                     onClick={() => {
                       setSearch("");
                       setCategoryFilter("ALL");
+                      setHideOutOfStock(false);
                     }}
                   >
                     Reset filter
@@ -717,11 +750,13 @@ export default function Register({ user, token, expired }) {
           ) : Object.keys(products).length === 0 ? (
             <section className="panel empty">
               <h2>
-                {search ? "No matching drinks" : "No drinks available yet"}
+                {search || hideOutOfStock
+                  ? "No matching drinks"
+                  : "No drinks available yet"}
               </h2>
               <p>
-                {search
-                  ? "Try another name or category."
+                {search || hideOutOfStock
+                  ? "Try another name, category, or show unavailable drinks."
                   : "The owner needs to add products, variants, recipes and ingredients."}
               </p>
             </section>
@@ -745,13 +780,14 @@ export default function Register({ user, token, expired }) {
                     {p.variants.map((v) => {
                       const isOut = v.available_count < 1;
                       const isLow = v.available_count > 0 && (v.available_count <= 5 || v.has_low_ingredient);
+                      const inOrderQty = qtyByVariant.get(Number(v.id)) || 0;
                       return (
                         <button
                           key={v.id}
                           aria-label={"Add " + variantLabel(v)}
                           disabled={busy || !ready || isOut}
                           onClick={() => add(v)}
-                          className={`variant-card-btn${isOut ? " is-out" : isLow ? " is-low" : ""}`}
+                          className={`variant-card-btn${isOut ? " is-out" : isLow ? " is-low" : ""}${inOrderQty > 0 ? " in-cart" : ""}`}
                         >
                           <strong>
                             {v.size} · {{ S: 12, M: 16, L: 22 }[v.size]} oz
@@ -761,15 +797,22 @@ export default function Register({ user, token, expired }) {
                                 (v.temperature === "ICED" ? "Iced" : "Hot")}
                           </strong>
                           <span>{money(v.price)}</span>
-                          <small className={`variant-stock-badge ${isOut ? "badge-out" : isLow ? "badge-low" : "badge-ok"}`}>
-                            {isOut
-                              ? (v.recipe_ready ? "Out of stock" : "Recipe needed")
-                              : isLow
-                                ? (v.has_low_ingredient && v.available_count > 5
-                                    ? `Low ingredient (${v.available_count} left)`
-                                    : `Low: ${v.available_count} left`)
-                                : `${v.available_count} available`}
-                          </small>
+                          <div className="variant-meta-row">
+                            <small className={`variant-stock-badge ${isOut ? "badge-out" : isLow ? "badge-low" : "badge-ok"}`}>
+                              {isOut
+                                ? (v.recipe_ready ? "Out of stock" : "Recipe needed")
+                                : isLow
+                                  ? (v.has_low_ingredient && v.available_count > 5
+                                      ? `Low ingredient (${v.available_count} left)`
+                                      : `Low: ${v.available_count} left`)
+                                  : `${v.available_count} available`}
+                            </small>
+                            {inOrderQty > 0 && (
+                              <span className="variant-in-order-pill">
+                                {inOrderQty}× in order
+                              </span>
+                            )}
+                          </div>
                         </button>
                       );
                     })}
@@ -779,7 +822,7 @@ export default function Register({ user, token, expired }) {
             </div>
           )}
         </section>
-        <aside className="panel basket">
+        <aside className="panel basket" ref={basketRef}>
           <div className="basket-header">
             <div className="basket-title-row">
               <h2>Current order</h2>
@@ -899,14 +942,37 @@ export default function Register({ user, token, expired }) {
             </p>
           </div>
           <div className="basket-payment-card">
-            <Field
-              label="Customer name / Cup note (optional)"
-              maxLength={100}
-              placeholder="e.g. Sarah / Table 4 / Less sweet"
-              value={customerName}
-              onChange={(e) => edit({ customer_name: e.target.value })}
-              disabled={busy || !ready}
-            />
+            {showNoteField || customerName.trim() !== "" ? (
+              <div className="basket-note-box">
+                <Field
+                  label="Customer name / Cup note (optional)"
+                  maxLength={100}
+                  placeholder="e.g. Sarah / Table 4 / Less sweet"
+                  value={customerName}
+                  onChange={(e) => edit({ customer_name: e.target.value })}
+                  disabled={busy || !ready}
+                />
+                {customerName.trim() === "" && (
+                  <button
+                    type="button"
+                    className="note-toggle-link"
+                    onClick={() => setShowNoteField(false)}
+                    disabled={busy}
+                  >
+                    Hide note
+                  </button>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="compact-btn note-toggle-chip"
+                onClick={() => setShowNoteField(true)}
+                disabled={busy || !ready}
+              >
+                + Add customer name / cup note
+              </button>
+            )}
             <div className="basket-divider" aria-hidden="true" />
             <div className="quick-preset-row payment-method-row">
               <span className="preset-caption">Payment method (1-click):</span>
@@ -1148,6 +1214,26 @@ export default function Register({ user, token, expired }) {
           </button>
         )}
       </section>
+      {basket.length > 0 && (
+        <div className="mobile-checkout-bar no-print" role="region" aria-label="Quick order summary">
+          <div className="mobile-checkout-summary">
+            <span>
+              {basket.reduce((sum, item) => sum + item.qty, 0)}{" "}
+              {basket.reduce((sum, item) => sum + item.qty, 0) === 1 ? "cup" : "cups"}
+            </span>
+            <strong>{money(cashString(total))}</strong>
+          </div>
+          <button
+            type="button"
+            className="primary compact-btn"
+            onClick={() =>
+              basketRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+            }
+          >
+            Checkout ↓
+          </button>
+        </div>
+      )}
     </>
   );
 }
