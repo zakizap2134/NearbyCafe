@@ -77,7 +77,26 @@ function Start-Operation([string]$Action){
 function Confirm-Stop{
  if([Windows.MessageBox]::Show($window,'Finish sales on every device before stopping. Stop Nearby Café now?','Stop Nearby Café',[Windows.MessageBoxButton]::YesNo,[Windows.MessageBoxImage]::Question) -eq [Windows.MessageBoxResult]::Yes){Start-Operation 'stop'}
 }
-$ui.OpenButton.Add_Click({try{$c=Get-NearbyConfig $root;Start-Process ('http://localhost:'+$c.WebPort)}catch{$ui.Detail.Text='The browser could not open. Open the shop address shown below manually.'}})
+function Format-NearbyStatusAddress($Config){
+ $address='Shop address: http://localhost:'+$Config.WebPort
+ if($Config.LanEnabled){
+  $addresses=@(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue|Where-Object{$_.IPAddress -match '^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)' -and $_.AddressState -eq 'Preferred'}|Select-Object -ExpandProperty IPAddress)
+  if($addresses.Count -gt 0){$address+="`r`nTablet address: http://"+$addresses[0]+':'+$Config.WebPort}
+ }
+ try{
+  $pidFile=Join-Path $Config.Root 'storage\launcher\sync_bridge.pid'
+  $syncLabel='Cloud auto-sync: Stopped'
+  if(Test-Path -LiteralPath $pidFile){
+   $rawPid=Get-Content -Path $pidFile -Raw -ErrorAction SilentlyContinue
+   $pidVal=if($rawPid -and $rawPid.Trim() -match '^\d+$'){[int]$rawPid.Trim()}else{0}
+   $p=if($pidVal -gt 0){Get-Process -Id $pidVal -ErrorAction SilentlyContinue}else{$null}
+   if($p -and $p.ProcessName -match '^node'){$syncLabel="Cloud auto-sync: Running (PID $pidVal)"}
+  }
+  $address+="`r`n"+$syncLabel
+ }catch{}
+ return $address
+}
+$ui.OpenButton.Add_Click({try{$c=Get-NearbyConfig $root;[void](Start-NearbySync $c);$ui.Address.Text=Format-NearbyStatusAddress $c;Start-Process ('http://localhost:'+$c.WebPort)}catch{$ui.Detail.Text='The browser could not open. Open the shop address shown below manually.'}})
 $ui.RetryButton.Add_Click({Start-Operation 'start'});$ui.StopButton.Add_Click({Confirm-Stop})
 $timer=New-Object Windows.Threading.DispatcherTimer;$timer.Interval=[TimeSpan]::FromMilliseconds(200)
 $timer.Add_Tick({
@@ -90,10 +109,8 @@ $timer.Add_Tick({
    try{[void]$script:worker.EndInvoke($script:operation)}catch{$ui.Detail.Text='The operation could not finish. Contact your developer.'}
    $script:worker.Dispose();$script:worker=$null;$ui.Progress.Visibility='Collapsed';$ui.RetryButton.IsEnabled=$true;$ui.StopButton.IsEnabled=$true;$ui.OpenButton.IsEnabled=$script:shared.Ready
    try{
-    $c=Get-NearbyConfig $root;$address='Shop address: http://localhost:'+$c.WebPort
-    if($c.LanEnabled){$addresses=@(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue|Where-Object{$_.IPAddress -match '^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)' -and $_.AddressState -eq 'Preferred'}|Select-Object -ExpandProperty IPAddress)
-     if($addresses.Count -gt 0){$address+="`r`nTablet address: http://"+$addresses[0]+':'+$c.WebPort}
-    };$ui.Address.Text=$address
+    $c=Get-NearbyConfig $root
+    $ui.Address.Text=Format-NearbyStatusAddress $c
    }catch{}
   }
  }

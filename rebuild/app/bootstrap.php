@@ -267,6 +267,50 @@ function ensure_void_and_image_schema(PDO $db): void
     } catch (Throwable) {
         // Columns or constraint already exist
     }
+
+    // Auto-migrate two-way sync queue/deduplication tables on existing deployments
+    try {
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS `sync_outbox` (
+                `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                `entity_type` VARCHAR(32) NOT NULL,
+                `transaction_key` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+                `payload` LONGTEXT NOT NULL,
+                `status` ENUM('PENDING', 'IN_FLIGHT', 'SYNCED', 'FAILED') NOT NULL DEFAULT 'PENDING',
+                `attempts` INT UNSIGNED NOT NULL DEFAULT 0,
+                `error_message` TEXT NULL DEFAULT NULL,
+                `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `synced_at` DATETIME NULL DEFAULT NULL,
+                INDEX `idx_outbox_queue` (`status`, `created_at`),
+                INDEX `idx_outbox_key` (`transaction_key`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        );
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS `sync_inbox` (
+                `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                `transaction_key` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE,
+                `entity_type` VARCHAR(32) NOT NULL,
+                `source_shop_id` VARCHAR(64) NOT NULL,
+                `payload` LONGTEXT NOT NULL,
+                `received_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `processed_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `status` ENUM('APPLIED', 'SKIPPED_DUPLICATE', 'ERROR') NOT NULL DEFAULT 'APPLIED',
+                `error_log` TEXT NULL DEFAULT NULL,
+                INDEX `idx_inbox_time` (`received_at`),
+                INDEX `idx_inbox_type` (`entity_type`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        );
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS `sync_meta` (
+                `meta_key` VARCHAR(64) PRIMARY KEY,
+                `meta_value` TEXT NOT NULL,
+                `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        );
+    } catch (Throwable) {
+        // Sync tables already exist or will fail the explicit verification below
+    }
+
     if ($schemaKey !== "") {
         $ensuredSchemas[$schemaKey] = true;
     }
@@ -284,10 +328,21 @@ function schema_ready(PDO $db): void
                 "The installed database does not match this application. Run the preflight check.",
             );
         }
+        $autoUpgradeTables = [
+            "password_resets",
+            "sync_outbox",
+            "sync_inbox",
+            "sync_meta",
+        ];
         foreach (VV_TABLES as $table) {
-            $db->query("SELECT 1 FROM `" . $table . "` LIMIT 0");
+            if (!in_array($table, $autoUpgradeTables, true)) {
+                $db->query("SELECT 1 FROM `" . $table . "` LIMIT 0");
+            }
         }
         ensure_void_and_image_schema($db);
+        foreach ($autoUpgradeTables as $table) {
+            $db->query("SELECT 1 FROM `" . $table . "` LIMIT 0");
+        }
     } catch (PDOException $e) {
         problem(
             503,
@@ -504,5 +559,49 @@ function diagnostic(Throwable $e, string $requestId): void
         ) === false
     ) {
         error_log(trim($line));
+    }
+}
+
+function sync_suppress_outbox(?bool $set = null): bool
+{
+    static $suppressed = false;
+    if ($set !== null) {
+        $suppressed = $set;
+    }
+    return $suppressed;
+}
+
+function sync_enqueue(
+    PDO $db,
+    string $entityType,
+    string $transactionKey,
+    array $payload,
+): void {
+    if (sync_suppress_outbox() || $transactionKey === "") {
+        return;
+    }
+    try {
+        $hasOutbox = query($db, "SHOW TABLES LIKE 'sync_outbox'")->fetch();
+        if (!$hasOutbox) {
+            return;
+        }
+        $encoded = json_encode($payload, JSON_UNESCAPED_SLASHES);
+        if ($encoded === false) {
+            return;
+        }
+        query(
+            $db,
+            "INSERT INTO sync_outbox (entity_type, transaction_key, payload, status, created_at)
+             VALUES (?, ?, ?, 'PENDING', NOW())
+             ON DUPLICATE KEY UPDATE
+               entity_type = VALUES(entity_type),
+               payload = VALUES(payload),
+               status = 'PENDING',
+               synced_at = NULL,
+               error_message = NULL",
+            [$entityType, $transactionKey, $encoded],
+        );
+    } catch (Throwable) {
+        // Outbox queueing should never break local POS operations.
     }
 }

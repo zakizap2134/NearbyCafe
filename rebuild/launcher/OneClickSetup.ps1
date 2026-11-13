@@ -181,24 +181,34 @@ return [
   [IO.File]::WriteAllText($localConfigPath,$localPhpContent,(New-Object Text.UTF8Encoding($false)))
  }
 
- # 4.5. Ensure frontend assets (public\index.html) exist; auto-build if missing on a fresh Git clone
+ # 4.5. Ensure Node dependencies (Playwright sync bridge + frontend assets) are installed/built on a fresh Git clone
  $indexHtml=Join-Path $root 'public\index.html'
- if(-not(Test-Path -LiteralPath $indexHtml -PathType Leaf)){
+ $pwEntry=Join-Path $root 'node_modules\@playwright\test\index.js'
+ $needsAssets=(-not(Test-Path -LiteralPath $indexHtml -PathType Leaf))
+ $needsNodeDeps=(-not(Test-Path -LiteralPath $pwEntry -PathType Leaf))
+ if($needsAssets -or $needsNodeDeps){
   $npmCmd=Get-Command 'npm.cmd' -ErrorAction SilentlyContinue
   if(!$npmCmd){
-   Show-ClientDialog "$brandName - Frontend Assets Missing" ("public\index.html was not found (this looks like an unbuilt Git clone) and Node.js/npm is not installed.`r`n`r`nEither install Node.js 22+ and run 'npm ci && npm run build' inside rebuild, or use the pre-built release folder.") $true
-   exit 1
-  }
-  Push-Location $root
-  try{
-   if(-not(Test-Path -LiteralPath (Join-Path $root 'node_modules') -PathType Container)){
-    $ciRes=Invoke-NearbyExe $npmCmd.Source @('ci')
-    if($ciRes.Exit -ne 0){throw 'NPM_CI_FAILED'}
+   if($needsAssets){
+    Show-ClientDialog "$brandName - Frontend Assets Missing" ("public\index.html was not found (this looks like an unbuilt Git clone) and Node.js/npm is not installed.`r`n`r`nEither install Node.js 22+ and run 'npm ci && npm run build' inside rebuild, or use the pre-built release folder.") $true
+    exit 1
    }
-   $buildRes=Invoke-NearbyExe $npmCmd.Source @('run','build')
-   if($buildRes.Exit -ne 0 -or -not(Test-Path -LiteralPath $indexHtml -PathType Leaf)){throw 'NPM_BUILD_FAILED'}
-  }finally{
-   Pop-Location
+  }else{
+   Push-Location $root
+   try{
+    if($needsNodeDeps){
+     $ciRes=Invoke-NearbyExe $npmCmd.Source @('ci')
+     if($ciRes.Exit -ne 0){
+      if($needsAssets){throw 'NPM_CI_FAILED'}
+     }
+    }
+    if($needsAssets){
+     $buildRes=Invoke-NearbyExe $npmCmd.Source @('run','build')
+     if($buildRes.Exit -ne 0 -or -not(Test-Path -LiteralPath $indexHtml -PathType Leaf)){throw 'NPM_BUILD_FAILED'}
+    }
+   }finally{
+    Pop-Location
+   }
   }
  }
 
@@ -343,13 +353,15 @@ HOW TO COMPLETE OWNER SETUP:
  $url="http://localhost:$WebPort"
  $publicNets=@(Get-NearbyPublicNetworks)
  $wifiNote=if(-not $LocalOnly -and $publicNets.Count -gt 0){"`r`n`r`nNote: Your Wi-Fi ("+($publicNets -join ', ')+") is currently set to Public in Windows Settings. Set it to Private so barista tablets on shop Wi-Fi can connect."}else{''}
+ $cloudCfgFile=Join-Path $root 'config\cloud.local.json'
+ $cloudNote=if(-not(Test-Path -LiteralPath $cloudCfgFile -PathType Leaf)){"`r`n- To connect 2-way Cloud sync on this PC, run sync-engine\Configure_Cloud_Account.bat once."}else{''}
 
  if($setupCode){
   Show-SetupCodeDialog $setupCode $codeFilePath $url
   Start-Process $url
  }else{
   Start-Process $url
-  Show-ClientDialog "$brandName - 1-Click Setup Complete" ("$brandName is installed, running, and open in your browser at:`r`n$url`r`n`r`n- Your existing Owner account and shop database have been preserved.`r`n- For daily operation, double-click the '$brandName' icon on your Desktop."+$wifiNote) $false
+  Show-ClientDialog "$brandName - 1-Click Setup Complete" ("$brandName is installed, running, and open in your browser at:`r`n$url`r`n`r`n- Your existing Owner account and shop database have been preserved.`r`n- For daily operation, double-click the '$brandName' icon on your Desktop."+$cloudNote+$wifiNote) $false
  }
 }catch{
  $errMsg=$_.Exception.Message

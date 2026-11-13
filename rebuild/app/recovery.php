@@ -100,6 +100,11 @@ function staff_password_reset(
             hash("sha256", "user:" . $staff["username"]),
         ]);
         audit($db, $uid, "BARISTA_PASSWORD_RESET:" . $target, $requestId);
+        sync_enqueue($db, "USER_PASSWORD", "pwd-" . $staff["username"] . "-" . bin2hex(random_bytes(6)), [
+            "username" => $staff["username"],
+            "role" => "BARISTA",
+            "password_hash" => $hash,
+        ]);
         $db->commit();
         return ["reset" => true, "user_id" => $target];
     } catch (Throwable $e) {

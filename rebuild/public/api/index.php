@@ -28,6 +28,7 @@ try {
     require_once $appDir . "/recovery_preparation.php";
     require_once $appDir . "/reports.php";
     require_once $appDir . "/backup.php";
+    require_once $appDir . "/sync.php";
 
     $route = $_GET["route"] ?? "";
     $method = $_SERVER["REQUEST_METHOD"];
@@ -68,6 +69,11 @@ try {
         "management/backup" => "POST",
         "management/restore-preview" => "POST",
         "management/restore" => "POST",
+        "sync/push" => "POST",
+        "sync/pull" => "GET",
+        "sync/ack" => "POST",
+        "sync/reconcile" => "GET",
+        "sync/export-sales" => "POST",
     ];
     if (!is_string($route) || !isset($routes[$route])) {
         problem(404, "NOT_FOUND", "Endpoint not found.");
@@ -106,7 +112,9 @@ try {
                     ["management/restore-preview", "management/restore"],
                     true,
                 ) => 16777216,
+                $route === "sync/push" => 8388608,
                 $route === "management/save" => 4194304,
+                in_array($route, ["sync/ack", "sync/export-sales"], true) => 262144,
                 default => 8192,
             };
             $raw = file_get_contents("php://input", false, null, 0, $limit + 1);
@@ -178,8 +186,46 @@ try {
     }
     $session = session_user($db);
     $user = $session["user"];
-    if (str_starts_with($route, "management") && $user["role"] !== "OWNER") {
+    if (
+        (str_starts_with($route, "management") || str_starts_with($route, "sync/")) &&
+        $user["role"] !== "OWNER"
+    ) {
         problem(403, "FORBIDDEN", "Owner / Admin access is required.");
+    }
+    if ($route === "sync/push") {
+        respond(200, [
+            "ok" => true,
+            "data" => sync_push_endpoint($db, $session, $body, $requestId),
+            "request_id" => $requestId,
+        ]);
+    }
+    if ($route === "sync/pull") {
+        respond(200, [
+            "ok" => true,
+            "data" => sync_pull_endpoint($db, $_GET),
+            "request_id" => $requestId,
+        ]);
+    }
+    if ($route === "sync/ack") {
+        respond(200, [
+            "ok" => true,
+            "data" => sync_ack_endpoint($db, $body),
+            "request_id" => $requestId,
+        ]);
+    }
+    if ($route === "sync/reconcile") {
+        respond(200, [
+            "ok" => true,
+            "data" => sync_reconcile_endpoint($db),
+            "request_id" => $requestId,
+        ]);
+    }
+    if ($route === "sync/export-sales") {
+        respond(200, [
+            "ok" => true,
+            "data" => sync_export_sales_endpoint($db, $body),
+            "request_id" => $requestId,
+        ]);
     }
     if (in_array($route, ["management/recovery-code/status", "management/recovery-code/generate"], true)) {
         header("Referrer-Policy: no-referrer");

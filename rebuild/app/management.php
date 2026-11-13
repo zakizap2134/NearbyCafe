@@ -120,6 +120,7 @@ function inventory_operation(
             return $result + ["duplicate" => true];
         }
         $at = database_time($db);
+        $syncInvPayload = null;
         if ($kind === "clear_expired") {
             $sql =
                 "SELECT c.*,b.ingredient_id,b.expiration_date,b.quarantined FROM stock_containers c JOIN stock_batches b ON b.id=c.batch_id WHERE c.remaining_qty>0 AND b.quarantined=0";
@@ -206,6 +207,17 @@ function inventory_operation(
                 "containers" => $cleared,
                 "reason" => $reason,
             ]);
+            $ingNameForSync = $normalized["ingredient_id"] !== null
+                ? query($db, "SELECT name FROM ingredients WHERE id=?", [$normalized["ingredient_id"]])->fetchColumn()
+                : null;
+            $syncInvPayload = [
+                "operation_key" => $key,
+                "kind" => "clear_expired",
+                "ingredient_name" => is_string($ingNameForSync) ? $ingNameForSync : null,
+                "reason" => $reason,
+                "actor_username" => $session["user"]["username"] ?? null,
+                "created_at" => $at,
+            ];
         } elseif ($kind === "batch") {
             $before = query(
                 $db,
@@ -261,6 +273,18 @@ function inventory_operation(
                 "before" => array_intersect_key($before, $normalized),
                 "after" => $normalized,
             ]);
+            $syncInvPayload = [
+                "operation_key" => $key,
+                "kind" => "batch",
+                "delivery_key" => $before["delivery_key"],
+                "expiration_date" => $normalized["expiration_date"],
+                "supplier" => $normalized["supplier"],
+                "lot_reference" => $normalized["lot_reference"],
+                "quarantined" => $normalized["quarantined"],
+                "reason" => $reason,
+                "actor_username" => $session["user"]["username"] ?? null,
+                "created_at" => $at,
+            ];
         } else {
             $c = query(
                 $db,
@@ -366,6 +390,29 @@ function inventory_operation(
                     "reason" => $reason,
                 ],
             );
+            $deliveryKeyForSync = query(
+                $db,
+                "SELECT delivery_key FROM stock_batches WHERE id=?",
+                [(int) $c["batch_id"]],
+            )->fetchColumn();
+            $containerIndexForSync = (int) query(
+                $db,
+                "SELECT COUNT(*) FROM stock_containers WHERE batch_id=? AND id < ?",
+                [(int) $c["batch_id"], $id],
+            )->fetchColumn();
+            $syncInvPayload = [
+                "operation_key" => $key,
+                "kind" => $kind,
+                "delivery_key" => is_string($deliveryKeyForSync) ? $deliveryKeyForSync : null,
+                "container_index" => $containerIndexForSync,
+                "ingredient_name" => $ing["name"],
+                "quantity" => (string) ($body["quantity"] ?? decimal($after, 3)),
+                "after_qty" => decimal($after, 3),
+                "expected_remaining" => decimal($before, 3),
+                "reason" => $reason,
+                "actor_username" => $session["user"]["username"] ?? null,
+                "created_at" => $at,
+            ];
         }
         query(
             $db,
@@ -373,21 +420,9 @@ function inventory_operation(
             [$key, $hash, $uid, json_encode($result, JSON_THROW_ON_ERROR), $at],
         );
 
-        // Enqueue inventory operation into sync outbox for cloud synchronization
-        try {
-            $hasOutbox = query($db, "SHOW TABLES LIKE 'sync_outbox'")->fetch();
-            if ($hasOutbox) {
-                $invPayload = json_encode($body, JSON_UNESCAPED_SLASHES);
-                query(
-                    $db,
-                    "INSERT INTO sync_outbox (entity_type, transaction_key, payload, status, created_at)
-                     VALUES ('INVENTORY_OP', ?, ?, 'PENDING', NOW())
-                     ON DUPLICATE KEY UPDATE payload = VALUES(payload)",
-                    [$key, $invPayload]
-                );
-            }
-        } catch (Throwable) {
-            // Non-blocking
+        // Enqueue portable inventory operation into sync outbox
+        if ($syncInvPayload !== null) {
+            sync_enqueue($db, "INVENTORY_OP", $key, $syncInvPayload);
         }
 
         $db->commit();
@@ -438,6 +473,7 @@ function staff_save(PDO $db, array $session, array $body, string $ref): array
                 );
             }
         }
+        $prevUsername = null;
         if ($id) {
             $old = query(
                 $db,
@@ -447,6 +483,7 @@ function staff_save(PDO $db, array $session, array $body, string $ref): array
             if (!$old) {
                 problem(422, "STAFF_REQUIRED", "Choose an existing Barista.");
             }
+            $prevUsername = (string) $old["username"];
             query(
                 $db,
                 "UPDATE users SET username=?,display_name=?,email=?,is_active=?,updated_at=NOW() WHERE id=?",
@@ -468,21 +505,22 @@ function staff_save(PDO $db, array $session, array $body, string $ref): array
             "is_active" => $active,
         ]);
 
-        // Enqueue staff update into sync outbox for cloud synchronization
-        try {
-            $hasOutbox = query($db, "SHOW TABLES LIKE 'sync_outbox'")->fetch();
-            if ($hasOutbox) {
-                $staffPayload = json_encode($body, JSON_UNESCAPED_SLASHES);
-                $sKey = sprintf('staff-%s-%s', $name, substr(md5(microtime()), 0, 8));
-                query(
-                    $db,
-                    "INSERT INTO sync_outbox (entity_type, transaction_key, payload, status, created_at)
-                     VALUES ('STAFF_SAVE', ?, ?, 'PENDING', NOW())",
-                    [$sKey, $staffPayload]
-                );
-            }
-        } catch (Throwable) {
-            // Non-blocking
+        // Enqueue portable staff metadata (with hashed credential only) into sync outbox
+        $savedStaff = query(
+            $db,
+            "SELECT username, display_name, email, is_active, password_hash FROM users WHERE id=?",
+            [$id],
+        )->fetch();
+        if ($savedStaff) {
+            $sKey = sprintf("staff-%s-%s", $savedStaff["username"], bin2hex(random_bytes(6)));
+            sync_enqueue($db, "STAFF_SAVE", $sKey, [
+                "match_username" => $prevUsername ?? $savedStaff["username"],
+                "username" => $savedStaff["username"],
+                "display_name" => $savedStaff["display_name"],
+                "email" => $savedStaff["email"],
+                "is_active" => (int) $savedStaff["is_active"],
+                "password_hash" => $savedStaff["password_hash"],
+            ]);
         }
 
         $db->commit();
@@ -539,24 +577,15 @@ function owner_profile_save(PDO $db, array $session, array $body, string $ref): 
             "shop_name" => $shopName,
         ]);
 
-        // Enqueue owner profile update into sync outbox
-        try {
-            $hasOutbox = query($db, "SHOW TABLES LIKE 'sync_outbox'")->fetch();
-            if ($hasOutbox) {
-                $profilePayload = json_encode($body, JSON_UNESCAPED_SLASHES);
-                $pKey = sprintf('profile-%s', substr(md5(microtime()), 0, 8));
-                query(
-                    $db,
-                    "INSERT INTO sync_outbox (entity_type, transaction_key, payload, status, created_at)
-                     VALUES ('OWNER_PROFILE', ?, ?, 'PENDING', NOW())",
-                    [$pKey, $profilePayload]
-                );
-            }
-        } catch (Throwable) {
-            // Non-blocking
-        }
-
         $updated = query($db, "SELECT * FROM users WHERE id=?", [$uid])->fetch();
+        if ($updated) {
+            sync_enqueue($db, "OWNER_PROFILE", "profile-" . bin2hex(random_bytes(6)), [
+                "username" => $updated["username"],
+                "display_name" => $updated["display_name"],
+                "email" => $updated["email"],
+                "shop_name" => $updated["shop_name"],
+            ]);
+        }
         $db->commit();
         return ["user" => public_user($updated)];
     } catch (Throwable $e) {
@@ -720,6 +749,24 @@ function delete_catalogue(
         if (!$old) {
             problem(404, "NOT_FOUND", "Record not found.");
         }
+        $delSyncPayload = match ($kind) {
+            "product" => ["kind" => "product", "name" => $old["name"]],
+            "ingredient" => ["kind" => "ingredient", "name" => $old["name"]],
+            default => (function () use ($db, $id, $old) {
+                $varMeta = query(
+                    $db,
+                    "SELECT v.sku, v.size, v.temperature, p.name AS product_name FROM product_variants v JOIN products p ON p.id=v.product_id WHERE v.id=?",
+                    [$id],
+                )->fetch();
+                return [
+                    "kind" => "variant",
+                    "sku" => $varMeta["sku"] ?? $old["sku"] ?? null,
+                    "product_name" => $varMeta["product_name"] ?? null,
+                    "size" => $varMeta["size"] ?? $old["size"] ?? null,
+                    "temperature" => $varMeta["temperature"] ?? $old["temperature"] ?? null,
+                ];
+            })(),
+        };
         $used = match ($kind) {
             "product" => query(
                 $db,
@@ -756,22 +803,9 @@ function delete_catalogue(
             "record" => $old,
         ]);
 
-        // Enqueue catalogue deletion into sync outbox for cloud synchronization
-        try {
-            $hasOutbox = query($db, "SHOW TABLES LIKE 'sync_outbox'")->fetch();
-            if ($hasOutbox) {
-                $delPayload = json_encode(["kind" => $kind, "id" => $id], JSON_UNESCAPED_SLASHES);
-                $key = sprintf('del-%s-%d-%s', $kind, $id, substr(md5(microtime()), 0, 8));
-                query(
-                    $db,
-                    "INSERT INTO sync_outbox (entity_type, transaction_key, payload, status, created_at)
-                     VALUES ('CATALOGUE_DELETE', ?, ?, 'PENDING', NOW())",
-                    [$key, $delPayload]
-                );
-            }
-        } catch (Throwable) {
-            // Non-blocking
-        }
+        // Enqueue portable catalogue deletion into sync outbox
+        $delKey = sprintf("del-%s-%s", $kind, bin2hex(random_bytes(6)));
+        sync_enqueue($db, "CATALOGUE_DELETE", $delKey, $delSyncPayload);
 
         $db->commit();
         return ["deleted" => true];

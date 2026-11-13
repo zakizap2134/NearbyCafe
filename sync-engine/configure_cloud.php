@@ -10,8 +10,8 @@ echo "NEARBY CAFE · CLOUD ACCOUNT CONFIGURATION\n";
 echo "====================================================\n";
 
 $currentUrl = 'https://nearbycafe.infinityfreeapp.com';
-$currentUser = 'zakizap';
-$currentPass = 'callmepapaton2x';
+$currentUser = '';
+$currentPass = '';
 $currentShopId = 'nearbycafe_intramuros_01';
 
 if (file_exists($configFile)) {
@@ -23,7 +23,7 @@ if (file_exists($configFile)) {
 }
 
 echo "Current Target: {$currentUrl}\n";
-echo "Current User:   {$currentUser}\n\n";
+echo "Current User:   " . ($currentUser !== '' ? $currentUser : '(not configured)') . "\n\n";
 
 // Check if running from arguments (non-interactive)
 $args = getopt('', ['url:', 'user:', 'pass:', 'shop:']);
@@ -35,19 +35,26 @@ if (!empty($args['url'])) {
     $newShopId = !empty($args['shop']) ? trim($args['shop']) : $currentShopId;
 } else {
     // Interactive prompt
-    echo "Enter new InfinityFree Cloud URL [Press ENTER to keep '{$currentUrl}']:\n> ";
-    $line = trim(fgets(STDIN));
+    echo "Enter InfinityFree / Cloud URL [Press ENTER to keep '{$currentUrl}']:\n> ";
+    $line = trim((string) fgets(STDIN));
     $newUrl = $line !== '' ? $line : $currentUrl;
 
-    echo "Enter Owner/Admin Username [Press ENTER to keep '{$currentUser}']:\n> ";
-    $line = trim(fgets(STDIN));
+    $userPrompt = $currentUser !== '' ? " [Press ENTER to keep '{$currentUser}']" : "";
+    echo "Enter Owner/Admin Username{$userPrompt}:\n> ";
+    $line = trim((string) fgets(STDIN));
     $newUser = $line !== '' ? $line : $currentUser;
 
-    echo "Enter Owner/Admin Password [Press ENTER to keep current password]:\n> ";
-    $line = trim(fgets(STDIN));
+    $passPrompt = $currentPass !== '' ? " [Press ENTER to keep current password]" : "";
+    echo "Enter Owner/Admin Password{$passPrompt}:\n> ";
+    $line = trim((string) fgets(STDIN));
     $newPass = $line !== '' ? $line : $currentPass;
 
     $newShopId = $currentShopId;
+}
+
+if ($newUser === '' || $newPass === '') {
+    fwrite(STDERR, "[!] Cloud Owner username and password are required.\n");
+    exit(1);
 }
 
 $newUrl = rtrim($newUrl, '/');

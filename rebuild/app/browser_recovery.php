@@ -391,6 +391,11 @@ function verify_email_code_and_reset(PDO $db, array $body, string $requestId): a
         }
 
         audit($db, $uid, 'PASSWORD_RESET_SUCCESS', $requestId, ['email' => $email]);
+        sync_enqueue($db, 'USER_PASSWORD', 'pwd-' . $user['username'] . '-' . bin2hex(random_bytes(6)), [
+            'username' => $user['username'],
+            'role' => $user['role'] ?? 'OWNER',
+            'password_hash' => $hash,
+        ]);
         $db->commit();
 
         return [
@@ -472,6 +477,11 @@ function browser_owner_recovery(PDO $db, array $body, string $requestId): array
             hash('sha256', 'owner-reauth:' . $uid),
         ]);
         audit($db, $uid, 'OWNER_RECOVERED', $requestId);
+        sync_enqueue($db, 'USER_PASSWORD', 'pwd-' . $owner['username'] . '-' . bin2hex(random_bytes(6)), [
+            'username' => $owner['username'],
+            'role' => 'OWNER',
+            'password_hash' => $hash,
+        ]);
         $db->commit();
         return ['reset' => true, 'sessions_revoked' => true, 'recovery_code' => $replacement];
     } catch (Throwable $e) {

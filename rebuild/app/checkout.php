@@ -390,44 +390,35 @@ function checkout(
         }
         audit($db, $uid, "SALE_CONFIRMED", $requestId);
 
-        // Enqueue transaction into sync outbox for automatic cloud synchronization
-        try {
-            $hasOutbox = query($db, "SHOW TABLES LIKE 'sync_outbox'")->fetch();
-            if ($hasOutbox) {
-                $outboxItems = [];
-                foreach ($request["items"] as $it) {
-                    $outboxItems[] = [
-                        "variant_id" => (int) $it["variant_id"],
-                        "qty" => (int) $it["qty"],
-                        "expected_price" => decimal($it["expected_price"]),
-                    ];
-                }
-                $syncCustomer = $customerName ?? "";
-                if ($syncCustomer !== "") {
-                    $syncCustomer .= " · (Counter #" . $saleId . ")";
-                } else {
-                    $syncCustomer = "Counter #" . $saleId;
-                }
-
-                $outboxPayload = json_encode([
-                    "transaction_key" => $request["key"],
-                    "cash_received" => decimal($request["cash"]),
-                    "payment_method" => $paymentMethod,
-                    "payment_reference" => $paymentReference,
-                    "customer_name" => $syncCustomer,
-                    "items" => $outboxItems,
-                    "expected_epoch" => null,
-                ], JSON_UNESCAPED_SLASHES);
-
-                query(
-                    $db,
-                    "INSERT INTO sync_outbox (entity_type, transaction_key, payload, status, created_at) VALUES ('SALE', ?, ?, 'PENDING', NOW()) ON DUPLICATE KEY UPDATE payload = VALUES(payload)",
-                    [$request["key"], $outboxPayload]
-                );
-            }
-        } catch (Throwable) {
-            // Outbox queuing is non-blocking to ensure offline sales never fail
+        // Enqueue transaction into sync outbox for automatic synchronization
+        $outboxItems = [];
+        foreach ($request["items"] as $it) {
+            $vMeta = query(
+                $db,
+                "SELECT v.sku, v.size, v.temperature, p.name AS product_name
+                 FROM product_variants v JOIN products p ON p.id=v.product_id
+                 WHERE v.id=?",
+                [(int) $it["variant_id"]],
+            )->fetch();
+            $outboxItems[] = [
+                "sku" => $vMeta["sku"] ?? null,
+                "product_name" => $vMeta["product_name"] ?? null,
+                "size" => $vMeta["size"] ?? null,
+                "temperature" => $vMeta["temperature"] ?? null,
+                "qty" => (int) $it["qty"],
+                "expected_price" => decimal($it["expected_price"]),
+            ];
         }
+        sync_enqueue($db, "SALE", $request["key"], [
+            "transaction_key" => $request["key"],
+            "sale_at" => $at,
+            "cashier_username" => $session["user"]["username"] ?? null,
+            "cash_received" => decimal($request["cash"]),
+            "payment_method" => $paymentMethod,
+            "payment_reference" => $paymentReference,
+            "customer_name" => $customerName,
+            "items" => $outboxItems,
+        ]);
 
         $receipt = sale_receipt(
             $db,
@@ -703,27 +694,15 @@ function void_sale(
             "initiated_by" => (int) $session["user"]["id"],
         ]);
 
-        // Enqueue void event into sync outbox for cloud synchronization
-        try {
-            $hasOutbox = query($db, "SHOW TABLES LIKE 'sync_outbox'")->fetch();
-            if ($hasOutbox) {
-                $voidPayload = json_encode([
-                    "transaction_key" => $sale["transaction_key"],
-                    "reason" => $reason,
-                    "restore_stock" => $restoreStock,
-                ], JSON_UNESCAPED_SLASHES);
-                $vKey = sprintf('void-%s', $sale["transaction_key"]);
-                query(
-                    $db,
-                    "INSERT INTO sync_outbox (entity_type, transaction_key, payload, status, created_at)
-                     VALUES ('SALE_VOID', ?, ?, 'PENDING', NOW())
-                     ON DUPLICATE KEY UPDATE payload = VALUES(payload), status = 'PENDING'",
-                    [$vKey, $voidPayload]
-                );
-            }
-        } catch (Throwable) {
-            // Non-blocking
-        }
+        // Enqueue void event into sync outbox for two-way synchronization
+        $voidedByUsername = query($db, "SELECT username FROM users WHERE id=?", [$ownerId])->fetchColumn();
+        sync_enqueue($db, "SALE_VOID", "void-" . $sale["transaction_key"], [
+            "transaction_key" => $sale["transaction_key"],
+            "reason" => $reason,
+            "restore_stock" => $restoreStock,
+            "voided_at" => $at,
+            "voided_by_username" => is_string($voidedByUsername) ? $voidedByUsername : null,
+        ]);
 
         $receipt = sale_receipt(
             $db,

@@ -44,36 +44,88 @@ function Save-NearbyOwnership($State,[string]$Kind,$Service,$Ops){
  # Publish ownership in memory only after atomic persistence succeeds.
  $State[$Kind]=$next[$Kind]
 }
+function Test-NearbyConfigHasRoot($Config){
+ if(-not $Config){return $false}
+ if($Config -is [System.Collections.IDictionary]){return $Config.Contains('Root') -and -not [string]::IsNullOrWhiteSpace([string]$Config['Root'])}
+ return ($null -ne $Config.PSObject.Properties['Root']) -and -not [string]::IsNullOrWhiteSpace([string]$Config.Root)
+}
+function Get-NearbySyncProcesses{
+ Get-CimInstance Win32_Process -Filter "CommandLine LIKE '%infinityfree_sync_bridge.mjs%'" -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^node(\.exe)?$' }
+}
 function Start-NearbySync($Config){
  try{
+  if(-not (Test-NearbyConfigHasRoot $Config)){return @{Running=$false;Reason='NO_ROOT'}}
   $repoRoot=[IO.Path]::GetFullPath((Split-Path $Config.Root -Parent))
   $syncScript=Join-Path $repoRoot 'sync-engine\local_daemon\infinityfree_sync_bridge.mjs'
-  if(-not(Test-Path -LiteralPath $syncScript)){return}
+  if(-not(Test-Path -LiteralPath $syncScript)){return @{Running=$false;Reason='SCRIPT_MISSING'}}
   $pidFile=Join-Path $Config.Root 'storage\launcher\sync_bridge.pid'
   if(Test-Path -LiteralPath $pidFile){
    try{
-    $oldPid=[int](Get-Content -Path $pidFile -Raw).Trim()
-    if($oldPid -gt 0 -and (Get-Process -Id $oldPid -ErrorAction SilentlyContinue)){return}
+    $rawPid=Get-Content -Path $pidFile -Raw -ErrorAction SilentlyContinue
+    $oldPid=if($rawPid -and $rawPid.Trim() -match '^\d+$'){[int]$rawPid.Trim()}else{0}
+    $oldProc=if($oldPid -gt 0){Get-Process -Id $oldPid -ErrorAction SilentlyContinue}else{$null}
+    if($oldProc -and $oldProc.ProcessName -match '^node'){return @{Running=$true;Pid=$oldPid;Reused=$true}}
    }catch{}
+   Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
   }
-  $node=(Get-Command 'node' -ErrorAction SilentlyContinue).Source
+  $existing=@(Get-NearbySyncProcesses | Where-Object { $null -ne $_ })
+  if($existing.Count -gt 0){
+   $livePid=[int]$existing[0].ProcessId
+   try{
+    $pidDir=Split-Path $pidFile -Parent
+    if(-not(Test-Path -LiteralPath $pidDir)){[void](New-Item -ItemType Directory -Path $pidDir -Force)}
+    Set-Content -Path $pidFile -Value $livePid -Encoding ASCII -NoNewline
+   }catch{}
+   return @{Running=$true;Pid=$livePid;Reused=$true}
+  }
+  $nodeCmd=Get-Command 'node' -ErrorAction SilentlyContinue
+  $node=if($nodeCmd){$nodeCmd.Source}else{$null}
   if(-not $node -and (Test-Path 'C:\Program Files\nodejs\node.exe')){$node='C:\Program Files\nodejs\node.exe'}
-  if($node){
-   Start-Process -FilePath $node -ArgumentList @($syncScript) -WorkingDirectory (Split-Path $syncScript -Parent) -WindowStyle Hidden
+  if(-not $node -and (Test-Path 'C:\Program Files (x86)\nodejs\node.exe')){$node='C:\Program Files (x86)\nodejs\node.exe'}
+  if(-not $node){
+   if(Get-Command 'Write-NearbyEvent' -ErrorAction SilentlyContinue){Write-NearbyEvent $Config.Root 'SYNC_NODE_MISSING'}
+   return @{Running=$false;Reason='NODE_MISSING'}
   }
- }catch{}
+  $hasPhpProp=($Config -is [System.Collections.IDictionary] -and $Config.Contains('Php')) -or ($null -ne $Config.PSObject.Properties['Php'])
+  $hadPhpEnv=Test-Path 'Env:VV_SYNC_PHP_BIN'
+  $prevPhpEnv=$env:VV_SYNC_PHP_BIN
+  try{
+   if($hasPhpProp -and -not [string]::IsNullOrWhiteSpace([string]$Config.Php)){$env:VV_SYNC_PHP_BIN=[string]$Config.Php}
+   $proc=Start-Process -FilePath $node -ArgumentList @($syncScript) -WorkingDirectory (Split-Path $syncScript -Parent) -WindowStyle Hidden -PassThru
+  }finally{
+   if($hadPhpEnv){$env:VV_SYNC_PHP_BIN=$prevPhpEnv}else{Remove-Item 'Env:VV_SYNC_PHP_BIN' -ErrorAction SilentlyContinue}
+  }
+  if($proc){
+   try{
+    $pidDir=Split-Path $pidFile -Parent
+    if(-not(Test-Path -LiteralPath $pidDir)){[void](New-Item -ItemType Directory -Path $pidDir -Force)}
+    Set-Content -Path $pidFile -Value $proc.Id -Encoding ASCII -NoNewline
+   }catch{}
+   if(Get-Command 'Write-NearbyEvent' -ErrorAction SilentlyContinue){Write-NearbyEvent $Config.Root 'SYNC_STARTED'}
+   return @{Running=$true;Pid=$proc.Id;Reused=$false}
+  }
+  return @{Running=$false;Reason='START_FAILED'}
+ }catch{
+  if((Test-NearbyConfigHasRoot $Config) -and (Get-Command 'Write-NearbyEvent' -ErrorAction SilentlyContinue)){Write-NearbyEvent $Config.Root 'SYNC_START_FAILED'}
+  return @{Running=$false;Reason=$_.Exception.Message}
+ }
 }
 function Stop-NearbySync($Config){
  try{
+  if(-not (Test-NearbyConfigHasRoot $Config)){return}
   $pidFile=Join-Path $Config.Root 'storage\launcher\sync_bridge.pid'
   if(Test-Path -LiteralPath $pidFile){
    try{
-    $pidVal=[int](Get-Content -Path $pidFile -Raw).Trim()
-    if($pidVal -gt 0){Stop-Process -Id $pidVal -Force -ErrorAction SilentlyContinue}
+    $rawPid=Get-Content -Path $pidFile -Raw -ErrorAction SilentlyContinue
+    $pidVal=if($rawPid -and $rawPid.Trim() -match '^\d+$'){[int]$rawPid.Trim()}else{0}
+    $p=if($pidVal -gt 0){Get-Process -Id $pidVal -ErrorAction SilentlyContinue}else{$null}
+    if($p -and $p.ProcessName -match '^node'){Stop-Process -Id $pidVal -Force -ErrorAction SilentlyContinue}
     Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
    }catch{}
   }
-  Get-CimInstance Win32_Process -Filter "CommandLine LIKE '%infinityfree_sync_bridge.mjs%'" -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+  foreach($proc in @(Get-NearbySyncProcesses | Where-Object { $null -ne $_ })){
+   Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+  }
  }catch{}
 }
 function Start-NearbyStack($Config,$State,$Ops,[scriptblock]$Status){
@@ -105,7 +157,7 @@ function Start-NearbyStack($Config,$State,$Ops,[scriptblock]$Status){
  Wait-Nearby {(& $Ops.Service 'web').Status -eq 'Running'} $Config.Attempts $Ops 'APP_TIMEOUT'
  if($started){Save-NearbyOwnership $State 'web' (& $Ops.Service 'web') $Ops}
  Wait-Nearby {& $Ops.HttpReady $ready.data.epoch} $Config.Attempts $Ops 'APP_TIMEOUT'
-  Start-NearbySync $Config
+ [void](Start-NearbySync $Config)
  & $Status 'ready' 'Ready'; & $Ops.Open
  return @{Ready=$true}
 }
