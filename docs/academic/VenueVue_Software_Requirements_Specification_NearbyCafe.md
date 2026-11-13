@@ -7,6 +7,7 @@
 **Engineering Team:** CTRL + STAY  
 **Group Members / Authors:**  
 - **Zapico, Zaki** (Project Manager / Lead Architect)  
+- **Libao, John Vincent** (Systems Analyst / Requirements Engineer)
 - **Roquid, Jenny Lyn** (Systems Analyst / Technical Writer)  
 - **Gregorio, Rhea Mae** (QA Engineer / Data Specialist)  
 **Document Revision:** 1.0 (Production-Aligned Baseline)  
@@ -50,7 +51,7 @@
 | :--- | :--- | :--- | :--- |
 | **0.1** | Sep 21, 2026 | Roquid, J. L. | Initial Software Requirements Specification draft. |
 | **0.9** | Oct 27, 2026 | Zapico, Z., Gregorio, R. | Architectural alignment and edge server model integration. |
-| **1.0** | Nov 04, 2026 | Zapico, Z., Roquid, J., Gregorio, R. | **Approved Baseline:** Aligned with Nearby Café's physical shop setup on Legaspi St., Intramuros near LPU, dual cash/e-wallet checkout, BIR 12% VAT calculations, End-of-Day Z-Reading isolating Physical Cash from E-Wallets, multi-section CSV/Excel exports, FIFO batch lots, 1-click cup scaling, and Web Audio register chime. |
+| **1.0** | Nov 04, 2026 | Zapico, Z., Libao, J. V., Roquid, J., Gregorio, R. | **Approved Baseline:** Aligned with Nearby Café's physical shop setup on Legaspi St., Intramuros near LPU, dual cash/e-wallet checkout, BIR 12% VAT calculations, End-of-Day Z-Reading isolating Physical Cash from E-Wallets, multi-section CSV/Excel exports, FIFO batch lots, 1-click cup scaling, and Web Audio register chime. |
 
 ---
 
@@ -152,6 +153,10 @@ Client devices execute a touch-optimized React 18 Single Page Application (SPA) 
 
 ### 3.1 System Workflow
 
+Figure 3.1 illustrates the operational workflow at Nearby Café, mapping the progression from student order arrival to recipe depletion and reporting:
+
+![Figure 3.1: System Workflow](diagrams/fig3_1_workflow.png)
+
 ```mermaid
 flowchart TD
     A["Customer Places Order at Counter"] --> B["Barista Selects Drinks & Variants on Register"]
@@ -178,6 +183,10 @@ flowchart TD
 ---
 
 ### 3.2 Use Case Diagram
+
+Figure 3.2 illustrates the primary use case boundaries between the Barista and the Owner/Admin:
+
+![Figure 3.2: Use Case Diagram](diagrams/fig3_2_use_case.png)
 
 ```mermaid
 flowchart LR
@@ -272,6 +281,10 @@ flowchart LR
 
 ### 3.4 Activity Diagram
 
+Figure 3.3 illustrates the swimlane activity diagram across Customer, Barista/Tablet, Host Server, and Database:
+
+![Figure 3.3: Activity Diagram](diagrams/fig3_3_activity.png)
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -308,6 +321,10 @@ sequenceDiagram
 ---
 
 ### 3.5 Data Flow Diagram (DFD)
+
+Figure 3.4 illustrates the Level 0 Context DFD and Level 1 Detailed DFD:
+
+![Figure 3.4: Data Flow Diagram (DFD)](diagrams/fig3_4_dfd.png)
 
 #### Level 0: Context Diagram
 ```
@@ -346,6 +363,10 @@ sequenceDiagram
 ---
 
 ### 3.6 Entity-Relationship Diagram (ERD)
+
+Figure 3.5 details the relational database schema supporting transactional integrity, FIFO inventory, and financial reporting in MariaDB (InnoDB):
+
+![Figure 3.5: Entity-Relationship Diagram (ERD)](diagrams/fig3_5_erd.png)
 
 ```mermaid
 erDiagram
@@ -512,3 +533,5 @@ erDiagram
 7. **OWASP Foundation.** (2025). *REST Security & Transaction Idempotency Cheat Sheet.* Open Web Application Security Project.
 8. **Peddlr Philippines, Inc.** (n.d.). *POS.* Retrieved October 24, 2026, from https://www.peddlr.io/features/pos
 9. **W3C.** (2024). *Web Audio API: High-Performance Client-Side Audio Synthesis.* World Wide Web Consortium Recommendation.
+10. **Loyverse.** (2026). *Free POS and Inventory Management System for Cafes and Small Businesses.* Retrieved October 24, 2026, from https://loyverse.com/features/inventory-management
+11. **Toast, Inc.** (2026). *Toast Restaurant POS Platform Architecture and Offline Mode Capabilities.* Retrieved October 24, 2026, from https://pos.toasttab.com/products/restaurant-pos

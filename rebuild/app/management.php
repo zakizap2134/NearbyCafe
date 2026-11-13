@@ -515,6 +515,20 @@ function owner_profile_save(PDO $db, array $session, array $body, string $ref): 
     try {
         lock_state($db);
         owner_reauth($db, $session, $body, $ref);
+        if ($email !== null) {
+            $dupEmail = query(
+                $db,
+                "SELECT id FROM users WHERE LOWER(email)=LOWER(?) AND id<>?",
+                [$email, $uid],
+            )->fetchColumn();
+            if ($dupEmail) {
+                problem(
+                    409,
+                    "DUPLICATE_EMAIL",
+                    "That email address is already registered to another account.",
+                );
+            }
+        }
         query(
             $db,
             "UPDATE users SET email=?, shop_name=?, updated_at=NOW() WHERE id=? AND role='OWNER'",

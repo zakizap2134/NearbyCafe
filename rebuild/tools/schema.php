@@ -19,6 +19,9 @@ function apply_stage2(PDO $db): void
         ->query("SELECT schema_version FROM app_state WHERE id=1")
         ->fetchColumn();
     if ($version === 4) {
+        run_schema_file($db, "006_cloud_auth.sql");
+        run_schema_file($db, "007_sync_tables.sql");
+        ensure_void_and_image_schema($db);
         schema_ready($db);
         echo "Stage 4 schema already installed; records preserved.\n";
         return;
@@ -34,6 +37,8 @@ function apply_stage2(PDO $db): void
     run_schema_file($db, "003_reliability.sql");
     run_schema_file($db, "004_management.sql");
     run_schema_file($db, "005_void_and_images.sql");
+    run_schema_file($db, "006_cloud_auth.sql");
+    run_schema_file($db, "007_sync_tables.sql");
     ensure_void_and_image_schema($db);
     query(
         $db,

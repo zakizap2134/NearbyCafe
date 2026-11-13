@@ -247,10 +247,52 @@ CREATE TABLE IF NOT EXISTS password_resets (
  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS sync_outbox (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    entity_type VARCHAR(32) NOT NULL,
+    transaction_key VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    payload LONGTEXT NOT NULL,
+    status ENUM('PENDING', 'IN_FLIGHT', 'SYNCED', 'FAILED') NOT NULL DEFAULT 'PENDING',
+    attempts INT UNSIGNED NOT NULL DEFAULT 0,
+    error_message TEXT NULL DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    synced_at DATETIME NULL DEFAULT NULL,
+    INDEX idx_outbox_queue (status, created_at),
+    INDEX idx_outbox_key (transaction_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS sync_inbox (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    transaction_key VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE,
+    entity_type VARCHAR(32) NOT NULL,
+    source_shop_id VARCHAR(64) NOT NULL,
+    payload LONGTEXT NOT NULL,
+    received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    processed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('APPLIED', 'SKIPPED_DUPLICATE', 'ERROR') NOT NULL DEFAULT 'APPLIED',
+    error_log TEXT NULL DEFAULT NULL,
+    INDEX idx_inbox_time (received_at),
+    INDEX idx_inbox_type (entity_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS sync_meta (
+    meta_key VARCHAR(64) PRIMARY KEY,
+    meta_value TEXT NOT NULL,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ==========================================
 -- System Metadata Initialization (No users/sales/inventory)
 -- ==========================================
 INSERT INTO app_state (id, schema_version, installed_at) VALUES (1, 4, UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE schema_version = 4;
 INSERT INTO runtime_meta (id, epoch, restore_generation, restored_at) VALUES (1, 'b0d5ab9a9a741ab161b8207e688bc4b7', 0, NULL) ON DUPLICATE KEY UPDATE id = 1;
+INSERT IGNORE INTO sync_meta (meta_key, meta_value) VALUES
+('shop_id', 'nearbycafe_intramuros_01'),
+('shop_name', 'Nearby Café - Legaspi St. Intramuros'),
+('last_sync_attempt_at', '1970-01-01 00:00:00'),
+('last_successful_sync_at', '1970-01-01 00:00:00'),
+('sync_status', 'OFFLINE'),
+('consecutive_failures', '0'),
+('config_version', '1');
 
 SET FOREIGN_KEY_CHECKS = 1;

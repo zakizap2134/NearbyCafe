@@ -6,6 +6,7 @@
 - **Course & Institution**: COSC 75: Software Engineering II — Cavite State University (CEIT), Indang, Cavite
 - **Team (`CTRL + STAY`)**:
   - **Zaki Zapico** — Project Manager / Lead Developer (220 planned hours)
+  - **John Vincent Libao** — Systems Analyst
   - **Jenny Lyn Roquid** — Systems Analyst (170 planned hours)
   - **Rhea Mae Gregorio** — QA & Testing Specialist (150 planned hours)
 - **Total Planned Effort**: 540 team hours across WBS 1.0–10.0 (includes 24-hour correction reserve in WBS 8.0: Zaki 8h, Jenny 4h, Rhea 12h)

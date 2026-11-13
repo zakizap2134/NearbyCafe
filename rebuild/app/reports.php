@@ -199,7 +199,7 @@ function build_styled_xlsx(
     };
 
     // Title Banner
-    $addBanner("NEARBY CAFÉ POS (VENUEVUE) — STRUCTURED SALES & Z-READING REPORT", 1, 14, 34.0);
+    $addBanner("NEARBY CAFÉ POS (VENUEVUE) — STRUCTURED SALES & Z-READING REPORT", 1, 17, 34.0);
 
     // Metadata Rows
     $addRow([
@@ -390,7 +390,7 @@ function build_styled_xlsx(
     $addRow([], 12.0);
 
     // Section 5: Detailed Line-Item Transactions
-    $addBanner("SECTION 5 · DETAILED LINE-ITEM TRANSACTIONS (COMPLETED)", 4, 14, 25.0);
+    $addBanner("SECTION 5 · DETAILED LINE-ITEM TRANSACTIONS (COMPLETED)", 4, 17, 25.0);
     $addRow([
         ["v" => "Sale #", "s" => 5, "t" => "str"],
         ["v" => "Sale Date & Time", "s" => 5, "t" => "str"],
@@ -406,6 +406,9 @@ function build_styled_xlsx(
         ["v" => "VAT Rate", "s" => 6, "t" => "str"],
         ["v" => "Cash Tendered (₱)", "s" => 6, "t" => "str"],
         ["v" => "Change Given (₱)", "s" => 6, "t" => "str"],
+        ["v" => "Payment Method", "s" => 5, "t" => "str"],
+        ["v" => "Payment Reference", "s" => 5, "t" => "str"],
+        ["v" => "Customer Name", "s" => 5, "t" => "str"],
     ], 22.0);
     foreach ($rows as $r) {
         $addRow([
@@ -423,6 +426,9 @@ function build_styled_xlsx(
             ["v" => ((float) $r["vat_rate"] * 100) . "%", "s" => 8, "t" => "str"],
             ["v" => (float) $r["cash_received"], "s" => 9, "t" => "n"],
             ["v" => (float) $r["change_due"], "s" => 9, "t" => "n"],
+            ["v" => $r["payment_method"] ?? "CASH", "s" => 7, "t" => "str"],
+            ["v" => $r["payment_reference"] ?? "", "s" => 7, "t" => "str"],
+            ["v" => $r["customer_name"] ?? "", "s" => 7, "t" => "str"],
         ], 20.0);
     }
     $addRow($padTotalCells([
@@ -437,7 +443,7 @@ function build_styled_xlsx(
         ["v" => (float) $totals["gross"], "s" => 12, "t" => "n"],
         ["v" => (float) $totals["net"], "s" => 12, "t" => "n"],
         ["v" => (float) $totals["vat"], "s" => 12, "t" => "n"],
-    ], 14, 10), 22.0);
+    ], 17, 10), 22.0);
 
     // Section 6: Voided Sales Audit
     if ($includeVoided) {
@@ -496,6 +502,9 @@ function build_styled_xlsx(
         12 => 14, // Col L: VAT Rate
         13 => 20, // Col M: Cash Tendered
         14 => 20, // Col N: Change Given
+        15 => 16, // Col O: Payment Method
+        16 => 22, // Col P: Payment Reference
+        17 => 24, // Col Q: Customer Name
     ];
     $colsXml = "<cols>";
     foreach ($colWidths as $cIdx => $w) {
@@ -809,6 +818,9 @@ function report_data(PDO $db, array $params, bool $csv = false): array
             "vat_rate",
             "cash_received",
             "change_due",
+            "payment_method",
+            "payment_reference",
+            "customer_name",
         ]);
         foreach ($rows as $row) {
             csv_put_row($stream, [
@@ -826,6 +838,9 @@ function report_data(PDO $db, array $params, bool $csv = false): array
                 $row["vat_rate"],
                 number_format((float) $row["cash_received"], 2, ".", ""),
                 number_format((float) $row["change_due"], 2, ".", ""),
+                csv_safe_cell($row["payment_method"] ?? "CASH"),
+                csv_safe_cell($row["payment_reference"] ?? ""),
+                csv_safe_cell($row["customer_name"] ?? ""),
             ]);
         }
         csv_put_row($stream, [
@@ -840,6 +855,9 @@ function report_data(PDO $db, array $params, bool $csv = false): array
             number_format((float) $totals["gross"], 2, ".", ""),
             number_format((float) $totals["net"], 2, ".", ""),
             number_format((float) $totals["vat"], 2, ".", ""),
+            "",
+            "",
+            "",
             "",
             "",
             "",
@@ -1184,6 +1202,9 @@ function report_data(PDO $db, array $params, bool $csv = false): array
             "vat_rate",
             "cash_received",
             "change_due",
+            "payment_method",
+            "payment_reference",
+            "customer_name",
         ]);
         foreach ($rows as $row) {
             csv_put_row($stream, [
@@ -1201,6 +1222,9 @@ function report_data(PDO $db, array $params, bool $csv = false): array
                 $row["vat_rate"],
                 number_format((float) $row["cash_received"], 2, ".", ""),
                 number_format((float) $row["change_due"], 2, ".", ""),
+                csv_safe_cell($row["payment_method"] ?? "CASH"),
+                csv_safe_cell($row["payment_reference"] ?? ""),
+                csv_safe_cell($row["customer_name"] ?? ""),
             ]);
         }
         csv_put_row($stream, [
@@ -1215,6 +1239,9 @@ function report_data(PDO $db, array $params, bool $csv = false): array
             number_format((float) $totals["gross"], 2, ".", ""),
             number_format((float) $totals["net"], 2, ".", ""),
             number_format((float) $totals["vat"], 2, ".", ""),
+            "",
+            "",
+            "",
             "",
             "",
             "",

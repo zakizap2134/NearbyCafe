@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Deploy updated Nearby Café build assets and backend PHP endpoints to InfinityFree Cloud.
 .DESCRIPTION
@@ -48,27 +48,38 @@ if (-not (Test-Path -LiteralPath $indexHtmlPath)) {
 }
 
 $indexContent = Get-Content -Path $indexHtmlPath -Raw
-$scriptMatch = [regex]::Match($indexContent, 'src="\./assets/([^"]+)"')
-$cssMatch = [regex]::Match($indexContent, 'href="\./assets/([^"]+)"')
+$assetMatches = [regex]::Matches($indexContent, '(?:src|href)="\./assets/([^"]+)"')
+foreach ($m in $assetMatches) {
+    $relAsset = $m.Groups[1].Value
+    if (-not (Test-Path -LiteralPath "$rebuildDir\public\assets\$relAsset")) {
+        throw "Referenced build asset not found at $rebuildDir\public\assets\$relAsset. Run 'npm run build' first."
+    }
+}
 
 $filesToUpload = @(
-    @{ Local = $indexHtmlPath; Remote = "htdocs/index.html" },
-    @{ Local = "$rebuildDir\app\catalogue.php"; Remote = "htdocs/app/catalogue.php" },
-    @{ Local = "$rebuildDir\app\reports.php"; Remote = "htdocs/app/reports.php" }
+    @{ Local = $indexHtmlPath; Remote = "htdocs/index.html" }
 )
 
-if ($cssMatch.Success) {
-    $cssFile = $cssMatch.Groups[1].Value
-    $filesToUpload += @{ Local = "$rebuildDir\public\assets\$cssFile"; Remote = "htdocs/assets/$cssFile" }
-}
-if ($scriptMatch.Success) {
-    $jsFile = $scriptMatch.Groups[1].Value
-    $filesToUpload += @{ Local = "$rebuildDir\public\assets\$jsFile"; Remote = "htdocs/assets/$jsFile" }
+if (Test-Path -LiteralPath "$rebuildDir\public\.htaccess") {
+    $filesToUpload += @{ Local = "$rebuildDir\public\.htaccess"; Remote = "htdocs/.htaccess" }
 }
 
-$logoPath = "$rebuildDir\public\assets\nearby-cafe-logo-fBv87dTc.png"
-if (Test-Path -LiteralPath $logoPath) {
-    $filesToUpload += @{ Local = $logoPath; Remote = "htdocs/assets/nearby-cafe-logo-fBv87dTc.png" }
+if (Test-Path -LiteralPath "$rebuildDir\public\assets") {
+    Get-ChildItem -Path "$rebuildDir\public\assets" -File | ForEach-Object {
+        $filesToUpload += @{ Local = $_.FullName; Remote = "htdocs/assets/$($_.Name)" }
+    }
+}
+
+if (Test-Path -LiteralPath "$rebuildDir\app") {
+    Get-ChildItem -Path "$rebuildDir\app" -File | ForEach-Object {
+        $filesToUpload += @{ Local = $_.FullName; Remote = "htdocs/app/$($_.Name)" }
+    }
+}
+
+if (Test-Path -LiteralPath "$rebuildDir\public\api") {
+    Get-ChildItem -Path "$rebuildDir\public\api" -File | ForEach-Object {
+        $filesToUpload += @{ Local = $_.FullName; Remote = "htdocs/api/$($_.Name)" }
+    }
 }
 
 # Upload product catalogue images (e.g. Espresso, etc.)

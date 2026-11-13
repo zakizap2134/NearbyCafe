@@ -402,7 +402,7 @@ try {
     } else {
         $status = 500;
         $code = "SERVER_ERROR";
-        $message = "The host could not complete this request: " . $e->getMessage();
+        $message = "The host could not complete this request.";
     }
     if ($status >= 500 && function_exists("diagnostic")) {
         diagnostic($e, $requestId);

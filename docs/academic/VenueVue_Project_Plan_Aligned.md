@@ -24,6 +24,7 @@
 
 **Prepared by:**  
 - **Zaki Zapico** — Project Manager / Lead Developer  
+- **John Vincent Libao** — Systems Analyst
 - **Jenny Lyn Roquid** — Systems Analyst  
 - **Rhea Mae Gregorio** — QA & Testing Specialist  
 
@@ -169,16 +170,72 @@ Project delivery comprises the complete VenueVue application source and producti
 
 # 3. Review of Existing Alternatives
 
-Official vendor documentation for commercial POS platforms was evaluated against Nearby Café's operational requirements. Table 4 summarizes the findings:
+Official vendor documentation and field evaluations for commercial Point-of-Sale (POS) platforms were examined against Nearby Café's physical shop operations on Legaspi St., Intramuros. Five relevant commercial systems—**Lavu POS**, **digabloPos**, **Peddlr POS**, **Loyverse POS**, and **Toast POS**—were evaluated alongside **VenueVue (Nearby Café)**.
 
-| POS System | Verified Official Description | Operational Suitability for Nearby Café |
-| :--- | :--- | :--- |
-| **Lavu POS** | Supports offline counter operation with later cloud synchronization; provides ingredient-level tracking and recipe deduction (Lavu, n.d.-a, n.d.-b). | Prohibitive commercial subscription fees (\$59–\$129+/month); requires complex cloud infrastructure ill-suited for a single independent campus café. |
-| **digabloPos** | Advertises offline mode with later server synchronization; emphasizes product and variant stock tracking (digabloPos, n.d.). | Lacks verified multi-unit raw ingredient bill of materials deduction (e.g. deducting grams and ml from one beverage); export features locked behind paid tiers. |
-| **Peddlr POS** | Mobile-first Philippine POS supporting offline sales, product inventory, and basic sales reports (Peddlr Philippines, Inc., n.d.). | Focuses on retail unit inventory rather than recipe-driven ingredient depletion; lacks per-size recipe scaling and cash drawer vs. e-wallet breakdown. |
-| **VenueVue (Nearby Café)** | Explicit variant recipes, FIFO lot/expiry tracking, 1-click cup scaling, cash + GCash drawer separation, Web Audio chime, native `.xlsx` export, and local LAN edge host. | **Custom-Engineered Match:** 100% operational on local Wi-Fi without Internet, zero subscription fees, and designed specifically for Nearby Café's Intramuros counter. |
+Table 4 profiles each alternative, followed by Table 4A which presents a comprehensive feature-by-feature comparison matrix delineating baseline shared functions, key operational differences, and unique engineering capabilities.
 
-*Table 4. Alternatives Compared with Project Needs*
+| POS System | Target Segment & Architecture | Verified Vendor Description & Key Capabilities | Operational Limitations for Nearby Café |
+| :--- | :--- | :--- | :--- |
+| **Lavu POS** | Hospitality & Bars (Cloud / Hybrid iPad) | Supports offline counter operation with later cloud synchronization; provides ingredient-level tracking and recipe deduction (Lavu, n.d.-a, n.d.-b). | Prohibitive commercial subscription fees (\–\+/month); requires Apple iOS hardware; relies on heavy cloud services ill-suited for Intramuros' chronic broadband dropouts. |
+| **digabloPos** | Retail & Hospitality (Android / Cloud Sync) | Advertises offline mode with later server synchronization; emphasizes product and variant stock tracking (digabloPos, n.d.). | Lacks verified multi-unit raw ingredient bill of materials deduction (e.g. deducting grams and ml from one beverage); export features locked behind paid tiers. |
+| **Peddlr POS** | Philippine Micro-Retail (Mobile-first Android/iOS) | Mobile-first Philippine POS supporting offline sales, product inventory, and basic sales reports (Peddlr Philippines, Inc., n.d.). | Focuses on retail unit inventory rather than recipe-driven ingredient depletion; lacks per-size recipe scaling and cash drawer vs. e-wallet breakdown. |
+| **Loyverse POS** | Cafés & Quick Service (Mobile / Cloud-First) | Cloud-synced tablet POS offering basic cashiering, item variants, and sales dashboards (Loyverse, 2026). Free core app with optional paid modules. | Composite inventory and recipe tracking requires a paid add-on (\/store/month); cannot execute multi-terminal sales without internet; lacks 1-click cup recipe scaling and FIFO lot expiration management. |
+| **Toast POS** | Enterprise Restaurants (Proprietary Cloud / LAN) | Full-service restaurant platform with kitchen display systems, mobile ordering, and extensive cloud reporting (Toast, Inc., 2026). | Extremely high recurring cost (\–\+/terminal/month plus transaction percentages); requires proprietary Toast hardware; offline mode is limited to payment buffering rather than complete local edge governance. |
+| **VenueVue (Nearby Café)** | Independent Specialty Coffee (Local Edge Host / LAN) | Custom-engineered local-authoritative edge system: multi-unit recipe BOM (grams, ml, units), FIFO batch lots, 1-click cup scaling, cash/e-wallet Z-Reading, and Web Audio chime. | **Engineered Match:** 100% operational on local Wi-Fi without Internet, zero subscription fees, and tailored specifically for Nearby Café's Intramuros counter. |
+
+*Table 4. Commercial Alternatives Compared with Project Needs*
+
+---
+
+### 3.1 Feature Comparison Matrix
+
+Table 4A cross-references the core functional features, architectural attributes, and operational differentiators between VenueVue and existing commercial platforms:
+
+| System Capability / Functional Feature | VenueVue (Nearby Café) | Lavu POS | digabloPos | Peddlr POS | Loyverse POS | Toast POS |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **1. Common Baseline Functions** | | | | | | |
+| Counter Cashiering & Order Entry | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Product & Variant Catalog (Size / Temperature / SKU) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Multi-Payment Tendering (Cash & Reference Tracking) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Customer Receipt Generation & Printing | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Basic Sales History & Daily Gross Totals | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **2. Architectural & Infrastructure Differences** | | | | | | |
+| 100% Offline Local LAN Edge Server (Zero WAN / Internet Required) | ✓ *(Primary)* | ✗ *(Cloud-first)* | ✗ *(Sync-first)* | ✗ *(Device-only)* | ✗ *(Cloud-first)* | ✗ *(Cloud-first)* |
+| Zero Recurring Subscription / Maintenance Fees | ✓ *(₱0 / Free)* | ✗ *(\–\+/mo)* | ✗ *(Tiered)* | ✓ *(Freemium)* | ✗ *(\/mo Add-on)* | ✗ *(\–\+/mo)* |
+| Commercial Hardware Independence (Windows PC + Any Tablet) | ✓ | ✗ *(Apple iOS only)* | ✗ *(Android only)* | ✗ *(Mobile only)* | ✓ *(iOS / Android)* | ✗ *(Proprietary)* |
+| Database ACID Transactions under Row-Level Locks | ✓ *(InnoDB)* | ✓ *(Cloud DB)* | ✗ *(Local SQLite)* | ✗ *(Local SQLite)* | ✗ *(Cloud DB)* | ✓ *(Cloud DB)* |
+| **3. Beverage & Coffee-Specific Differentiators** | | | | | | |
+| Atomic Multi-Unit Bill of Materials (BOM) Deduction (g, mL, units) | ✓ | ✓ | ✗ *(Units only)* | ✗ *(Units only)* | ✗ *(Paid / Basic)* | ✓ *(Add-on)* |
+| 1-Click Proportional Recipe Cup Scaling (12oz, 16oz, 22oz) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| FIFO/FEFO Batch Lot Tracking with Expiration & Opened Container Priority | ✓ | ✗ *(Batch only)* | ✗ | ✗ | ✗ | ✗ *(Enterprise)* |
+| End-of-Day Z-Reading Isolating Physical Cash from E-Wallets | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| 1-Click Supplier Procurement Reorder Clipboard Export (Viber/Messenger) | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Synthesized Zero-Dependency Web Audio Chime Feedback | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Strict Supervisory Void Authorization (Mandatory Owner Re-Auth) | ✓ | ✓ | ✗ | ✗ | ✗ *(Manager PIN)* | ✓ |
+
+*Table 4A. System Capability & Feature-by-Feature Comparison Matrix (✓ = Supported / Native, ✗ = Unsupported / Unavailable / Cost-Gated)*
+
+---
+
+### 3.2 Analysis of Similarities and Differences
+
+#### What Functions are the Same (Baseline Equivalencies)
+All evaluated platforms share standard point-of-sale functionality:
+1. **Order Ringing & Catalog Browsing:** Each system provides an interface for cashiers to tap drink products, configure basic size variations, and calculate invoice line items.
+2. **Payment Acceptance:** All systems support basic cash tendering and allow recording of external payment methods (such as digital payments, credit cards, or mobile wallets).
+3. **Transaction Logging & Receipts:** All systems maintain historical sales records and support printing paper receipts or generating customer invoices.
+
+#### Key Differences & Limitations of Commercial Systems
+1. **Internet & Cloud Dependency:** Platforms like **Lavu**, **Loyverse**, and **Toast** operate under a cloud-first architecture. While they provide emergency offline transaction caching, counter tablets cannot initialize new sessions, configure menus, manage staff, or perform multi-terminal database operations when internet connectivity fails. VenueVue overcomes this by hosting the entire Apache/PHP/MariaDB stack on a local shop laptop, providing 100% LAN autonomy.
+2. **Subscription Costs for Small Businesses:** Commercial systems require ongoing monthly fees (\/month for Loyverse's inventory add-on, \–\/month for Lavu, and \–\/month for Toast). For an independent campus café operating with tight margins, recurring software overhead is economically unsustainable.
+3. **Hardware Constraints:** Lavu mandates Apple iPads; Toast requires proprietary terminal hardware; Peddlr is restricted to individual Android/iOS smartphones. VenueVue operates on any existing Windows laptop paired with standard Android/iOS tablets or smartphones via modern web browsers.
+
+#### Unique Features Engineered for Nearby Café
+1. **Multi-Unit Atomic Recipe Deduction:** When a beverage variant is sold, VenueVue atomically deducts exact component quantities (espresso beans in grams, dairy and syrups in millilitres, and cups/lids in pieces) directly from active inventory batches under row-level database locks (SELECT ... FOR UPDATE).
+2. **1-Click Proportional Recipe Scaling:** Allows managers to duplicate an existing recipe and automatically scale all liquid and coffee quantities based on fluid-ounce volume ratios (e.g. 16oz to 22oz), keeping unit pieces (cups and lids) fixed at 1 unit.
+3. **FIFO/FEFO Expiration & Opened-Container Depletion:** The inventory engine prioritizes opened containers before sealed containers and selects batches with the earliest expiration date.
+4. **Physical Cash vs. E-Wallet Z-Reading Split:** End-of-day financial reporting explicitly isolates cash in drawer from digital payments (GCash, Maya, QR Ph) to ensure counter cashiers balance their physical cash drawer without discrepancy.
+5. **Viber/Messenger Supplier Reorder Tool:** Detects low-stock items and formats an immediate procurement message copied directly to the clipboard with 1 click.
 
 ---
 
@@ -237,7 +294,7 @@ Table 7 identifies the deployment dependencies for Nearby Café:
 
 | Resource | Specification & Deployment Role |
 | :--- | :--- |
-| **Team & Stakeholders** | Three CTRL + STAY student developers (Zaki Zapico, Jenny Lyn Roquid, Rhea Mae Gregorio), Nearby Café Owner, counter baristas, and the COSC 75 instructor. |
+| **Team & Stakeholders** | Four CTRL + STAY student developers (Zaki Zapico, John Vincent Libao, Jenny Lyn Roquid, Rhea Mae Gregorio), Nearby Café Owner, counter baristas, and the COSC 75 instructor. |
 | **Local Host Machine** | Windows 10/11 (64-bit) laptop (Intel Core i5 / AMD Ryzen 5, 8 GB RAM, SSD) running XAMPP Apache 2.4, PHP 8.2.12+, and MariaDB 10.4.32+ (InnoDB). |
 | **Client Devices & LAN** | Up to three concurrent browser clients (Android/iOS tablets or smartphones) over a dedicated 802.11ac/ax Wi-Fi router or host Windows Mobile Hotspot. |
 | **Development Tools** | Node.js 20+, npm, Vite 8.3.5, PHP 8.2 CLI, MariaDB 10.4, Git/GitHub, and Playwright browser automation test fixtures. |
@@ -319,10 +376,10 @@ Table 10 reconciles the work-package descriptions and closure evidence with the 
 
 | WBS Code | Work Package Name | Lead and Closure Evidence | Zaki (h) | Jenny (h) | Rhea (h) | Total Package Effort (h) |
 | :---: | :--- | :--- | :---: | :---: | :---: | :---: |
-| **1.0** | Client Context and Scope | Jenny: approved assumptions, boundaries, and client identity. | 12 | 18 | 6 | **36** |
-| **2.0** | Requirements and SRS | Jenny: reviewed requirements and acceptance traceability. | 14 | 46 | 12 | **72** |
+| **1.0** | Client Context and Scope | Jenny / John: approved assumptions, boundaries, and client identity. | 12 | 18 | 6 | **36** |
+| **2.0** | Requirements and SRS | Jenny / John: reviewed requirements, use cases, and acceptance traceability. | 14 | 46 | 12 | **72** |
 | **3.0** | Foundation and Deployment | Zaki: reproducible installation and device/host checks. | 36 | 10 | 8 | **54** |
-| **4.0** | Access and Catalogue | Zaki / Jenny: roles, guarded setup, variants, and recipes verified. | 22 | 34 | 10 | **66** |
+| **4.0** | Access and Catalogue | Zaki / John / Jenny: roles, guarded setup, variants, and recipes verified. | 22 | 34 | 10 | **66** |
 | **5.0** | POS and Inventory | Zaki: atomic sale, batch/opened stock, waste, and adjustment evidence. | 48 | 18 | 22 | **88** |
 | **6.0** | Order and Account Recovery | Zaki: queue reconciliation, single-use recovery, and session evidence. | 30 | 10 | 18 | **58** |
 | **7.0** | Reports and Backup | Zaki: stored VAT/CSV consistency and rehearsed restore. | 24 | 10 | 14 | **48** |

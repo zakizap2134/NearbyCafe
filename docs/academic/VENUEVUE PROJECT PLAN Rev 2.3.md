@@ -272,11 +272,12 @@ Group CTRL + STAY shall deliver the following formal documentation and software 
 
 ### 1.3.2 Development Team Composition and Role Designations
 
-The software engineering team CTRL + STAY consists of three undergraduate developers from Cavite State University. The role designations below are **authoritative for all purposes**, including the Letter of Agreement, and are formally reconciled with the signed Agreement by Addendum A (Appendix II, §7.2).
+The software engineering team CTRL + STAY consists of four undergraduate developers from Cavite State University. The role designations below are **authoritative for all purposes**, including the Letter of Agreement, and are formally reconciled with the signed Agreement by Addendum A (Appendix II, §7.2).
 
 | Personnel | Academic / Project Role | Primary Project Responsibilities |
 |---|---|---|
 | **Zapico, Zaki** | **Project Manager / Lead Developer** | Overall project governance and timeline tracking; client requirements alignment; SWOT prioritisation and risk management; ADR authorship and architecture ratification; network topology specification; database schema design and execution; PHP 8.x backend and API engine development; React 19 SPA client architecture; PhpSpreadsheet export integration support; deployment and hotspot configuration; post-turnover support. |
+| **Libao, John Vincent** | **System Analyst / Requirements Engineer** | Requirements analysis and formalisation; use-case specification and acceptance scenario definition; business rule traceability; client domain alignment; system workflow modelling; operational suitability evaluation. |
 | **Gregorio, Rhea Mae** | **System Analyst / QA Lead** | Requirements gathering and Software Requirements Specification authorship; use-case modelling; Entity-Relationship Diagram and schema design; System Architecture modelling and technical documentation; test strategy creation and test-plan authorship; QA oversight and quality-gate sign-off; master-data CRUD implementation; Figma touch UI wireframing; user operational manual and installation guide authorship; integration defect resolution. |
 | **Roquid, Jenny Lyn** | **QA & Testing Specialist** | Test script execution across scenarios T01–T14; unit and integration testing; network partition and fail-safe validation; offline reconciliation verification; PhpSpreadsheet export validation; low-stock alerting module implementation; CSV/USB ingestion verification; IndexedDB quota handling implementation; bug logging and defect tracking; usability assessment; User Acceptance Testing execution; barista and owner training delivery. |
 
