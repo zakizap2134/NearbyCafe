@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api, getHostEpoch } from "../api";
 import {
   Reports,
@@ -42,6 +43,24 @@ const MANAGEMENT_NAV_GROUPS = [
     items: ["Staff", "Backup & restore", "Account security"],
   },
 ];
+
+const MANAGEMENT_TAB_SLUGS = {
+  Overview: "",
+  Reports: "reports",
+  Audit: "audit",
+  Catalogue: "catalogue",
+  Ingredients: "ingredients",
+  Recipes: "recipes",
+  Stock: "stock",
+  "Stock operations": "stock-operations",
+  Staff: "staff",
+  "Backup & restore": "backup-restore",
+  "Account security": "account-security",
+};
+
+const SLUG_TO_MANAGEMENT_TAB = Object.fromEntries(
+  Object.entries(MANAGEMENT_TAB_SLUGS).map(([label, slug]) => [slug, label]),
+);
 
 function SidebarIcon({ name }) {
   const props = {
@@ -603,12 +622,31 @@ function addDaysToIsoDate(baseDateStr, days) {
 }
 
 export default function Management({ user, token, expired }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const rawSlug = location.pathname
+    .replace(/^\/management\/?/, "")
+    .split("/")[0]
+    .toLowerCase();
+  const tab = SLUG_TO_MANAGEMENT_TAB[rawSlug] || "Overview";
+  const setTab = (nextTab) => {
+    const slug = MANAGEMENT_TAB_SLUGS[nextTab] ?? "";
+    const targetPath = slug ? `/management/${slug}` : "/management";
+    if (location.pathname !== targetPath) {
+      navigate({ pathname: targetPath, search: location.search });
+    }
+  };
+  useEffect(() => {
+    if (rawSlug !== "" && !(rawSlug in SLUG_TO_MANAGEMENT_TAB)) {
+      navigate({ pathname: "/management", search: location.search }, { replace: true });
+    }
+  }, [rawSlug, location.search, navigate]);
+
   const [recoveryPrepared, setRecoveryPrepared] = useState(Boolean(user?.email));
   useEffect(() => {
     setRecoveryPrepared(Boolean(user?.email));
   }, [user?.email]);
   const [data, setData] = useState(null),
-    [tab, setTab] = useState("Overview"),
     [error, setError] = useState(null),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),

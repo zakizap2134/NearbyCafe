@@ -191,7 +191,7 @@ function App() {
           }
         />
         <Route
-          path="/management"
+          path="/management/*"
           element={
             user.role === "OWNER" ? (
               <LazyScreen>
