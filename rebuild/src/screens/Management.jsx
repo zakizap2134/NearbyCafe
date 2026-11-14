@@ -24,6 +24,19 @@ import {
   VoidSaleModal,
 } from "../components/workflow";
 import SalesTrendChart from "../components/SalesTrendChart";
+import {
+  SIZE_OUNCES,
+  ICE_FILL_LEVELS,
+  variantCupOunces,
+  isIceIngredient,
+  findActiveIceIngredient,
+  parseCustomIceRate,
+  calculateIceQuantity,
+  recipeQtyPresetsForRow,
+  defaultRecipeQtyForIngredient,
+  applyCupSizeIceToRows,
+  copyRecipeRowsForVariant,
+} from "../recipe-helpers";
 
 const MANAGEMENT_NAV_GROUPS = [
   {
@@ -660,6 +673,7 @@ export default function Management({ user, token, expired }) {
     [skuCustom, setSkuCustom] = useState(false),
     [recipeVariant, setRecipeVariant] = useState(""),
     [copySourceVariant, setCopySourceVariant] = useState(""),
+    [customIceRate, setCustomIceRate] = useState(""),
     [rows, setRows] = useState([]),
     [delivery, setDelivery] = useState(emptyDelivery);
   const sending = useRef(false),
@@ -776,39 +790,58 @@ export default function Management({ user, token, expired }) {
       (r) => Number(r.variant_id) === Number(sourceVariantId),
     );
     if (!sourceRows.length) return;
-    const sizeOunces = { S: 12, M: 16, L: 22 };
     const targetVar = (data?.variants ?? []).find(
       (v) => Number(v.id) === Number(recipeVariant),
     );
     const sourceVar = (data?.variants ?? []).find(
       (v) => Number(v.id) === Number(sourceVariantId),
     );
-    const targetOz = sizeOunces[targetVar?.size] || 16;
-    const sourceOz = sizeOunces[sourceVar?.size] || 16;
-    const ratio = scaleBySize && sourceOz > 0 ? targetOz / sourceOz : 1;
-    const ingMap = new Map(
-      (data?.ingredients ?? []).map((i) => [Number(i.id), i]),
-    );
-    const copied = sourceRows.map((r) => {
-      const ing = ingMap.get(Number(r.ingredient_id));
-      const unit = String(ing?.unit || "").toLowerCase();
-      const rawQty = Number(r.qty) || 0;
-      let nextQty = rawQty;
-      if (scaleBySize && ratio !== 1 && unit !== "units") {
-        const scaled = rawQty * ratio;
-        nextQty =
-          scaled >= 5 ? Math.round(scaled) : Math.round(scaled * 100) / 100;
-      }
-      return {
-        ingredient_id: String(r.ingredient_id),
-        qty: String(nextQty),
-      };
+    const result = copyRecipeRowsForVariant({
+      sourceRows,
+      sourceVar,
+      targetVar,
+      ingredients: data?.ingredients ?? [],
+      scaleBySize,
+      customIcePerOz: customIceRate,
     });
-    setRows(copied);
+    setRows(result.rows);
+    const notes = [
+      result.scaled
+        ? `Copied ${result.rows.length} ingredient(s) from ${sourceVar?.sku || "source"} and scaled ${result.sourceOz}oz → ${result.targetOz}oz`
+        : `Copied ${result.rows.length} ingredient(s) from ${sourceVar?.sku || "source"}`,
+    ];
+    if (result.addedIce) {
+      notes.push(
+        `added ${result.addedIce.name} (${result.addedIce.qty} ${result.addedIce.unit} for ${result.targetOz}oz cup)`,
+      );
+    } else if (result.strippedIce) {
+      notes.push("omitted ice for HOT variant");
+    }
+    setNotice(`${notes.join("; ")}. Click Save recipe to confirm.`);
+  }
+  function applyFlexibleIce(levelKey, rateOverride = "") {
+    const targetVar = (data?.variants ?? []).find(
+      (v) => String(v.id) === String(recipeVariant),
+    );
+    const { rows: nextRows, iceIngredient, updatedQty } = applyCupSizeIceToRows({
+      rows,
+      targetVar,
+      ingredients: data?.ingredients ?? [],
+      levelKey,
+      customPerOz: rateOverride,
+    });
+    if (!iceIngredient) {
+      setError(
+        new Error(
+          "No active Ice ingredient found. Add an Ice ingredient in Ingredients first.",
+        ),
+      );
+      return;
+    }
+    setError(null);
+    setRows(nextRows);
     setNotice(
-      scaleBySize && ratio !== 1
-        ? `Copied ${copied.length} ingredient(s) from ${sourceVar?.sku || "source"} and scaled ${sourceOz}oz → ${targetOz}oz. Click Save recipe to confirm.`
-        : `Copied ${copied.length} ingredient(s) from ${sourceVar?.sku || "source"}. Click Save recipe to confirm.`,
+      `Set ${iceIngredient.name} to ${updatedQty} ${iceIngredient.unit} for ${targetVar.size} (${variantCupOunces(targetVar)} oz) cup. Click Save recipe to confirm.`,
     );
   }
   async function remove(kind, id, reset) {
@@ -2451,6 +2484,133 @@ export default function Management({ user, token, expired }) {
                       </option>
                     ))}
                   </Select>
+                  {(() => {
+                    const selectedRecipeVar = data.variants.find(
+                      (v) => String(v.id) === String(recipeVariant),
+                    );
+                    if (!selectedRecipeVar) return null;
+                    const rowIngs = rows
+                      .map((r) =>
+                        ingredients.find(
+                          (i) => String(i.id) === String(r.ingredient_id),
+                        ),
+                      )
+                      .filter(Boolean);
+                    const rowIceIng = rowIngs.find((i) => isIceIngredient(i));
+                    const activeIceIng =
+                      rowIceIng || findActiveIceIngredient(ingredients);
+                    const currentIceRow = rowIceIng
+                      ? rows.find(
+                          (r) => String(r.ingredient_id) === String(rowIceIng.id),
+                        )
+                      : null;
+                    const showIceHelper =
+                      selectedRecipeVar.temperature === "ICED" || Boolean(rowIceIng);
+                    const cupOz = variantCupOunces(selectedRecipeVar);
+                    const parsedRate = parseCustomIceRate(customIceRate);
+                    const previewUnit = activeIceIng?.unit || "g";
+                    return (
+                      <>
+                        <div className="recipe-cup-bar">
+                          <span className="recipe-cup-pill">
+                            Cup size: {selectedRecipeVar.size} · {cupOz} oz
+                            {selectedRecipeVar.temperature !== "NA"
+                              ? ` · ${selectedRecipeVar.temperature === "ICED" ? "Iced" : "Hot"}`
+                              : ""}
+                          </span>
+                          {showIceHelper && activeIceIng && (
+                            <span className="subtle small">
+                              Ice ratio per cup size scales cleanly across S (12oz), M (16oz), and L (22oz).
+                            </span>
+                          )}
+                        </div>
+                        {showIceHelper && (
+                          <div className="recipe-ice-panel">
+                            {!activeIceIng ? (
+                              <p className="subtle small" style={{ margin: 0 }}>
+                                Tip: Add an active <strong>Ice</strong> ingredient in the Ingredients tab (e.g.{" "}
+                                <code>g</code>, <code>mL</code>, or <code>units</code>) to use 1-click cup-size ice presets.
+                              </p>
+                            ) : (
+                              <>
+                                <div className="recipe-ice-header">
+                                  <strong>
+                                    Flexible Ice for {selectedRecipeVar.size} ({cupOz} oz) — {activeIceIng.name} ({activeIceIng.unit})
+                                  </strong>
+                                  <span className="subtle small">
+                                    All cups ({previewUnit === "units" ? "units" : `${parsedRate ?? 10}× oz`}):{" "}
+                                    {Object.entries(SIZE_OUNCES)
+                                      .map(
+                                        ([sz, ozVal]) =>
+                                          `${sz} ${ozVal}oz = ${calculateIceQuantity(
+                                            sz,
+                                            previewUnit,
+                                            "regular",
+                                            parsedRate !== null ? customIceRate : null,
+                                          )} ${previewUnit}`,
+                                      )
+                                      .join(" · ")}
+                                  </span>
+                                </div>
+                                <div className="recipe-ice-controls">
+                                  <div className="quick-chip-group">
+                                    {ICE_FILL_LEVELS.map((lv) => {
+                                      const qtyVal = String(
+                                        calculateIceQuantity(
+                                          selectedRecipeVar.size,
+                                          activeIceIng.unit,
+                                          lv.key,
+                                        ),
+                                      );
+                                      const isSelected =
+                                        currentIceRow &&
+                                        Number(currentIceRow.qty) === Number(qtyVal) &&
+                                        currentIceRow.qty !== "";
+                                      return (
+                                        <button
+                                          key={lv.key}
+                                          type="button"
+                                          className={`compact-btn quick-chip${isSelected ? " active" : ""}`}
+                                          onClick={() => applyFlexibleIce(lv.key)}
+                                        >
+                                          {lv.label} ({qtyVal} {activeIceIng.unit})
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <div className="recipe-ice-custom">
+                                    <label className="recipe-ice-rate-label">
+                                      <span>Custom {activeIceIng.unit}/oz</span>
+                                      <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        placeholder="e.g. 8.5"
+                                        value={customIceRate}
+                                        onChange={(e) => setCustomIceRate(e.target.value)}
+                                      />
+                                    </label>
+                                    <button
+                                      type="button"
+                                      className="compact-btn"
+                                      disabled={parsedRate === null}
+                                      onClick={() =>
+                                        applyFlexibleIce("custom", customIceRate)
+                                      }
+                                    >
+                                      Apply custom
+                                      {parsedRate !== null
+                                        ? ` (${calculateIceQuantity(selectedRecipeVar.size, activeIceIng.unit, "custom", customIceRate)} ${activeIceIng.unit})`
+                                        : ""}
+                                    </button>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                   {recipeVariant &&
                     (() => {
                       const variantsWithRecipes = data.variants.filter(
@@ -2461,15 +2621,14 @@ export default function Management({ user, token, expired }) {
                           ),
                       );
                       if (!variantsWithRecipes.length) return null;
-                      const sizeOunces = { S: 12, M: 16, L: 22 };
                       const targetVar = data.variants.find(
                         (v) => Number(v.id) === Number(recipeVariant),
                       );
                       const sourceVar = data.variants.find(
                         (v) => Number(v.id) === Number(copySourceVariant),
                       );
-                      const targetOz = sizeOunces[targetVar?.size] || 16;
-                      const sourceOz = sizeOunces[sourceVar?.size] || 16;
+                      const targetOz = variantCupOunces(targetVar);
+                      const sourceOz = variantCupOunces(sourceVar);
                       return (
                         <div className="recipe-copy-helper">
                           <div className="recipe-copy-controls">
@@ -2516,14 +2675,17 @@ export default function Management({ user, token, expired }) {
                       );
                     })()}
                   {rows.map((r, index) => {
+                    const selectedRecipeVar = data.variants.find(
+                      (v) => String(v.id) === String(recipeVariant),
+                    );
                     const rowIng = ingredients.find(
                       (i) => String(i.id) === String(r.ingredient_id),
                     );
-                    const isUnitBased =
-                      String(rowIng?.unit || "").toLowerCase() === "units";
-                    const quickRecipeQtys = isUnitBased
-                      ? ["1", "2", "3"]
-                      : ["15", "20", "30", "40", "150", "200", "250"];
+                    const quickRecipePresets = recipeQtyPresetsForRow({
+                      ingredient: rowIng,
+                      variant: selectedRecipeVar,
+                      customIcePerOz: customIceRate,
+                    });
                     return (
                       <div className="recipe-row-block" key={index}>
                         <div className="recipe-row">
@@ -2536,12 +2698,13 @@ export default function Management({ user, token, expired }) {
                               const nextIng = ingredients.find(
                                 (i) => String(i.id) === String(nextIngId),
                               );
-                              const defaultQty =
-                                !r.qty &&
-                                String(nextIng?.unit || "").toLowerCase() ===
-                                  "units"
-                                  ? "1"
-                                  : r.qty;
+                              const defaultQty = r.qty
+                                ? r.qty
+                                : defaultRecipeQtyForIngredient({
+                                    ingredient: nextIng,
+                                    variant: selectedRecipeVar,
+                                    customIcePerOz: customIceRate,
+                                  });
                               setRows(
                                 rows.map((x, j) =>
                                   j === index
@@ -2594,23 +2757,25 @@ export default function Management({ user, token, expired }) {
                         </div>
                         <div className="quick-preset-row recipe-qty-presets">
                           <span className="preset-caption">
-                            Quick {rowIng?.unit || "qty"}:
+                            {isIceIngredient(rowIng) && selectedRecipeVar
+                              ? `Ice for ${selectedRecipeVar.size} (${variantCupOunces(selectedRecipeVar)} oz):`
+                              : `Quick ${rowIng?.unit || "qty"}:`}
                           </span>
                           <div className="quick-chip-group">
-                            {quickRecipeQtys.map((qVal) => (
+                            {quickRecipePresets.map((preset) => (
                               <button
-                                key={qVal}
+                                key={preset.key}
                                 type="button"
-                                className={`compact-btn quick-chip${Number(r.qty) === Number(qVal) && r.qty !== "" ? " active" : ""}`}
+                                className={`compact-btn quick-chip${Number(r.qty) === Number(preset.qty) && r.qty !== "" ? " active" : ""}`}
                                 onClick={() =>
                                   setRows(
                                     rows.map((x, j) =>
-                                      j === index ? { ...x, qty: qVal } : x,
+                                      j === index ? { ...x, qty: preset.qty } : x,
                                     ),
                                   )
                                 }
                               >
-                                {qVal} {rowIng?.unit || ""}
+                                {preset.label} {rowIng?.unit || ""}
                               </button>
                             ))}
                           </div>

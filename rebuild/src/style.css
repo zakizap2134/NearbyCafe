@@ -1772,6 +1772,67 @@ input, select { color: var(--nearby-ink); border-color: var(--nearby-border); }
 .recipe-copy-controls label {
   margin-bottom: 0;
 }
+.recipe-cup-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+.recipe-cup-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f4ebe4;
+  border: 1px solid #e0cbbe;
+  font-size: 12px;
+  font-weight: 600;
+  color: #3d2a20;
+}
+.recipe-ice-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  border: 1px solid #d5e4ee;
+  background: #f5fafe;
+}
+.recipe-ice-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px 12px;
+}
+.recipe-ice-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+}
+.recipe-ice-custom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.recipe-ice-rate-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 0 !important;
+  font-size: 12px;
+  font-weight: 600;
+}
+.recipe-ice-rate-label input {
+  width: 84px;
+  min-height: 32px;
+  padding: 4px 8px;
+}
 .recipe-row-block {
   padding-bottom: 8px;
   margin-bottom: 10px;
